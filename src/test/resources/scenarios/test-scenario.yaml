@@ -1,0 +1,43 @@
+id: test-scenario
+name: test-scenario
+protocol: graphql
+endpointRef: graphql
+operationName: GetUser
+
+headers:
+  X-Test: "true"
+
+request:
+  graphqlQueryFile: queries/get-user.graphql
+  variables:
+    userId: ${feeder:userId}
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+checks:
+  httpStatus: 200
+  jsonPath:
+    - path: $.data
+      expectation: exists
+
+tags:
+  - graphql
+  - user
+
+workload:
+  inheritFromRun: true
+
+safety:
+  mutating: false
+  idempotent: true

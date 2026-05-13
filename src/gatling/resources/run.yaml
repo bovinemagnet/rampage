@@ -1,0 +1,40 @@
+id: rampage-load-test
+name: rampage-load-test
+version: 1
+environment: dev
+
+metadata:
+  owner: platform-performance
+  application: customer-api
+  service: customer-graphql
+  description: Rampage load test run
+
+scenarios:
+  - id: scenario-one
+    file: scenarios/scenario-one.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
+  workload:
+    type: ramp-and-hold
+    rampUp: 60s
+    holdFor: 300s
+    rate:
+      unit: per-second
+      from: 0
+      to: 10
+
+assertions:
+  global:
+    maxResponseTimeP95Millis: 2000
+    maxErrorPercentage: 5.0
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false

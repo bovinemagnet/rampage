@@ -1,0 +1,40 @@
+id: customer-graphql-load
+name: Customer GraphQL Load Test
+version: 1
+environment: local
+
+metadata:
+  owner: platform-performance
+  application: customer-api
+  service: customer-graphql
+  description: Baseline customer GraphQL query load test.
+
+scenarios:
+  - id: scenario-one
+    file: config/scenarios/scenario-one.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
+  workload:
+    type: ramp-and-hold
+    rampUp: 1m
+    holdFor: 5m
+    rate:
+      unit: per-second
+      from: 1
+      to: 10
+
+assertions:
+  global:
+    maxResponseTimeP95Millis: 2000
+    maxErrorPercentage: 5.0
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false

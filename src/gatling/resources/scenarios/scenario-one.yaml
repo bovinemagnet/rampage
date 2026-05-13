@@ -1,0 +1,50 @@
+id: scenario-one
+name: scenario-one
+protocol: graphql
+endpointRef: graphql
+operationName: GetUser
+
+description: >
+  Executes a GraphQL user lookup using user IDs read from the source data database.
+
+headers:
+  X-Scenario-Id: scenario-one
+  X-Business-Process: user-lookup
+
+request:
+  graphqlQueryFile: queries/get-user.graphql
+  variables:
+    userId: ${feeder:userId}
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+checks:
+  httpStatus: 200
+  jsonPath:
+    - path: $.errors
+      expectation: absentOrEmpty
+    - path: $.data.user.id
+      expectation: exists
+
+workload:
+  inheritFromRun: true
+
+tags:
+  - graphql
+  - user
+  - read-only
+
+safety:
+  mutating: false
+  idempotent: true

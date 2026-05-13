@@ -1,0 +1,34 @@
+id: test
+name: Test Environment
+
+baseUrls:
+  graphql: http://localhost:9090/graphql
+  rest: http://localhost:9090
+
+http:
+  connectTimeoutMillis: 1000
+  requestTimeoutMillis: 5000
+  followRedirects: false
+  acceptHeader: application/json
+  contentTypeHeader: application/json
+
+security:
+  mode: none
+
+databases:
+  sourceData:
+    driverClassName: org.h2.Driver
+    jdbcUrl: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username:
+      source: plain
+      value: sa
+    password:
+      source: plain
+      value: ""
+    pool:
+      maximumPoolSize: 5
+      connectionTimeoutMillis: 1000
+
+safety:
+  allowProduction: false
+  requireApprovalForMutatingRequests: false
