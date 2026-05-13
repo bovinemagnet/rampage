@@ -1,0 +1,21 @@
+environment:
+  name: dev
+  baseUrl: http://localhost:8080
+  httpHeaders:
+    Content-Type: application/json
+    Accept: application/json
+  auth:
+    mode: bearer
+    tokenRef: "ENV:API_TOKEN"
+  database:
+    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1"
+    usernameRef: "ENV:DB_USERNAME"
+    passwordRef: "ENV:DB_PASSWORD"
+    driver: org.h2.Driver
+  timeouts:
+    connectionTimeoutMs: 5000
+    readTimeoutMs: 30000
+  safety:
+    maxUsersPerSecond: 100
+    maxDurationSeconds: 300
+    enabled: true

@@ -1,0 +1,26 @@
+scenario:
+  name: scenario-one
+  graphql:
+    endpoint: /graphql
+    queryFile: queries/get-user.graphql
+    variables:
+      userId: "#{userId}"
+  feeder:
+    type: sql
+    query: "SELECT id AS userId FROM users LIMIT 100"
+    preload: 50
+  headers:
+    X-Correlation-ID: "#{correlationId}"
+  checks:
+    - jsonPath: "$.data"
+      exists: true
+    - jsonPath: "$.errors"
+      notExists: true
+  tags:
+    team: platform
+    service: user-service
+  workload:
+    model: ramp-and-hold
+    rampDurationSeconds: 30
+    holdDurationSeconds: 120
+    targetCallsPerSecond: 5

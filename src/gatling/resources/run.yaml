@@ -1,0 +1,16 @@
+run:
+  name: rampage-load-test
+  description: "Rampage load test run"
+  scenarios:
+    - scenario-one
+  workload:
+    model: ramp-and-hold
+    rampDurationSeconds: 60
+    holdDurationSeconds: 300
+    targetCallsPerSecond: 10
+  assertions:
+    globalResponseTimeMaxMs: 2000
+    globalResponseTimeMeanMs: 500
+    globalErrorRatePercent: 5.0
+  reporting:
+    outputDir: build/reports/gatling

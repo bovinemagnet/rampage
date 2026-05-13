@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.rampage.factory.WorkloadFactoryTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-05-13T21:57:34.862Z" hostname="runnervmeorf1" time="0.148">
+  <properties/>
+  <testcase name="buildInjection_unknownModel_returnsSingleStep()" classname="io.rampage.factory.WorkloadFactoryTest" time="0.138"/>
+  <testcase name="buildInjection_rampAndHold_returnsTwoSteps()" classname="io.rampage.factory.WorkloadFactoryTest" time="0.004"/>
+  <testcase name="buildInjection_rampAndHold_stepsNotNull()" classname="io.rampage.factory.WorkloadFactoryTest" time="0.001"/>
+  <testcase name="buildInjection_withHighTargetCPS()" classname="io.rampage.factory.WorkloadFactoryTest" time="0.001"/>
+  <system-out><![CDATA[21:57:34.863 [Test worker] INFO io.rampage.factory.WorkloadFactory -- Building workload injection for model: unknown-model
+21:57:34.864 [Test worker] WARN io.rampage.factory.WorkloadFactory -- Unknown workload model 'unknown-model', falling back to constant load
+21:57:35.003 [Test worker] INFO io.rampage.factory.WorkloadFactory -- Building workload injection for model: ramp-and-hold
+21:57:35.008 [Test worker] INFO io.rampage.factory.WorkloadFactory -- Building workload injection for model: ramp-and-hold
+21:57:35.010 [Test worker] INFO io.rampage.factory.WorkloadFactory -- Building workload injection for model: ramp-and-hold
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

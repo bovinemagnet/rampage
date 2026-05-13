@@ -1,0 +1,23 @@
+scenario:
+  name: test-scenario
+  graphql:
+    endpoint: /graphql
+    queryFile: queries/get-user.graphql
+    variables:
+      userId: "#{userId}"
+  feeder:
+    type: sql
+    query: "SELECT 1 AS userId"
+    preload: 10
+  headers:
+    X-Test: "true"
+  checks:
+    - jsonPath: "$.data"
+      exists: true
+  tags:
+    env: test
+  workload:
+    model: ramp-and-hold
+    rampDurationSeconds: 5
+    holdDurationSeconds: 10
+    targetCallsPerSecond: 2
