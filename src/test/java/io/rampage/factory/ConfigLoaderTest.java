@@ -20,67 +20,71 @@ class ConfigLoaderTest {
     void loadEnvironment_parsesCorrectly() {
         EnvironmentConfig config = configLoader.loadEnvironment("test-environment.yaml");
         assertNotNull(config);
-        assertNotNull(config.getEnvironment());
-        assertEquals("test", config.getEnvironment().getName());
-        assertEquals("http://localhost:9090", config.getEnvironment().getBaseUrl());
+        assertEquals("test", config.getId());
+        assertEquals("Test Environment", config.getName());
     }
 
     @Test
-    void loadEnvironment_hasTimeouts() {
+    void loadEnvironment_hasBaseUrls() {
         EnvironmentConfig config = configLoader.loadEnvironment("test-environment.yaml");
-        assertNotNull(config.getEnvironment().getTimeouts());
-        assertEquals(1000L, config.getEnvironment().getTimeouts().getConnectionTimeoutMs());
-        assertEquals(5000L, config.getEnvironment().getTimeouts().getReadTimeoutMs());
+        assertNotNull(config.getBaseUrls());
+        assertEquals("http://localhost:9090", config.getBaseUrls().get("rest"));
+    }
+
+    @Test
+    void loadEnvironment_hasHttpConfig() {
+        EnvironmentConfig config = configLoader.loadEnvironment("test-environment.yaml");
+        assertNotNull(config.getHttp());
+        assertEquals(1000L, config.getHttp().getConnectTimeoutMillis());
+        assertEquals(5000L, config.getHttp().getRequestTimeoutMillis());
     }
 
     @Test
     void loadEnvironment_hasSafety() {
         EnvironmentConfig config = configLoader.loadEnvironment("test-environment.yaml");
-        assertNotNull(config.getEnvironment().getSafety());
-        assertTrue(config.getEnvironment().getSafety().isEnabled());
-        assertEquals(50.0, config.getEnvironment().getSafety().getMaxUsersPerSecond());
+        assertNotNull(config.getSafety());
+        assertFalse(config.getSafety().isAllowProduction());
     }
 
     @Test
     void loadRun_parsesCorrectly() {
         RunConfig config = configLoader.loadRun("test-run.yaml");
         assertNotNull(config);
-        assertNotNull(config.getRun());
-        assertEquals("test-run", config.getRun().getName());
-        assertFalse(config.getRun().getScenarios().isEmpty());
-        assertEquals("test-scenario", config.getRun().getScenarios().get(0));
+        assertEquals("test-run", config.getName());
+        assertFalse(config.getScenarios().isEmpty());
+        assertEquals("test-scenario", config.getScenarios().get(0).getId());
     }
 
     @Test
     void loadRun_hasWorkload() {
         RunConfig config = configLoader.loadRun("test-run.yaml");
-        assertNotNull(config.getRun().getWorkload());
-        assertEquals("ramp-and-hold", config.getRun().getWorkload().getModel());
-        assertEquals(5.0, config.getRun().getWorkload().getTargetCallsPerSecond());
+        assertNotNull(config.getExecution());
+        assertNotNull(config.getExecution().getWorkload());
+        assertEquals("ramp-and-hold", config.getExecution().getWorkload().getType());
+        assertEquals(5.0, config.getExecution().getWorkload().getRate().getTo());
     }
 
     @Test
     void loadScenario_parsesCorrectly() {
         ScenarioConfig config = configLoader.loadScenario("scenarios/test-scenario.yaml");
         assertNotNull(config);
-        assertNotNull(config.getScenario());
-        assertEquals("test-scenario", config.getScenario().getName());
+        assertEquals("test-scenario", config.getId());
+        assertEquals("test-scenario", config.getName());
     }
 
     @Test
-    void loadScenario_hasGraphql() {
+    void loadScenario_hasRequest() {
         ScenarioConfig config = configLoader.loadScenario("scenarios/test-scenario.yaml");
-        assertNotNull(config.getScenario().getGraphql());
-        assertEquals("/graphql", config.getScenario().getGraphql().getEndpoint());
-        assertEquals("queries/get-user.graphql", config.getScenario().getGraphql().getQueryFile());
+        assertNotNull(config.getRequest());
+        assertEquals("queries/get-user.graphql", config.getRequest().getGraphqlQueryFile());
     }
 
     @Test
     void loadScenario_hasFeeder() {
         ScenarioConfig config = configLoader.loadScenario("scenarios/test-scenario.yaml");
-        assertNotNull(config.getScenario().getFeeder());
-        assertEquals("sql", config.getScenario().getFeeder().getType());
-        assertEquals(10, config.getScenario().getFeeder().getPreload());
+        assertNotNull(config.getFeeder());
+        assertEquals("jdbc", config.getFeeder().getType());
+        assertTrue(config.getFeeder().isPreload());
     }
 
     @Test

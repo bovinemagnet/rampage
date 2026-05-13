@@ -1,23 +1,43 @@
-scenario:
-  name: test-scenario
-  graphql:
-    endpoint: /graphql
-    queryFile: queries/get-user.graphql
-    variables:
-      userId: "#{userId}"
-  feeder:
-    type: sql
-    query: "SELECT 1 AS userId"
-    preload: 10
-  headers:
-    X-Test: "true"
-  checks:
-    - jsonPath: "$.data"
-      exists: true
-  tags:
-    env: test
-  workload:
-    model: ramp-and-hold
-    rampDurationSeconds: 5
-    holdDurationSeconds: 10
-    targetCallsPerSecond: 2
+id: test-scenario
+name: test-scenario
+protocol: graphql
+endpointRef: graphql
+operationName: GetUser
+
+headers:
+  X-Test: "true"
+
+request:
+  graphqlQueryFile: queries/get-user.graphql
+  variables:
+    userId: ${feeder:userId}
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+checks:
+  httpStatus: 200
+  jsonPath:
+    - path: $.data
+      expectation: exists
+
+tags:
+  - graphql
+  - user
+
+workload:
+  inheritFromRun: true
+
+safety:
+  mutating: false
+  idempotent: true

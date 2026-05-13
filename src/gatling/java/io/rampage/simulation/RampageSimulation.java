@@ -23,36 +23,41 @@ public class RampageSimulation extends Simulation {
     private final WorkloadFactory workloadFactory = new WorkloadFactory();
     private final FeederFactory feederFactory = new FeederFactory();
 
-    private final EnvironmentConfig envConfig = configLoader.loadEnvironment("environment.yaml");
-    private final RunConfig runConfig = configLoader.loadRun("run.yaml");
+    private final EnvironmentConfig envConfig = configLoader.loadEnvironment();
+    private final RunConfig runConfig = configLoader.loadRun();
 
     {
         List<ScenarioConfig> scenarioConfigs = new ArrayList<>();
-        for (String scenarioName : runConfig.getRun().getScenarios()) {
-            scenarioConfigs.add(configLoader.loadScenario("scenarios/" + scenarioName + ".yaml"));
+        if (runConfig.getScenarios() != null) {
+            for (ScenarioRef ref : runConfig.getScenarios()) {
+                if (ref.isEnabled()) {
+                    scenarioConfigs.add(configLoader.loadScenario("scenarios/" + ref.getId() + ".yaml"));
+                }
+            }
         }
 
         validator.validate(envConfig, runConfig, scenarioConfigs);
 
-        HttpProtocolBuilder httpProtocol = httpProtocolFactory.build(
-            envConfig.getEnvironment(), secretResolver);
+        String endpointRef = scenarioConfigs.isEmpty() ? null
+            : scenarioConfigs.get(0).getEndpointRef();
+        HttpProtocolBuilder httpProtocol = httpProtocolFactory.build(envConfig, secretResolver, endpointRef);
 
         List<PopulationBuilder> populations = new ArrayList<>();
-        for (ScenarioConfig scenarioConfig : scenarioConfigs) {
-            ScenarioConfig.Scenario scenarioCfg = scenarioConfig.getScenario();
-
-            String graphqlQuery = configLoader.loadResource(scenarioCfg.getGraphql().getQueryFile());
+        for (ScenarioConfig scenarioCfg : scenarioConfigs) {
+            String queryFile = scenarioCfg.getRequest() != null
+                ? scenarioCfg.getRequest().getGraphqlQueryFile() : null;
+            String graphqlQuery = queryFile != null ? configLoader.loadResource(queryFile) : "";
 
             List<Map<String, Object>> feederData = Collections.emptyList();
-            if (scenarioCfg.getFeeder() != null) {
-                try {
-                    feederData = feederFactory.loadFromSql(
-                        envConfig.getEnvironment().getDatabase(),
-                        scenarioCfg.getFeeder(),
-                        secretResolver
-                    );
-                } catch (Exception e) {
-                    log.warn("Failed to load feeder data, continuing with empty feeder: {}", e.getMessage());
+            if (scenarioCfg.getFeeder() != null && envConfig.getDatabases() != null) {
+                String dbRef = scenarioCfg.getFeeder().getDatabaseRef();
+                DatabaseConfig db = dbRef != null ? envConfig.getDatabases().get(dbRef) : null;
+                if (db != null) {
+                    try {
+                        feederData = feederFactory.loadFromSql(db, scenarioCfg.getFeeder(), secretResolver);
+                    } catch (Exception e) {
+                        log.warn("Failed to load feeder data: {}", e.getMessage());
+                    }
                 }
             }
 
@@ -62,35 +67,45 @@ public class RampageSimulation extends Simulation {
                 scenarioBuilder = scenarioBuilder.feed(listFeeder(feederData).circular());
             }
 
-            WorkloadConfig workload = scenarioCfg.getWorkload() != null
-                ? scenarioCfg.getWorkload()
-                : runConfig.getRun().getWorkload();
+            WorkloadConfig workload = null;
+            if (scenarioCfg.getWorkload() != null && !scenarioCfg.getWorkload().isInheritFromRun()) {
+                // Use scenario-level workload (not yet implemented)
+            } else if (runConfig.getExecution() != null) {
+                workload = runConfig.getExecution().getWorkload();
+            }
+
+            if (workload == null) {
+                workload = new WorkloadConfig();
+                workload.setType("smoke");
+                workload.setUsers(1);
+            }
 
             OpenInjectionStep[] injectionSteps = workloadFactory.buildInjection(workload);
             populations.add(scenarioBuilder.injectOpen(injectionSteps));
         }
 
-        List<Assertion> assertions = buildAssertions(runConfig.getRun().getAssertions());
+        List<Assertion> assertions = buildAssertions(runConfig.getAssertions());
 
         setUp(populations.toArray(new PopulationBuilder[0]))
             .assertions(assertions.toArray(new Assertion[0]))
             .protocols(httpProtocol);
     }
 
-    private List<Assertion> buildAssertions(AssertionConfig assertionConfig) {
+    private List<Assertion> buildAssertions(AssertionsConfig assertionsConfig) {
         List<Assertion> assertions = new ArrayList<>();
-        if (assertionConfig != null) {
-            if (assertionConfig.getGlobalResponseTimeMaxMs() > 0) {
-                assertions.add(global().responseTime().max()
-                    .lt((int) assertionConfig.getGlobalResponseTimeMaxMs()));
+        if (assertionsConfig != null && assertionsConfig.getGlobal() != null) {
+            GlobalAssertionConfig global = assertionsConfig.getGlobal();
+            if (global.getMaxResponseTimeP95Millis() > 0) {
+                assertions.add(global().responseTime().percentile(95)
+                    .lt((int) global.getMaxResponseTimeP95Millis()));
             }
-            if (assertionConfig.getGlobalResponseTimeMeanMs() > 0) {
-                assertions.add(global().responseTime().mean()
-                    .lt((int) assertionConfig.getGlobalResponseTimeMeanMs()));
+            if (global.getMaxResponseTimeP99Millis() > 0) {
+                assertions.add(global().responseTime().percentile(99)
+                    .lt((int) global.getMaxResponseTimeP99Millis()));
             }
-            if (assertionConfig.getGlobalErrorRatePercent() > 0) {
+            if (global.getMaxErrorPercentage() > 0) {
                 assertions.add(global().failedRequests().percent()
-                    .lt(assertionConfig.getGlobalErrorRatePercent()));
+                    .lt(global.getMaxErrorPercentage()));
             }
         }
         return assertions;

@@ -4,51 +4,46 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 
 public class EnvironmentConfig {
-    @JsonProperty("environment")
-    private Environment environment;
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("name")
+    private String name;
+
+    @JsonProperty("baseUrls")
+    private Map<String, String> baseUrls;
+
+    @JsonProperty("http")
+    private HttpConfig http;
+
+    @JsonProperty("security")
+    private SecurityConfig security;
+
+    @JsonProperty("databases")
+    private Map<String, DatabaseConfig> databases;
+
+    @JsonProperty("observability")
+    private ObservabilityConfig observability;
+
+    @JsonProperty("safety")
+    private SafetyConfig safety;
 
     public EnvironmentConfig() {}
 
-    public Environment getEnvironment() { return environment; }
-    public void setEnvironment(Environment environment) { this.environment = environment; }
-
-    public static class Environment {
-        @JsonProperty("name")
-        private String name;
-
-        @JsonProperty("baseUrl")
-        private String baseUrl;
-
-        @JsonProperty("httpHeaders")
-        private Map<String, String> httpHeaders;
-
-        @JsonProperty("auth")
-        private AuthConfig auth;
-
-        @JsonProperty("database")
-        private DatabaseConfig database;
-
-        @JsonProperty("timeouts")
-        private TimeoutConfig timeouts;
-
-        @JsonProperty("safety")
-        private SafetyConfig safety;
-
-        public Environment() {}
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getBaseUrl() { return baseUrl; }
-        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
-        public Map<String, String> getHttpHeaders() { return httpHeaders; }
-        public void setHttpHeaders(Map<String, String> httpHeaders) { this.httpHeaders = httpHeaders; }
-        public AuthConfig getAuth() { return auth; }
-        public void setAuth(AuthConfig auth) { this.auth = auth; }
-        public DatabaseConfig getDatabase() { return database; }
-        public void setDatabase(DatabaseConfig database) { this.database = database; }
-        public TimeoutConfig getTimeouts() { return timeouts; }
-        public void setTimeouts(TimeoutConfig timeouts) { this.timeouts = timeouts; }
-        public SafetyConfig getSafety() { return safety; }
-        public void setSafety(SafetyConfig safety) { this.safety = safety; }
-    }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public Map<String, String> getBaseUrls() { return baseUrls; }
+    public void setBaseUrls(Map<String, String> baseUrls) { this.baseUrls = baseUrls; }
+    public HttpConfig getHttp() { return http; }
+    public void setHttp(HttpConfig http) { this.http = http; }
+    public SecurityConfig getSecurity() { return security; }
+    public void setSecurity(SecurityConfig security) { this.security = security; }
+    public Map<String, DatabaseConfig> getDatabases() { return databases; }
+    public void setDatabases(Map<String, DatabaseConfig> databases) { this.databases = databases; }
+    public ObservabilityConfig getObservability() { return observability; }
+    public void setObservability(ObservabilityConfig observability) { this.observability = observability; }
+    public SafetyConfig getSafety() { return safety; }
+    public void setSafety(SafetyConfig safety) { this.safety = safety; }
 }

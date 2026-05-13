@@ -1,21 +1,43 @@
-environment:
-  name: dev
-  baseUrl: http://localhost:8080
-  httpHeaders:
-    Content-Type: application/json
-    Accept: application/json
-  auth:
-    mode: bearer
-    tokenRef: "ENV:API_TOKEN"
-  database:
-    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1"
-    usernameRef: "ENV:DB_USERNAME"
-    passwordRef: "ENV:DB_PASSWORD"
-    driver: org.h2.Driver
-  timeouts:
-    connectionTimeoutMs: 5000
-    readTimeoutMs: 30000
-  safety:
-    maxUsersPerSecond: 100
-    maxDurationSeconds: 300
-    enabled: true
+id: dev
+name: Development Environment
+
+baseUrls:
+  graphql: http://localhost:8080/graphql
+  rest: http://localhost:8080
+
+http:
+  connectTimeoutMillis: 5000
+  requestTimeoutMillis: 30000
+  followRedirects: false
+  acceptHeader: application/json
+  contentTypeHeader: application/json
+
+security:
+  mode: bearer-token
+  token:
+    source: env
+    envVar: API_TOKEN
+  headers:
+    X-Correlation-Source: gatling
+
+databases:
+  sourceData:
+    driverClassName: org.h2.Driver
+    jdbcUrl: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username:
+      source: env
+      envVar: DB_USERNAME
+    password:
+      source: env
+      envVar: DB_PASSWORD
+    pool:
+      maximumPoolSize: 5
+      connectionTimeoutMillis: 5000
+
+observability:
+  correlationIdHeader: X-Correlation-Id
+  includeRunMetadataHeaders: true
+
+safety:
+  allowProduction: false
+  requireApprovalForMutatingRequests: true

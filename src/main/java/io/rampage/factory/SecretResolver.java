@@ -1,5 +1,7 @@
 package io.rampage.factory;
 
+import io.rampage.config.model.CredentialConfig;
+import io.rampage.config.model.TokenConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +32,48 @@ public class SecretResolver {
             return REDACTED;
         }
         return ref;
+    }
+
+    public String resolveCredential(CredentialConfig cred) {
+        if (cred == null) return null;
+        String source = cred.getSource();
+        if ("env".equalsIgnoreCase(source)) {
+            String varName = cred.getEnvVar();
+            if (varName == null) return "";
+            String value = System.getenv(varName);
+            if (value == null) {
+                log.warn("Environment variable '{}' not set", varName);
+                return "";
+            }
+            return value;
+        }
+        if ("secret-manager".equalsIgnoreCase(source) || "sm".equalsIgnoreCase(source)) {
+            log.debug("Secret Manager resolution not implemented, returning redacted for: {}", cred.getSecretPath());
+            return REDACTED;
+        }
+        if ("plain".equalsIgnoreCase(source) || source == null) {
+            return cred.getValue() != null ? cred.getValue() : "";
+        }
+        return cred.getValue() != null ? cred.getValue() : "";
+    }
+
+    public String resolveToken(TokenConfig token) {
+        if (token == null) return null;
+        String source = token.getSource();
+        if ("env".equalsIgnoreCase(source)) {
+            String varName = token.getEnvVar();
+            if (varName == null) return "";
+            String value = System.getenv(varName);
+            if (value == null) {
+                log.warn("Environment variable '{}' not set for token", varName);
+                return "";
+            }
+            return value;
+        }
+        if ("secret-manager".equalsIgnoreCase(source)) {
+            return REDACTED;
+        }
+        return "";
     }
 
     public String redact(String value) {

@@ -1,8 +1,8 @@
 package io.rampage.factory;
 
+import io.gatling.javaapi.core.CheckBuilder;
 import io.gatling.javaapi.core.ScenarioBuilder;
-import io.rampage.config.model.CheckConfig;
-import io.rampage.config.model.ScenarioConfig;
+import io.rampage.config.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,10 +16,12 @@ import static io.gatling.javaapi.http.HttpDsl.*;
 public class ScenarioFactory {
     private static final Logger log = LoggerFactory.getLogger(ScenarioFactory.class);
 
-    public ScenarioBuilder build(ScenarioConfig.Scenario scenarioCfg, String graphqlQuery) {
+    public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
         log.info("Building scenario: {}", scenarioCfg.getName());
 
-        // Escape quotes in graphql query for JSON embedding
+        String endpointRef = scenarioCfg.getEndpointRef() != null ? scenarioCfg.getEndpointRef() : "graphql";
+        String endpoint = "/" + endpointRef;
+
         String escapedQuery = graphqlQuery
             .replace("\\", "\\\\")
             .replace("\"", "\\\"")
@@ -27,20 +29,18 @@ public class ScenarioFactory {
             .replace("\r", "\\r")
             .replace("\t", "\\t");
 
-        // Build variables JSON snippet
-        String variablesJson = buildVariablesJson(scenarioCfg.getGraphql().getVariables());
+        Map<String, String> variables = scenarioCfg.getRequest() != null
+            ? scenarioCfg.getRequest().getVariables() : null;
+        String variablesJson = buildVariablesJson(variables);
 
-        // Build request body as Gatling EL expression
         String bodyExpression = "{\"query\": \"" + escapedQuery + "\", \"variables\": " + variablesJson + "}";
 
-        // Build checks
-        List<io.gatling.javaapi.core.CheckBuilder> checks = buildChecks(scenarioCfg.getChecks());
+        List<CheckBuilder> checks = buildChecks(scenarioCfg.getChecks());
 
         var request = http(scenarioCfg.getName())
-            .post(scenarioCfg.getGraphql().getEndpoint())
+            .post(endpoint)
             .header("Content-Type", "application/json");
 
-        // Add scenario-specific headers
         if (scenarioCfg.getHeaders() != null) {
             for (Map.Entry<String, String> entry : scenarioCfg.getHeaders().entrySet()) {
                 request = request.header(entry.getKey(), entry.getValue());
@@ -49,9 +49,8 @@ public class ScenarioFactory {
 
         request = request.body(StringBody(bodyExpression));
 
-        // Add checks
         if (!checks.isEmpty()) {
-            request = request.check(checks.toArray(new io.gatling.javaapi.core.CheckBuilder[0]));
+            request = request.check(checks.toArray(new CheckBuilder[0]));
         }
 
         return scenario(scenarioCfg.getName()).exec(request);
@@ -66,25 +65,38 @@ public class ScenarioFactory {
         for (Map.Entry<String, String> entry : variables.entrySet()) {
             if (!first) sb.append(", ");
             first = false;
-            sb.append("\"").append(entry.getKey()).append("\": \"").append(entry.getValue()).append("\"");
+            String value = entry.getValue();
+            if (value != null && value.startsWith("${feeder:") && value.endsWith("}")) {
+                value = "#{" + value.substring(9, value.length() - 1) + "}";
+            }
+            sb.append("\"").append(entry.getKey()).append("\": \"").append(value).append("\"");
         }
         sb.append("}");
         return sb.toString();
     }
 
-    private List<io.gatling.javaapi.core.CheckBuilder> buildChecks(List<CheckConfig> checkConfigs) {
-        List<io.gatling.javaapi.core.CheckBuilder> checks = new ArrayList<>();
-        if (checkConfigs == null) return checks;
+    private List<CheckBuilder> buildChecks(ChecksConfig checksConfig) {
+        List<CheckBuilder> checks = new ArrayList<>();
+        if (checksConfig == null) return checks;
 
-        for (CheckConfig checkConfig : checkConfigs) {
-            if (checkConfig.getJsonPath() != null) {
-                if (Boolean.TRUE.equals(checkConfig.getExists())) {
-                    checks.add(jsonPath(checkConfig.getJsonPath()).exists());
-                } else if (Boolean.TRUE.equals(checkConfig.getNotExists())) {
-                    checks.add(jsonPath(checkConfig.getJsonPath()).notExists());
+        if (checksConfig.getHttpStatus() != null) {
+            checks.add(status().is(checksConfig.getHttpStatus()));
+        }
+
+        if (checksConfig.getJsonPath() != null) {
+            for (JsonPathCheck check : checksConfig.getJsonPath()) {
+                if (check.getPath() == null) continue;
+                String expectation = check.getExpectation();
+                if ("exists".equalsIgnoreCase(expectation)) {
+                    checks.add(jsonPath(check.getPath()).exists());
+                } else if ("absentOrEmpty".equalsIgnoreCase(expectation)) {
+                    checks.add(jsonPath(check.getPath()).notExists());
+                } else if ("equalsSession".equalsIgnoreCase(expectation) && check.getSessionKey() != null) {
+                    checks.add(jsonPath(check.getPath()).isEL("#{" + check.getSessionKey() + "}"));
                 }
             }
         }
+
         return checks;
     }
 }

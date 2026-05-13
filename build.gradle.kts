@@ -14,7 +14,7 @@ java {
     }
 }
 
-val jacksonVersion = "2.17.2"
+val jacksonVersion = "2.18.3"
 val junitVersion = "5.11.4"
 val gatlingVersion = "3.13.5"
 
@@ -31,6 +31,9 @@ dependencies {
     // H2 for SQL feeder (test DB)
     implementation("com.h2database:h2:2.2.224")
 
+    // HikariCP connection pool
+    implementation("com.zaxxer:HikariCP:6.3.0")
+
     // Gatling on main compile classpath (factories use Gatling APIs)
     compileOnly("io.gatling.highcharts:gatling-charts-highcharts:$gatlingVersion")
     // Gatling for the gatling source set
@@ -39,6 +42,7 @@ dependencies {
     // Test dependencies
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("com.h2database:h2:2.2.224")
     testImplementation("io.gatling.highcharts:gatling-charts-highcharts:$gatlingVersion")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -47,4 +51,15 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+}
+
+tasks.register("validateLoadTest", JavaExec::class) {
+    group = "verification"
+    description = "Validates load test YAML configuration and feeder availability."
+    classpath = sourceSets["gatling"].runtimeClasspath + sourceSets["main"].runtimeClasspath
+    mainClass.set("io.rampage.config.ConfigValidatorMain")
+    @Suppress("UNCHECKED_CAST")
+    systemProperties(System.getProperties()
+        .filter { (key, _) -> key.toString().startsWith("loadtest.") }
+        .mapKeys { it.key.toString() } as Map<String, Any>)
 }

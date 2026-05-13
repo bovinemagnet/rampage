@@ -1,0 +1,35 @@
+id: customer-graphql-smoke
+name: Customer GraphQL Smoke Test
+version: 1
+environment: local
+
+metadata:
+  owner: platform-performance
+  application: customer-api
+  service: customer-graphql
+  description: Smoke test to validate wiring, auth, and feeder availability.
+
+scenarios:
+  - id: scenario-one
+    file: config/scenarios/scenario-one.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
+  workload:
+    type: smoke
+    users: 1
+    duration: 30s
+
+assertions:
+  global:
+    maxErrorPercentage: 0.0
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false

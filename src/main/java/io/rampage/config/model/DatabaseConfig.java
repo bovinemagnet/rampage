@@ -3,26 +3,31 @@ package io.rampage.config.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DatabaseConfig {
-    @JsonProperty("url")
-    private String url;
+    @JsonProperty("driverClassName")
+    private String driverClassName;
 
-    @JsonProperty("usernameRef")
-    private String usernameRef;
+    @JsonProperty("jdbcUrl")
+    private String jdbcUrl;
 
-    @JsonProperty("passwordRef")
-    private String passwordRef;
+    @JsonProperty("username")
+    private CredentialConfig username;
 
-    @JsonProperty("driver")
-    private String driver;
+    @JsonProperty("password")
+    private CredentialConfig password;
+
+    @JsonProperty("pool")
+    private PoolConfig pool;
 
     public DatabaseConfig() {}
 
-    public String getUrl() { return url; }
-    public void setUrl(String url) { this.url = url; }
-    public String getUsernameRef() { return usernameRef; }
-    public void setUsernameRef(String usernameRef) { this.usernameRef = usernameRef; }
-    public String getPasswordRef() { return passwordRef; }
-    public void setPasswordRef(String passwordRef) { this.passwordRef = passwordRef; }
-    public String getDriver() { return driver; }
-    public void setDriver(String driver) { this.driver = driver; }
+    public String getDriverClassName() { return driverClassName; }
+    public void setDriverClassName(String driverClassName) { this.driverClassName = driverClassName; }
+    public String getJdbcUrl() { return jdbcUrl; }
+    public void setJdbcUrl(String jdbcUrl) { this.jdbcUrl = jdbcUrl; }
+    public CredentialConfig getUsername() { return username; }
+    public void setUsername(CredentialConfig username) { this.username = username; }
+    public CredentialConfig getPassword() { return password; }
+    public void setPassword(CredentialConfig password) { this.password = password; }
+    public PoolConfig getPool() { return pool; }
+    public void setPool(PoolConfig pool) { this.pool = pool; }
 }

@@ -3,21 +3,18 @@ package io.rampage.config.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SafetyConfig {
-    @JsonProperty("maxUsersPerSecond")
-    private double maxUsersPerSecond;
+    @JsonProperty("allowProduction")
+    private boolean allowProduction = false;
 
-    @JsonProperty("maxDurationSeconds")
-    private long maxDurationSeconds;
-
-    @JsonProperty("enabled")
-    private boolean enabled = true;
+    @JsonProperty("requireApprovalForMutatingRequests")
+    private boolean requireApprovalForMutatingRequests = false;
 
     public SafetyConfig() {}
 
-    public double getMaxUsersPerSecond() { return maxUsersPerSecond; }
-    public void setMaxUsersPerSecond(double maxUsersPerSecond) { this.maxUsersPerSecond = maxUsersPerSecond; }
-    public long getMaxDurationSeconds() { return maxDurationSeconds; }
-    public void setMaxDurationSeconds(long maxDurationSeconds) { this.maxDurationSeconds = maxDurationSeconds; }
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public boolean isAllowProduction() { return allowProduction; }
+    public void setAllowProduction(boolean allowProduction) { this.allowProduction = allowProduction; }
+    public boolean isRequireApprovalForMutatingRequests() { return requireApprovalForMutatingRequests; }
+    public void setRequireApprovalForMutatingRequests(boolean requireApprovalForMutatingRequests) {
+        this.requireApprovalForMutatingRequests = requireApprovalForMutatingRequests;
+    }
 }

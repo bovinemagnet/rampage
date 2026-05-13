@@ -1,14 +1,10 @@
 package io.rampage.factory;
 
-import io.rampage.config.model.EnvironmentConfig;
-import io.rampage.config.model.RunConfig;
-import io.rampage.config.model.ScenarioConfig;
+import io.rampage.config.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ConfigValidator {
@@ -17,58 +13,53 @@ public class ConfigValidator {
     public void validate(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios) {
         List<String> errors = new ArrayList<>();
 
-        // Validate environment
-        if (env == null || env.getEnvironment() == null) {
-            errors.add("Environment config is null or missing 'environment' key");
+        if (env == null) {
+            errors.add("Environment config is null");
         } else {
-            EnvironmentConfig.Environment environment = env.getEnvironment();
-            if (environment.getBaseUrl() == null || environment.getBaseUrl().isBlank()) {
-                errors.add("environment.baseUrl must not be null or empty");
+            if (env.getBaseUrls() == null || env.getBaseUrls().isEmpty()) {
+                errors.add("environment.baseUrls must not be null or empty");
             }
-            if (environment.getTimeouts() != null) {
-                if (environment.getTimeouts().getConnectionTimeoutMs() <= 0) {
-                    errors.add("environment.timeouts.connectionTimeoutMs must be > 0");
+            if (env.getHttp() != null) {
+                if (env.getHttp().getConnectTimeoutMillis() <= 0) {
+                    errors.add("environment.http.connectTimeoutMillis must be > 0");
                 }
-                if (environment.getTimeouts().getReadTimeoutMs() <= 0) {
-                    errors.add("environment.timeouts.readTimeoutMs must be > 0");
+                if (env.getHttp().getRequestTimeoutMillis() <= 0) {
+                    errors.add("environment.http.requestTimeoutMillis must be > 0");
+                }
+            }
+            if (env.getSafety() != null && !env.getSafety().isAllowProduction()) {
+                String envId = env.getId() != null ? env.getId() : "";
+                if (envId.contains("prod")) {
+                    errors.add("Environment '" + envId + "' appears to be production but safety.allowProduction is false");
                 }
             }
         }
 
-        // Validate run
-        if (run == null || run.getRun() == null) {
-            errors.add("Run config is null or missing 'run' key");
+        if (run == null) {
+            errors.add("Run config is null");
         } else {
-            RunConfig.Run runInner = run.getRun();
-            if (runInner.getScenarios() == null || runInner.getScenarios().isEmpty()) {
+            if (run.getName() == null || run.getName().isBlank()) {
+                errors.add("run.name must not be null or empty");
+            }
+            if (run.getScenarios() == null || run.getScenarios().isEmpty()) {
                 errors.add("run.scenarios must not be empty");
             } else {
-                Set<String> loadedNames = scenarios.stream()
-                    .filter(s -> s.getScenario() != null)
-                    .map(s -> s.getScenario().getName())
+                Set<String> loadedIds = scenarios.stream()
+                    .filter(s -> s.getId() != null)
+                    .map(ScenarioConfig::getId)
                     .collect(Collectors.toSet());
 
-                for (String scenarioName : runInner.getScenarios()) {
-                    if (!loadedNames.contains(scenarioName)) {
-                        errors.add("Scenario '" + scenarioName + "' listed in run.scenarios has no corresponding ScenarioConfig loaded");
+                for (ScenarioRef ref : run.getScenarios()) {
+                    if (ref.isEnabled() && !loadedIds.contains(ref.getId())) {
+                        errors.add("Scenario '" + ref.getId() + "' listed in run.scenarios has no corresponding ScenarioConfig loaded");
                     }
                 }
             }
 
-            // Validate workload
-            if (runInner.getWorkload() != null) {
-                double targetCPS = runInner.getWorkload().getTargetCallsPerSecond();
-                if (targetCPS <= 0) {
-                    errors.add("run.workload.targetCallsPerSecond must be > 0");
-                }
-                if (env != null && env.getEnvironment() != null
-                        && env.getEnvironment().getSafety() != null
-                        && env.getEnvironment().getSafety().isEnabled()) {
-                    double maxCPS = env.getEnvironment().getSafety().getMaxUsersPerSecond();
-                    if (targetCPS > maxCPS) {
-                        errors.add("run.workload.targetCallsPerSecond (" + targetCPS
-                            + ") exceeds safety.maxUsersPerSecond (" + maxCPS + ")");
-                    }
+            if (run.getExecution() != null && run.getExecution().getWorkload() != null) {
+                WorkloadConfig workload = run.getExecution().getWorkload();
+                if (workload.getType() == null || workload.getType().isBlank()) {
+                    errors.add("run.execution.workload.type must not be blank");
                 }
             }
         }

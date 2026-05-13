@@ -12,31 +12,52 @@ import static io.gatling.javaapi.http.HttpDsl.http;
 public class HttpProtocolFactory {
     private static final Logger log = LoggerFactory.getLogger(HttpProtocolFactory.class);
 
-    public HttpProtocolBuilder build(EnvironmentConfig.Environment env, SecretResolver secretResolver) {
-        log.info("Building HTTP protocol for base URL: {}", env.getBaseUrl());
+    public HttpProtocolBuilder build(EnvironmentConfig env, SecretResolver secretResolver) {
+        return build(env, secretResolver, null);
+    }
 
-        HttpProtocolBuilder builder = http.baseUrl(env.getBaseUrl());
+    public HttpProtocolBuilder build(EnvironmentConfig env, SecretResolver secretResolver, String endpointRef) {
+        String baseUrl = null;
+        if (env.getBaseUrls() != null && !env.getBaseUrls().isEmpty()) {
+            if (endpointRef != null && env.getBaseUrls().containsKey(endpointRef)) {
+                baseUrl = env.getBaseUrls().get(endpointRef);
+            } else if (env.getBaseUrls().containsKey("rest")) {
+                baseUrl = env.getBaseUrls().get("rest");
+            } else {
+                baseUrl = env.getBaseUrls().values().iterator().next();
+            }
+        }
+        if (baseUrl == null) {
+            baseUrl = "http://localhost:8080";
+        }
 
-        // Set shared headers
-        if (env.getHttpHeaders() != null) {
-            Map<String, String> resolvedHeaders = SecretResolver.resolveHeaders(env.getHttpHeaders(), secretResolver);
-            for (Map.Entry<String, String> entry : resolvedHeaders.entrySet()) {
-                builder = builder.header(entry.getKey(), entry.getValue());
+        log.info("Building HTTP protocol for base URL: {}", baseUrl);
+        HttpProtocolBuilder builder = http.baseUrl(baseUrl);
+
+        if (env.getHttp() != null) {
+            if (env.getHttp().getAcceptHeader() != null) {
+                builder = builder.acceptHeader(env.getHttp().getAcceptHeader());
+            }
+            if (env.getHttp().getContentTypeHeader() != null) {
+                builder = builder.contentTypeHeader(env.getHttp().getContentTypeHeader());
             }
         }
 
-        // Set auth header
-        if (env.getAuth() != null) {
-            String mode = env.getAuth().getMode();
-            if ("bearer".equalsIgnoreCase(mode) && env.getAuth().getTokenRef() != null) {
-                String token = secretResolver.resolve(env.getAuth().getTokenRef());
+        if (env.getSecurity() != null) {
+            if ("bearer-token".equalsIgnoreCase(env.getSecurity().getMode()) && env.getSecurity().getToken() != null) {
+                String token = secretResolver.resolveToken(env.getSecurity().getToken());
                 builder = builder.header("Authorization", "Bearer " + token);
                 log.debug("Added Bearer authorization header");
-            } else if ("basic".equalsIgnoreCase(mode) && env.getAuth().getTokenRef() != null) {
-                String credentials = secretResolver.resolve(env.getAuth().getTokenRef());
-                builder = builder.header("Authorization", "Basic " + credentials);
-                log.debug("Added Basic authorization header");
             }
+            if (env.getSecurity().getHeaders() != null) {
+                for (Map.Entry<String, String> entry : env.getSecurity().getHeaders().entrySet()) {
+                    builder = builder.header(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        if (env.getObservability() != null && env.getObservability().getCorrelationIdHeader() != null) {
+            builder = builder.header(env.getObservability().getCorrelationIdHeader(), "#{correlationId}");
         }
 
         builder = builder.connectionHeader("keep-alive");

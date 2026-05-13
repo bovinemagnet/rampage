@@ -1,16 +1,40 @@
-run:
-  name: test-run
-  description: "Test load test run"
-  scenarios:
-    - test-scenario
+id: test-run-id
+name: test-run
+version: 1
+environment: test
+
+metadata:
+  owner: test-team
+  application: test-app
+  service: test-service
+  description: Test load test run
+
+scenarios:
+  - id: test-scenario
+    file: scenarios/test-scenario.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
   workload:
-    model: ramp-and-hold
-    rampDurationSeconds: 10
-    holdDurationSeconds: 30
-    targetCallsPerSecond: 5
-  assertions:
-    globalResponseTimeMaxMs: 1000
-    globalResponseTimeMeanMs: 200
-    globalErrorRatePercent: 1.0
-  reporting:
-    outputDir: build/reports/test
+    type: ramp-and-hold
+    rampUp: 10s
+    holdFor: 30s
+    rate:
+      unit: per-second
+      from: 1
+      to: 5
+
+assertions:
+  global:
+    maxResponseTimeP95Millis: 1000
+    maxErrorPercentage: 1.0
+
+reporting:
+  outputDirectory: build/reports/test
+  writeRunMetadata: false
+  redactSecrets: true
+
+safety:
+  dryRun: false
