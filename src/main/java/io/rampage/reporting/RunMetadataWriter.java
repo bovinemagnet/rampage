@@ -62,7 +62,9 @@ public class RunMetadataWriter {
 
     private String getGitCommit() {
         try {
-            Process process = Runtime.getRuntime().exec(new String[]{"git", "rev-parse", "--short", "HEAD"});
+            Process process = new ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+                .redirectErrorStream(true)
+                .start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String commit = reader.readLine();
                 return commit != null ? commit.trim() : "unknown";

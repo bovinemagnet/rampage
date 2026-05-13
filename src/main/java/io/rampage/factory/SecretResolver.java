@@ -51,8 +51,8 @@ public class SecretResolver {
             log.debug("Secret Manager resolution not implemented, returning redacted for: {}", cred.getSecretPath());
             return REDACTED;
         }
-        if ("plain".equalsIgnoreCase(source) || source == null) {
-            return cred.getValue() != null ? cred.getValue() : "";
+        if (!"plain".equalsIgnoreCase(source) && source != null) {
+            log.warn("Unrecognized credential source type '{}', treating as plain value", source);
         }
         return cred.getValue() != null ? cred.getValue() : "";
     }
