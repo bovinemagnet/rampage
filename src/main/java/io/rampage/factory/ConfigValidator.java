@@ -80,6 +80,8 @@ public class ConfigValidator {
                 validateWorkload(run.getExecution().getWorkload(), "run.execution.workload", errors);
             }
 
+            errors.addAll(AssertionFactory.validateUnknownScenarios(run.getAssertions(), scenarios));
+
             if (env != null && run.getSafety() != null
                 && run.getSafety().isFailIfEnvironmentAllowsProduction()
                 && env.getSafety() != null && env.getSafety().isAllowProduction()) {

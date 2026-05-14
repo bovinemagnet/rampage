@@ -288,6 +288,46 @@ class WorkloadFactoryTest {
     }
 
     @Test
+    void scaleWorkload_halvesRate() {
+        WorkloadConfig base = rampAndHold(2.0, 20.0, "60s", "300s");
+        WorkloadConfig scaled = WorkloadFactory.scaleWorkload(base, 0.5);
+
+        assertEquals(1.0, scaled.getRate().getFrom());
+        assertEquals(10.0, scaled.getRate().getTo());
+        assertEquals("60s", scaled.getRampUp());
+        assertNotSame(base, scaled, "Should return a new instance");
+    }
+
+    @Test
+    void scaleWorkload_scalesUsersWithFloorOfOne() {
+        WorkloadConfig base = new WorkloadConfig();
+        base.setType("smoke");
+        base.setUsers(10);
+
+        WorkloadConfig scaled = WorkloadFactory.scaleWorkload(base, 0.05);
+        assertEquals(1, scaled.getUsers(), "Floor at 1 user");
+    }
+
+    @Test
+    void scaleWorkload_scalesAuxiliaryRates() {
+        WorkloadConfig base = new WorkloadConfig();
+        base.setType("spike");
+        base.setBaselineRate(2.0);
+        base.setStepRate(5.0);
+        base.setMaxRate(100.0);
+
+        WorkloadConfig scaled = WorkloadFactory.scaleWorkload(base, 0.5);
+        assertEquals(1.0, scaled.getBaselineRate());
+        assertEquals(2.5, scaled.getStepRate());
+        assertEquals(50.0, scaled.getMaxRate());
+    }
+
+    @Test
+    void scaleWorkload_handlesNull() {
+        assertNull(WorkloadFactory.scaleWorkload(null, 0.5));
+    }
+
+    @Test
     void effectiveWorkload_fallsBackToSmokeWhenNothingConfigured() {
         WorkloadConfig effective = WorkloadFactory.effectiveWorkload(new RunConfig(), new ScenarioConfig());
         assertEquals("smoke", effective.getType());

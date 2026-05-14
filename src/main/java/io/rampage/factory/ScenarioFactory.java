@@ -32,13 +32,19 @@ public class ScenarioFactory {
     private static final Pattern FEEDER_PLACEHOLDER = Pattern.compile("^\\$\\{feeder:([^}]+)\\}$");
 
     private final Supplier<String> correlationIdSupplier;
+    private final Supplier<String> authTokenSupplier;
 
     public ScenarioFactory() {
-        this(() -> UUID.randomUUID().toString());
+        this(() -> UUID.randomUUID().toString(), () -> null);
     }
 
     public ScenarioFactory(Supplier<String> correlationIdSupplier) {
+        this(correlationIdSupplier, () -> null);
+    }
+
+    public ScenarioFactory(Supplier<String> correlationIdSupplier, Supplier<String> authTokenSupplier) {
         this.correlationIdSupplier = correlationIdSupplier;
+        this.authTokenSupplier = authTokenSupplier != null ? authTokenSupplier : () -> null;
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
@@ -82,9 +88,14 @@ public class ScenarioFactory {
         }
 
         Supplier<String> idSupplier = correlationIdSupplier;
-        ChainBuilder withCorrelationId = CoreDsl.exec(session -> session.set("correlationId", idSupplier.get()));
+        Supplier<String> tokenSupplier = authTokenSupplier;
+        ChainBuilder withSessionPrep = CoreDsl.exec(session -> {
+            var s = session.set("correlationId", idSupplier.get());
+            String token = tokenSupplier.get();
+            return token != null ? s.set("authToken", token) : s.set("authToken", "");
+        });
 
-        return scenario(scenarioCfg.getName()).exec(withCorrelationId, request);
+        return scenario(scenarioCfg.getName()).exec(withSessionPrep, request);
     }
 
     static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {

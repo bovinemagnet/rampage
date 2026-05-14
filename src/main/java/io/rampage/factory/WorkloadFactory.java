@@ -2,6 +2,7 @@ package io.rampage.factory;
 
 import io.gatling.javaapi.core.ClosedInjectionStep;
 import io.gatling.javaapi.core.OpenInjectionStep;
+import io.rampage.config.model.RateConfig;
 import io.rampage.config.model.RunConfig;
 import io.rampage.config.model.ScenarioConfig;
 import io.rampage.config.model.ScenarioWorkloadConfig;
@@ -29,6 +30,39 @@ public class WorkloadFactory {
         fallback.setType("smoke");
         fallback.setUsers(1);
         return fallback;
+    }
+
+    /**
+     * Returns a scaled copy of the workload with rate/users multiplied by {@code scale}.
+     * Used to apply scenario-weighting when several scenarios share a run-level workload.
+     */
+    public static WorkloadConfig scaleWorkload(WorkloadConfig source, double scale) {
+        if (source == null) return null;
+        WorkloadConfig scaled = new WorkloadConfig();
+        scaled.setType(source.getType());
+        scaled.setRampUp(source.getRampUp());
+        scaled.setHoldFor(source.getHoldFor());
+        scaled.setDuration(source.getDuration());
+        scaled.setSpikeDuration(source.getSpikeDuration());
+        scaled.setStepDuration(source.getStepDuration());
+        scaled.setUsers((int) Math.max(1, Math.round(source.getUsers() * scale)));
+        if (source.getRate() != null) {
+            RateConfig r = new RateConfig();
+            r.setUnit(source.getRate().getUnit());
+            r.setFrom(source.getRate().getFrom() * scale);
+            r.setTo(source.getRate().getTo() * scale);
+            scaled.setRate(r);
+        }
+        if (source.getBaselineRate() != null) {
+            scaled.setBaselineRate(source.getBaselineRate() * scale);
+        }
+        if (source.getStepRate() != null) {
+            scaled.setStepRate(source.getStepRate() * scale);
+        }
+        if (source.getMaxRate() != null) {
+            scaled.setMaxRate(source.getMaxRate() * scale);
+        }
+        return scaled;
     }
 
     static WorkloadConfig fromScenarioOverride(ScenarioWorkloadConfig override) {

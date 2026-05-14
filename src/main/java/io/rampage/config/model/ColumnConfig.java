@@ -12,6 +12,9 @@ public class ColumnConfig {
     @JsonProperty("sessionKey")
     private String sessionKey;
 
+    @JsonProperty("sensitive")
+    private boolean sensitive = false;
+
     public ColumnConfig() {}
 
     public String getType() { return type; }
@@ -20,4 +23,6 @@ public class ColumnConfig {
     public void setRequired(boolean required) { this.required = required; }
     public String getSessionKey() { return sessionKey; }
     public void setSessionKey(String sessionKey) { this.sessionKey = sessionKey; }
+    public boolean isSensitive() { return sensitive; }
+    public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
 }

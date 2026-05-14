@@ -3,7 +3,11 @@ package io.rampage.factory;
 import io.rampage.config.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.*;
 import java.util.List;
 import java.util.Map;
@@ -74,5 +78,102 @@ class FeederFactoryTest {
         assertEquals("1", iter.next().get("userId"));
         assertEquals("2", iter.next().get("userId"));
         assertEquals("1", iter.next().get("userId")); // wraps around
+    }
+
+    @Test
+    void loadFromSql_failsWhenDeclaredColumnAbsent() {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        ColumnConfig col = new ColumnConfig();
+        col.setRequired(true);
+        feeder.setColumns(Map.of("not_a_real_column", col));
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+            () -> feederFactory.loadFromSql(testDb(), feeder, secretResolver));
+        assertTrue(ex.getMessage().contains("not_a_real_column"));
+    }
+
+    private Path writeSql(Path tempDir, String sql) throws IOException {
+        Path file = tempDir.resolve("query-" + System.nanoTime() + ".sql");
+        Files.writeString(file, sql);
+        return file;
+    }
+
+    @Test
+    void loadFromSql_remapsSessionKey(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setSqlFile(writeSql(tempDir, "SELECT id FROM load_test_users").toString());
+        ColumnConfig col = new ColumnConfig();
+        col.setSessionKey("userId");
+        feeder.setColumns(Map.of("id", col));
+
+        List<Map<String, Object>> rows = feederFactory.loadFromSql(testDb(), feeder, secretResolver);
+
+        assertFalse(rows.isEmpty());
+        assertTrue(rows.get(0).containsKey("userId"));
+        assertFalse(rows.get(0).containsKey("ID"));
+        assertFalse(rows.get(0).containsKey("id"));
+    }
+
+    @Test
+    void loadFromSql_capsAtMaxRows(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setSqlFile(writeSql(tempDir, "SELECT id FROM load_test_users").toString());
+        feeder.setMaxRows(1);
+
+        List<Map<String, Object>> rows = feederFactory.loadFromSql(testDb(), feeder, secretResolver);
+        assertEquals(1, rows.size());
+    }
+
+    @Test
+    void streamFromSql_iteratesAllRowsLazily(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setPreload(false);
+        feeder.setSqlFile(writeSql(tempDir, "SELECT id FROM load_test_users ORDER BY id").toString());
+
+        try (FeederFactory.StreamingFeeder stream = feederFactory.streamFromSql(
+                new DataSourceRegistry(secretResolver).getOrCreate("test", testDb()), feeder)) {
+            int count = 0;
+            while (stream.hasNext()) {
+                stream.next();
+                count++;
+                if (count > 10) break;
+            }
+            assertEquals(2, count);
+        }
+    }
+
+    @Test
+    void streamFromSql_appliesMaxRowsCap(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setPreload(false);
+        feeder.setMaxRows(1);
+        feeder.setSqlFile(writeSql(tempDir, "SELECT id FROM load_test_users ORDER BY id").toString());
+
+        try (FeederFactory.StreamingFeeder stream = feederFactory.streamFromSql(
+                new DataSourceRegistry(secretResolver).getOrCreate("test", testDb()), feeder)) {
+            int count = 0;
+            while (stream.hasNext()) {
+                stream.next();
+                count++;
+            }
+            assertEquals(1, count);
+        }
+    }
+
+    @Test
+    void loadFromSql_failsWhenOverLimitAndFlagSet(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setSqlFile(writeSql(tempDir, "SELECT id FROM load_test_users").toString());
+        feeder.setMaxRows(1);
+        feeder.setFailIfOverLimit(true);
+
+        assertThrows(RuntimeException.class,
+            () -> feederFactory.loadFromSql(testDb(), feeder, secretResolver));
     }
 }

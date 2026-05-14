@@ -47,10 +47,13 @@ public class HttpProtocolFactory {
         }
 
         if (env.getSecurity() != null) {
-            if ("bearer-token".equalsIgnoreCase(env.getSecurity().getMode()) && env.getSecurity().getToken() != null) {
-                String token = secretResolver.resolveToken(env.getSecurity().getToken());
-                builder = builder.header("Authorization", "Bearer " + token);
-                log.debug("Added Bearer authorization header");
+            String mode = env.getSecurity().getMode();
+            if ("bearer-token".equalsIgnoreCase(mode) || "oauth-client-credentials".equalsIgnoreCase(mode)) {
+                // The Authorization header value is sourced from session attribute 'authToken',
+                // populated by ScenarioFactory before each request. Static tokens read the
+                // same value every time; OAuth providers may refresh in the background.
+                builder = builder.header("Authorization", "Bearer #{authToken}");
+                log.debug("Configured session-based Authorization header for mode={}", mode);
             }
             if (env.getSecurity().getHeaders() != null) {
                 for (Map.Entry<String, String> entry : env.getSecurity().getHeaders().entrySet()) {

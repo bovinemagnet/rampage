@@ -22,7 +22,6 @@ public class RampageSimulation extends Simulation {
     private final SecretResolver secretResolver = new SecretResolver();
     private final ConfigValidator validator = new ConfigValidator(secretResolver);
     private final HttpProtocolFactory httpProtocolFactory = new HttpProtocolFactory();
-    private final ScenarioFactory scenarioFactory = new ScenarioFactory();
     private final WorkloadFactory workloadFactory = new WorkloadFactory();
     private final FeederFactory feederFactory = new FeederFactory();
     private final RunMetadataWriter runMetadataWriter = new RunMetadataWriter();
@@ -33,6 +32,10 @@ public class RampageSimulation extends Simulation {
     private final RunConfig runConfig = configLoader.loadRun();
     private final List<ScenarioConfig> activeScenarios = new ArrayList<>();
     private final Instant startedAt = Instant.now();
+    private TokenProvider tokenProvider;
+    private TokenRefresher tokenRefresher;
+    private ScenarioFactory scenarioFactory;
+    private final List<FeederFactory.StreamingFeeder> streamingFeeders = new ArrayList<>();
 
     {
         if (runConfig.getScenarios() != null) {
@@ -44,6 +47,12 @@ public class RampageSimulation extends Simulation {
         }
         List<ScenarioConfig> scenarioConfigs = activeScenarios;
 
+        List<String> placeholderErrors = PlaceholderSubstitutor.expandInPlace(envConfig, runConfig, scenarioConfigs, secretResolver);
+        if (!placeholderErrors.isEmpty()) {
+            throw new IllegalArgumentException("YAML placeholder expansion failed:\n - "
+                + String.join("\n - ", placeholderErrors));
+        }
+
         validator.validate(envConfig, runConfig, scenarioConfigs);
 
         if (isDryRun()) {
@@ -54,9 +63,13 @@ public class RampageSimulation extends Simulation {
             System.exit(0);
         }
 
-        String endpointRef = scenarioConfigs.isEmpty() ? null
-            : scenarioConfigs.get(0).getEndpointRef();
-        HttpProtocolBuilder httpProtocol = httpProtocolFactory.build(envConfig, secretResolver, endpointRef);
+        tokenProvider = TokenProvider.fromEnvironment(envConfig, secretResolver);
+        scenarioFactory = new ScenarioFactory(
+            () -> java.util.UUID.randomUUID().toString(),
+            () -> tokenProvider.currentToken());
+
+        Map<String, HttpProtocolBuilder> protocolsByRef = new LinkedHashMap<>();
+        int totalInheritedWeight = totalInheritedWeight(runConfig, scenarioConfigs);
 
         List<PopulationBuilder> populations = new ArrayList<>();
         for (ScenarioConfig scenarioCfg : scenarioConfigs) {
@@ -65,14 +78,23 @@ public class RampageSimulation extends Simulation {
             String graphqlQuery = queryFile != null ? configLoader.loadResource(queryFile) : "";
 
             List<Map<String, Object>> feederData = Collections.emptyList();
+            Iterator<Map<String, Object>> streamingFeeder = null;
             if (scenarioCfg.getFeeder() != null && envConfig.getDatabases() != null) {
                 String dbRef = scenarioCfg.getFeeder().getDatabaseRef();
                 DatabaseConfig db = dbRef != null ? envConfig.getDatabases().get(dbRef) : null;
                 if (db != null) {
                     try {
-                        feederData = feederFactory.loadFromSql(
-                            dataSourceRegistry.getOrCreate(dbRef, db),
-                            scenarioCfg.getFeeder());
+                        if (scenarioCfg.getFeeder().isPreload()) {
+                            feederData = feederFactory.loadFromSql(
+                                dataSourceRegistry.getOrCreate(dbRef, db),
+                                scenarioCfg.getFeeder());
+                        } else {
+                            FeederFactory.StreamingFeeder sf = feederFactory.streamFromSql(
+                                dataSourceRegistry.getOrCreate(dbRef, db),
+                                scenarioCfg.getFeeder());
+                            streamingFeeders.add(sf);
+                            streamingFeeder = sf;
+                        }
                     } catch (Exception e) {
                         log.warn("Failed to load feeder data: {}", e.getMessage());
                     }
@@ -82,25 +104,48 @@ public class RampageSimulation extends Simulation {
             Map<String, String> effectiveHeaders = HeaderResolver.resolveScenarioHeaders(envConfig, runConfig, scenarioCfg);
             ScenarioBuilder scenarioBuilder = scenarioFactory.build(scenarioCfg, graphqlQuery, envConfig.getHttp(), effectiveHeaders);
 
-            if (!feederData.isEmpty()) {
-                scenarioBuilder = scenarioBuilder.feed(listFeeder(feederData).circular());
+            if (streamingFeeder != null) {
+                scenarioBuilder = scenarioBuilder.feed(streamingFeeder);
+            } else if (!feederData.isEmpty()) {
+                String strategy = scenarioCfg.getFeeder() != null
+                    ? scenarioCfg.getFeeder().getStrategy() : "circular";
+                io.gatling.javaapi.core.FeederBuilder<Object> base = listFeeder(feederData);
+                io.gatling.javaapi.core.FeederBuilder<?> feeder = switch (strategy == null ? "circular" : strategy.toLowerCase(java.util.Locale.ROOT)) {
+                    case "queue" -> base.queue();
+                    case "shuffle" -> base.shuffle();
+                    case "random" -> base.random();
+                    default -> base.circular();
+                };
+                scenarioBuilder = scenarioBuilder.feed(feeder);
             }
+
+            String endpointRef = scenarioCfg.getEndpointRef() != null
+                ? scenarioCfg.getEndpointRef() : "default";
+            HttpProtocolBuilder scenarioProtocol = protocolsByRef.computeIfAbsent(endpointRef,
+                ref -> httpProtocolFactory.build(envConfig, secretResolver, ref));
 
             WorkloadConfig workload = WorkloadFactory.effectiveWorkload(runConfig, scenarioCfg);
+            if (inheritsFromRun(scenarioCfg) && totalInheritedWeight > 0) {
+                int weight = findWeight(runConfig, scenarioCfg.getId());
+                if (weight > 0) {
+                    workload = WorkloadFactory.scaleWorkload(workload, (double) weight / totalInheritedWeight);
+                }
+            }
+            PopulationBuilder population;
             if (isClosedMode()) {
                 ClosedInjectionStep[] injectionSteps = workloadFactory.buildClosedInjection(workload);
-                populations.add(scenarioBuilder.injectClosed(injectionSteps));
+                population = scenarioBuilder.injectClosed(injectionSteps);
             } else {
                 OpenInjectionStep[] injectionSteps = workloadFactory.buildInjection(workload);
-                populations.add(scenarioBuilder.injectOpen(injectionSteps));
+                population = scenarioBuilder.injectOpen(injectionSteps);
             }
+            populations.add(population.protocols(scenarioProtocol));
         }
 
-        List<Assertion> assertions = buildAssertions(runConfig.getAssertions());
+        List<Assertion> assertions = AssertionFactory.buildAll(runConfig.getAssertions(), scenarioConfigs);
 
         setUp(populations.toArray(new PopulationBuilder[0]))
-            .assertions(assertions.toArray(new Assertion[0]))
-            .protocols(httpProtocol);
+            .assertions(assertions.toArray(new Assertion[0]));
     }
 
     @Override
@@ -117,13 +162,57 @@ public class RampageSimulation extends Simulation {
                 log.warn("Failed to write run metadata: {}", e.getMessage());
             }
         }
+        startTokenRefresher();
         dataSourceRegistry.logStats();
     }
 
     @Override
     public void after() {
+        if (tokenRefresher != null) tokenRefresher.close();
+        for (FeederFactory.StreamingFeeder sf : streamingFeeders) {
+            try { sf.close(); } catch (Exception e) { log.warn("Error closing streaming feeder: {}", e.getMessage()); }
+        }
         dataSourceRegistry.logStats();
         dataSourceRegistry.close();
+    }
+
+    private void startTokenRefresher() {
+        if (!(tokenProvider instanceof OAuthClientCredentialsTokenProvider oauth)) return;
+        SecurityConfig sec = envConfig.getSecurity();
+        if (sec == null) return;
+        Long interval = sec.getRefreshIntervalSeconds();
+        if (interval == null || interval <= 0) return;
+        tokenRefresher = new TokenRefresher(oauth, interval, TokenRefresher.parseFailureMode(sec.getOnRefreshFailure()));
+        tokenRefresher.start();
+    }
+
+    private static boolean inheritsFromRun(ScenarioConfig sc) {
+        return sc.getWorkload() == null || sc.getWorkload().isInheritFromRun();
+    }
+
+    private static int totalInheritedWeight(RunConfig run, List<ScenarioConfig> scenarios) {
+        if (run == null || run.getScenarios() == null) return 0;
+        Map<String, ScenarioConfig> byId = new HashMap<>();
+        for (ScenarioConfig sc : scenarios) {
+            if (sc.getId() != null) byId.put(sc.getId(), sc);
+        }
+        int total = 0;
+        for (ScenarioRef ref : run.getScenarios()) {
+            if (!ref.isEnabled()) continue;
+            ScenarioConfig sc = byId.get(ref.getId());
+            if (sc != null && inheritsFromRun(sc)) {
+                total += Math.max(0, ref.getWeight());
+            }
+        }
+        return total;
+    }
+
+    private static int findWeight(RunConfig run, String scenarioId) {
+        if (run == null || run.getScenarios() == null || scenarioId == null) return 0;
+        for (ScenarioRef ref : run.getScenarios()) {
+            if (scenarioId.equals(ref.getId())) return Math.max(0, ref.getWeight());
+        }
+        return 0;
     }
 
     private boolean isClosedMode() {
@@ -142,23 +231,4 @@ public class RampageSimulation extends Simulation {
         return (outputDir == null || outputDir.isBlank()) ? "build/reports/gatling" : outputDir;
     }
 
-    private List<Assertion> buildAssertions(AssertionsConfig assertionsConfig) {
-        List<Assertion> assertions = new ArrayList<>();
-        if (assertionsConfig != null && assertionsConfig.getGlobal() != null) {
-            GlobalAssertionConfig global = assertionsConfig.getGlobal();
-            if (global.getMaxResponseTimeP95Millis() > 0) {
-                assertions.add(global().responseTime().percentile(95)
-                    .lt((int) global.getMaxResponseTimeP95Millis()));
-            }
-            if (global.getMaxResponseTimeP99Millis() > 0) {
-                assertions.add(global().responseTime().percentile(99)
-                    .lt((int) global.getMaxResponseTimeP99Millis()));
-            }
-            if (global.getMaxErrorPercentage() > 0) {
-                assertions.add(global().failedRequests().percent()
-                    .lt(global.getMaxErrorPercentage()));
-            }
-        }
-        return assertions;
-    }
 }

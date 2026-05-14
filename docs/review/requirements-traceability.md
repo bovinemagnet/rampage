@@ -4,7 +4,7 @@ Author: Paul Snow
 Version: 0.0.0
 Date: 2026-05-14
 Source PRD: `docs/prd/initial-prd.md`
-Last updated: 2026-05-14 — M1 + M2 features landed (F-001 through F-018).
+Last updated: 2026-05-14 — M1 + M2 + M3 features landed (F-001 through F-028).
 
 Status legend:
 - **Done** — implemented and exercised by tests
@@ -18,7 +18,7 @@ Status legend:
 |---|---|---|---|
 | ENV-001 | Multiple named base URLs | Done | `EnvironmentConfig.baseUrls: Map<String,String>`; `HttpProtocolFactory.build` resolves by `endpointRef` with fallback to `rest`. |
 | ENV-002 | Shared HTTP headers | Done | Env headers via `HttpProtocolBuilder`; run + scenario headers layered through `HeaderResolver`; `Authorization` + correlation header protected from override (F-015). |
-| ENV-003 | Auth: bearer token, JWT, OAuth client creds, custom provider | Partial | Only `mode: bearer-token` with env-sourced static token. JWT generation, OAuth, custom providers missing. |
+| ENV-003 | Auth: bearer token, JWT, OAuth client creds, custom provider | Partial | `bearer-token` and `oauth-client-credentials` (F-021) modes supported via `TokenProvider`; background `TokenRefresher` for long runs (F-022). JWT generation + custom providers still missing. |
 | ENV-004 | Database connection definitions | Done | `DatabaseConfig`, `PoolConfig`, `CredentialConfig` parsed and consumed via `DataSourceRegistry` + HikariCP (F-009). `PoolConfig` fields applied to the pool. |
 | ENV-005 | No raw secrets in env files | Partial | Sample YAMLs use `source: env` references; `SecretResolver` resolves them. No CI lint to enforce, no SM/Vault integration. |
 | ENV-006 | Timeout settings | Done | `requestTimeoutMillis` applied per-request in `ScenarioFactory`; `followRedirects` honoured on the protocol; `connectTimeoutMillis` exposed via `gatling.conf` defaults (F-018). |
@@ -29,7 +29,7 @@ Status legend:
 | ID | Requirement | Status | Evidence / Gap |
 |---|---|---|---|
 | RUN-001 | Reference one or more scenarios | Done | `RunConfig.scenarios: List<ScenarioRef>`; `RampageSimulation` iterates. |
-| RUN-002 | Global and scenario-level assertions | Partial | `AssertionsConfig` parsed; only global p95/p99/error% wired. Scenario-level assertions parsed and unused. |
+| RUN-002 | Global and scenario-level assertions | Done | `AssertionFactory` wires both global and per-scenario assertions; validator rejects scenario keys not in the run (F-028). |
 | RUN-003 | Open and closed workload models | Done | Open default; `ExecutionConfig.mode: closed` emits `ClosedInjectionStep[]` via `WorkloadFactory.buildClosedInjection` (F-012). |
 | RUN-004 | smoke, baseline, load, stress, spike, soak | Done | All implemented (F-010 spike, F-011 stress, F-012 baseline); validator rejects unknown types. |
 | RUN-005 | Run metadata for reporting/traceability | Done | `RunMetadataWriter` wired via `Simulation.before()` (F-001); emits `gitCommit`, `gitBranch`, `changeReference`, and scenario tags. |
@@ -44,23 +44,23 @@ Status legend:
 | SCN-002 | External GraphQL query files | Done | `RequestConfig.graphqlQueryFile`; loaded by `ConfigLoader.loadResource`. |
 | SCN-003 | GraphQL variables from feeders | Done | Jackson-based body construction (F-003); booleans/numbers/nulls round-trip correctly; `${feeder:X}` rewritten to `#{X}`. |
 | SCN-004 | SQL-backed JDBC feeders | Done | `FeederFactory.loadFromSql` reads SQL from filesystem or classpath. |
-| SCN-005 | Feeder strategies (queue, shuffle, random, circular) | Partial | `circular` and `random/shuffle` (shuffle-once). `queue` not implemented. Random is misnamed (D14). |
+| SCN-005 | Feeder strategies (queue, shuffle, random, circular) | Done | All four strategies routed through Gatling's `FeederBuilder` (F-023). |
 | SCN-006 | Request-specific headers | Done | `ScenarioConfig.headers` are applied in `ScenarioFactory.build`. |
 | SCN-007 | HTTP status + JSONPath checks | Partial | `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession` supported. No regex, no XPath, no JSON schema, no header checks. |
 | SCN-008 | Scenario-specific workload overrides | Done | `WorkloadFactory.effectiveWorkload` honours `scenario.workload.inheritFromRun=false` (F-017). |
 | SCN-009 | Mutating vs read-only marker | Done | `ScenarioSafetyConfig.mutating` enforced against `requireApprovalForMutatingRequests` + `run.safety.approveMutatingRequests` (F-014). |
-| SCN-010 | Tags for filtering and reporting | Partial | `tags` parsed; not used for filtering or in `RunMetadataWriter`. |
+| SCN-010 | Tags for filtering and reporting | Partial | `tags` emitted in `run-metadata.json` and `dry-run-summary.json` (F-001, F-013); no scenario-filter CLI yet. |
 
 ## Feeder Requirements
 
 | ID | Requirement | Status | Evidence / Gap |
 |---|---|---|---|
-| FDR-001 | JDBC feeder from SQL files | Done | `FeederFactory.loadFromSql`. |
-| FDR-002 | Validate required feeder columns | Missing | `ColumnConfig.required` parsed but `FeederFactory` does not check the result set against it. |
+| FDR-001 | JDBC feeder from SQL files | Done | `FeederFactory.loadFromSql` (preload) and `streamFromSql` (lazy, when `preload: false`) — F-024. |
+| FDR-002 | Validate required feeder columns | Done | `FeederFactory` checks declared columns against `ResultSetMetaData`; required nulls fail (or skip per `onMissingRequired`); `sessionKey` remapping applied (F-026). |
 | FDR-003 | Fail fast on empty + `failIfEmpty` | Done | `FeederFactory.loadFromSql` throws when empty and flag set. |
-| FDR-004 | queue / shuffle / random / circular | Partial | See SCN-005. |
+| FDR-004 | queue / shuffle / random / circular | Done | See SCN-005 (F-023). |
 | FDR-005 | Preload feeder data | Done | Default `preload: true`; loaded into `List<Map<String,Object>>`. |
-| FDR-006 | Maximum row limit | Missing | No row cap; a runaway query can OOM the JVM. |
+| FDR-006 | Maximum row limit | Done | `FeederConfig.maxRows` (default 10000); `failIfOverLimit` opt-in (F-025). |
 | FDR-007 | Log row count, not values | Done | `log.info("Loaded {} feeder rows...", rows.size())`. |
 
 ## Security Requirements
@@ -72,7 +72,7 @@ Status legend:
 | SEC-003 | Reports/snapshots redact secrets | Partial | `RunMetadataWriter` writes `redactSecretsEnabled` reflecting the flag honestly (F-007); writer no longer serialises any secret-derived values. `SecretResolver.getSensitiveValues()` exposes resolved secrets for the config snapshot writer (still pending — F-029). |
 | SEC-004 | Authorization injected from environment | Done | `HttpProtocolFactory` adds `Authorization: Bearer <token>` for `bearer-token` mode. |
 | SEC-005 | Per-scenario headers on top of environment | Done | `HeaderResolver` layers env → run → scenario; scenario override of `Authorization`/correlation header is rejected unless `scenario.security.allowAuthOverride: true` (F-015). |
-| SEC-006 | Token refresh / generation for long runs | Missing | Token is read once at simulation init. |
+| SEC-006 | Token refresh / generation for long runs | Done | `TokenRefresher` schedules background refresh; `onRefreshFailure: continue|stop` configurable; Authorization header reads `#{authToken}` session attribute (F-022). |
 | SEC-007 | Prevent accidental production execution | Done | `env.safety.isProduction` + `allowProduction` enforced; `run.safety.failIfEnvironmentAllowsProduction` honoured; missing required secrets fail validation (F-002 + F-004 + F-014). |
 | SEC-008 | Avoid logging full request bodies with sensitive data | Missing | Gatling default logging used; no body redaction layer. |
 
@@ -81,10 +81,10 @@ Status legend:
 | Rule | Status | Notes |
 |---|---|---|
 | Built-in defaults | Partial | Some defaults are in model classes (e.g. `HttpConfig.connectTimeoutMillis = 5000`); some only in factories. No central defaults table. |
-| Environment → Run → Scenario YAML layering | Partial | Read separately; no merge logic. Scenario workload override is incomplete (D2). |
-| JVM system property overrides | Done | `-Dloadtest.env`, `-Dloadtest.run` in `ConfigLoader`. |
-| Env-var overrides | Partial | Used for secrets only, not for arbitrary YAML keys. |
-| Secret resolver output | Partial | Implemented for `CredentialConfig` and `TokenConfig`; no resolution of `${secret:...}` placeholders inside arbitrary header values. |
+| Environment → Run → Scenario YAML layering | Done | Headers merged via `HeaderResolver` (F-015); scenario workload override complete (F-017). |
+| JVM system property overrides | Done | `-Dloadtest.env`, `-Dloadtest.run`, `-Dloadtest.dryRun`. |
+| Env-var overrides | Partial | Used for secrets and `${env:NAME}` placeholders (F-027). No arbitrary YAML-key override path. |
+| Secret resolver output | Done | `${secret:path}` placeholder expansion via `PlaceholderSubstitutor` + `SecretResolver` (F-027). |
 | Header precedence | Done | `HeaderResolver` layers env → run → scenario; protected headers cannot be overridden without explicit opt-in (F-015). |
 
 ## CLI (PRD §15)
@@ -154,10 +154,10 @@ Status legend:
 
 | # | Criterion | Status |
 |---|---|---|
-| 1 | Multiple scenarios in one run | Partial — runs them, but HTTP protocol picks first endpoint (D3) |
-| 2 | Scenario weighting | Missing |
-| 3 | OAuth client-credentials token | Missing |
-| 4 | Token refresh for long runs | Missing |
+| 1 | Multiple scenarios in one run | Done — per-scenario protocol routing via `protocolsByRef` (F-019) |
+| 2 | Scenario weighting | Done — `ScenarioRef.weight` applied via `WorkloadFactory.scaleWorkload` (F-020) |
+| 3 | OAuth client-credentials token | Done — `OAuthClientCredentialsTokenProvider` (F-021) |
+| 4 | Token refresh for long runs | Done — `TokenRefresher` background scheduler (F-022) |
 | 5 | CI/CD report artifacts | Missing |
 | 6 | Scenario templates via CLI task | Missing |
 | 7 | Metadata: branch, commit, build URL, change ref | Partial — only short commit |
