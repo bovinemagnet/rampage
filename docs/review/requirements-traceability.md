@@ -4,7 +4,7 @@ Author: Paul Snow
 Version: 0.0.0
 Date: 2026-05-14
 Source PRD: `docs/prd/initial-prd.md`
-Last updated: 2026-05-14 — M1 (MVP Honesty) features F-001 through F-008 landed.
+Last updated: 2026-05-14 — M1 + M2 features landed (F-001 through F-018).
 
 Status legend:
 - **Done** — implemented and exercised by tests
@@ -17,12 +17,12 @@ Status legend:
 | ID | Requirement | Status | Evidence / Gap |
 |---|---|---|---|
 | ENV-001 | Multiple named base URLs | Done | `EnvironmentConfig.baseUrls: Map<String,String>`; `HttpProtocolFactory.build` resolves by `endpointRef` with fallback to `rest`. |
-| ENV-002 | Shared HTTP headers | Partial | `SecurityConfig.headers` and `ObservabilityConfig.correlationIdHeader` injected. No layering rules with run/scenario headers (PRD §14). |
+| ENV-002 | Shared HTTP headers | Done | Env headers via `HttpProtocolBuilder`; run + scenario headers layered through `HeaderResolver`; `Authorization` + correlation header protected from override (F-015). |
 | ENV-003 | Auth: bearer token, JWT, OAuth client creds, custom provider | Partial | Only `mode: bearer-token` with env-sourced static token. JWT generation, OAuth, custom providers missing. |
-| ENV-004 | Database connection definitions | Done | `DatabaseConfig`, `PoolConfig`, `CredentialConfig` parsed and consumed by `FeederFactory` (pool fields ignored — see D7). |
+| ENV-004 | Database connection definitions | Done | `DatabaseConfig`, `PoolConfig`, `CredentialConfig` parsed and consumed via `DataSourceRegistry` + HikariCP (F-009). `PoolConfig` fields applied to the pool. |
 | ENV-005 | No raw secrets in env files | Partial | Sample YAMLs use `source: env` references; `SecretResolver` resolves them. No CI lint to enforce, no SM/Vault integration. |
-| ENV-006 | Timeout settings | Partial | Parsed into `HttpConfig`; `HttpProtocolFactory` only applies `acceptHeader` and `contentTypeHeader`. `connectTimeoutMillis` / `requestTimeoutMillis` parsed but not passed to Gatling's `http.requestTimeout(...)`. |
-| ENV-007 | Safety controls (prod protection, mutating approval) | Partial | `SafetyConfig.allowProduction` checked by string-match in `ConfigValidator`; `requireApprovalForMutatingRequests` parsed but never enforced. |
+| ENV-006 | Timeout settings | Done | `requestTimeoutMillis` applied per-request in `ScenarioFactory`; `followRedirects` honoured on the protocol; `connectTimeoutMillis` exposed via `gatling.conf` defaults (F-018). |
+| ENV-007 | Safety controls (prod protection, mutating approval) | Done | `safety.isProduction` + `allowProduction` checked; `requireApprovalForMutatingRequests` enforced against `run.safety.approveMutatingRequests` (F-014). |
 
 ## Run Requirements
 
@@ -30,10 +30,10 @@ Status legend:
 |---|---|---|---|
 | RUN-001 | Reference one or more scenarios | Done | `RunConfig.scenarios: List<ScenarioRef>`; `RampageSimulation` iterates. |
 | RUN-002 | Global and scenario-level assertions | Partial | `AssertionsConfig` parsed; only global p95/p99/error% wired. Scenario-level assertions parsed and unused. |
-| RUN-003 | Open and closed workload models | Partial | `ExecutionConfig.mode: "open"` accepted; only open-model injection steps emitted. Closed model not implemented. |
-| RUN-004 | smoke, baseline, load, stress, spike, soak | Partial | `smoke`, `ramp-and-hold`, `soak`, `constant` implemented. `baseline`, `spike`, `stress` missing. |
+| RUN-003 | Open and closed workload models | Done | Open default; `ExecutionConfig.mode: closed` emits `ClosedInjectionStep[]` via `WorkloadFactory.buildClosedInjection` (F-012). |
+| RUN-004 | smoke, baseline, load, stress, spike, soak | Done | All implemented (F-010 spike, F-011 stress, F-012 baseline); validator rejects unknown types. |
 | RUN-005 | Run metadata for reporting/traceability | Done | `RunMetadataWriter` wired via `Simulation.before()` (F-001); emits `gitCommit`, `gitBranch`, `changeReference`, and scenario tags. |
-| RUN-006 | Dry-run validation without executing load | Partial | `validateLoadTest` Gradle task exists. `run.safety.dryRun` parsed but does not gate `gatlingRun`. |
+| RUN-006 | Dry-run validation without executing load | Done | `run.safety.dryRun` and `-Dloadtest.dryRun=true` gate `gatlingRun` and write `dry-run-summary.json` (F-013); `validateLoadTest` Gradle task still available. |
 | RUN-007 | Disabled scenarios remain in file | Done | `ScenarioRef.enabled` honoured in `RampageSimulation`. |
 
 ## Scenario Requirements
@@ -47,8 +47,8 @@ Status legend:
 | SCN-005 | Feeder strategies (queue, shuffle, random, circular) | Partial | `circular` and `random/shuffle` (shuffle-once). `queue` not implemented. Random is misnamed (D14). |
 | SCN-006 | Request-specific headers | Done | `ScenarioConfig.headers` are applied in `ScenarioFactory.build`. |
 | SCN-007 | HTTP status + JSONPath checks | Partial | `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession` supported. No regex, no XPath, no JSON schema, no header checks. |
-| SCN-008 | Scenario-specific workload overrides | Missing | TODO in `RampageSimulation.java:71-72` (D2). |
-| SCN-009 | Mutating vs read-only marker | Partial | `ScenarioSafetyConfig.mutating` parsed but unused. No enforcement against `requireApprovalForMutatingRequests`. |
+| SCN-008 | Scenario-specific workload overrides | Done | `WorkloadFactory.effectiveWorkload` honours `scenario.workload.inheritFromRun=false` (F-017). |
+| SCN-009 | Mutating vs read-only marker | Done | `ScenarioSafetyConfig.mutating` enforced against `requireApprovalForMutatingRequests` + `run.safety.approveMutatingRequests` (F-014). |
 | SCN-010 | Tags for filtering and reporting | Partial | `tags` parsed; not used for filtering or in `RunMetadataWriter`. |
 
 ## Feeder Requirements
@@ -71,9 +71,9 @@ Status legend:
 | SEC-002 | Env-var or secret-manager refs | Partial | Env vars supported. Secret-manager source returns `***REDACTED***` (stub). |
 | SEC-003 | Reports/snapshots redact secrets | Partial | `RunMetadataWriter` writes `redactSecretsEnabled` reflecting the flag honestly (F-007); writer no longer serialises any secret-derived values. `SecretResolver.getSensitiveValues()` exposes resolved secrets for the config snapshot writer (still pending — F-029). |
 | SEC-004 | Authorization injected from environment | Done | `HttpProtocolFactory` adds `Authorization: Bearer <token>` for `bearer-token` mode. |
-| SEC-005 | Per-scenario headers on top of environment | Partial | Scenario headers applied; no enforcement against overriding `Authorization` (D12). |
+| SEC-005 | Per-scenario headers on top of environment | Done | `HeaderResolver` layers env → run → scenario; scenario override of `Authorization`/correlation header is rejected unless `scenario.security.allowAuthOverride: true` (F-015). |
 | SEC-006 | Token refresh / generation for long runs | Missing | Token is read once at simulation init. |
-| SEC-007 | Prevent accidental production execution | Partial | `ConfigValidator` checks `env.id.contains("prod")` and now also honours `run.safety.failIfEnvironmentAllowsProduction` (F-004). Stronger `isProduction` flag still pending (F-014). Missing required secrets now fail validation (F-002). |
+| SEC-007 | Prevent accidental production execution | Done | `env.safety.isProduction` + `allowProduction` enforced; `run.safety.failIfEnvironmentAllowsProduction` honoured; missing required secrets fail validation (F-002 + F-004 + F-014). |
 | SEC-008 | Avoid logging full request bodies with sensitive data | Missing | Gatling default logging used; no body redaction layer. |
 
 ## Config Resolution Rules (PRD §14)
@@ -85,7 +85,7 @@ Status legend:
 | JVM system property overrides | Done | `-Dloadtest.env`, `-Dloadtest.run` in `ConfigLoader`. |
 | Env-var overrides | Partial | Used for secrets only, not for arbitrary YAML keys. |
 | Secret resolver output | Partial | Implemented for `CredentialConfig` and `TokenConfig`; no resolution of `${secret:...}` placeholders inside arbitrary header values. |
-| Header precedence | Missing | No layering, no Authorization protection. |
+| Header precedence | Done | `HeaderResolver` layers env → run → scenario; protected headers cannot be overridden without explicit opt-in (F-015). |
 
 ## CLI (PRD §15)
 
@@ -94,7 +94,7 @@ Status legend:
 | `gradle21w validateLoadTest -Dloadtest.env=... -Dloadtest.run=...` | Done | Registered in `build.gradle.kts`; `ConfigValidatorMain` exits 0/1. |
 | `gradle21w gatlingRun -Dloadtest.env=... -Dloadtest.run=...` | Done | Provided by Gatling plugin; properties consumed by `ConfigLoader`. |
 | `gradle21w gatlingRun-<simulationClass>` | Done | Standard plugin behaviour. |
-| `-Dloadtest.dryRun=true` | Missing | Property name not recognised; `RunSafetyConfig.dryRun` not honoured by `gatlingRun`. |
+| `-Dloadtest.dryRun=true` | Done | Both the YAML flag and the system property gate `gatlingRun`; writes `dry-run-summary.json` (F-013). |
 
 ## Gradle Build Requirements (PRD §16)
 
@@ -117,8 +117,8 @@ Status legend:
 | 3 | Missing GraphQL/SQL files | Done — `ConfigValidator` checks filesystem and classpath (F-004) |
 | 4 | Empty JDBC feeder with `failIfEmpty=true` | Partial — caught at feeder load, not in `ConfigValidator` |
 | 5 | Required secret cannot be resolved | Done — `SecretResolver` throws; `ConfigValidator` aggregates (F-002) |
-| 6 | Mutating scenario vs env disallowing mutation | Missing (F-014) |
-| 7 | Production target without approval | Partial — string-match + `failIfEnvironmentAllowsProduction` (F-004); strict `isProduction` flag pending (F-014) |
+| 6 | Mutating scenario vs env disallowing mutation | Done — `requireApprovalForMutatingRequests` enforced (F-014) |
+| 7 | Production target without approval | Done — `isProduction` + `allowProduction` + `failIfEnvironmentAllowsProduction` (F-004 + F-014) |
 | 8 | Invalid workload duration/rate | Partial — strict duration parser validates rampUp/holdFor/duration (F-004); rate value sanity checks missing |
 | 9 | Malformed assertions | Missing |
 | 10 | Scenario with no checks | Missing |

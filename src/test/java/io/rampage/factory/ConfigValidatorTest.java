@@ -258,6 +258,77 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void validate_failsWhenIsProductionAndAllowProductionFalse() {
+        EnvironmentConfig env = validEnv();
+        SafetyConfig safety = new SafetyConfig();
+        safety.setAllowProduction(false);
+        safety.setProduction(true);
+        env.setSafety(safety);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env, validRun(), List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("isProduction=true")));
+    }
+
+    @Test
+    void validate_passesWhenIsProductionAndAllowProductionTrue() {
+        EnvironmentConfig env = validEnv();
+        env.setId("safe-prod");
+        SafetyConfig safety = new SafetyConfig();
+        safety.setAllowProduction(true);
+        safety.setProduction(true);
+        env.setSafety(safety);
+
+        assertDoesNotThrow(() ->
+            validator.validate(env, validRun(), List.of(validScenario("test-scenario"))));
+    }
+
+    @Test
+    void validate_failsForMutatingScenarioWithoutApproval() {
+        EnvironmentConfig env = validEnv();
+        env.getSafety().setRequireApprovalForMutatingRequests(true);
+
+        ScenarioConfig sc = validScenario("mutating-scn");
+        ScenarioSafetyConfig scSafety = new ScenarioSafetyConfig();
+        scSafety.setMutating(true);
+        sc.setSafety(scSafety);
+
+        RunConfig run = validRun();
+        ScenarioRef ref = new ScenarioRef();
+        ref.setId("mutating-scn");
+        ref.setEnabled(true);
+        run.setScenarios(List.of(ref));
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env, run, List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("mutating-scn") && e.contains("approval")));
+    }
+
+    @Test
+    void validate_passesForMutatingScenarioWithApproval() {
+        EnvironmentConfig env = validEnv();
+        env.getSafety().setRequireApprovalForMutatingRequests(true);
+
+        ScenarioConfig sc = validScenario("mutating-scn");
+        ScenarioSafetyConfig scSafety = new ScenarioSafetyConfig();
+        scSafety.setMutating(true);
+        sc.setSafety(scSafety);
+
+        RunConfig run = validRun();
+        ScenarioRef ref = new ScenarioRef();
+        ref.setId("mutating-scn");
+        ref.setEnabled(true);
+        run.setScenarios(List.of(ref));
+        RunSafetyConfig safety = new RunSafetyConfig();
+        safety.setApproveMutatingRequests(true);
+        run.setSafety(safety);
+
+        assertDoesNotThrow(() -> validator.validate(env, run, List.of(sc)));
+    }
+
+    @Test
     void validate_failsWhenFailIfEnvAllowsProductionAndEnvAllows() {
         EnvironmentConfig env = validEnv();
         env.getSafety().setAllowProduction(true);
@@ -271,6 +342,17 @@ class ConfigValidatorTest {
             ConfigValidator.ConfigValidationException.class,
             () -> validator.validate(env, run, List.of(validScenario("test-scenario"))));
         assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("failIfEnvironmentAllowsProduction")));
+    }
+
+    @Test
+    void validate_failsWhenScenarioOverridesAuthorizationWithoutPermission() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        sc.setHeaders(Map.of("Authorization", "Bearer custom"));
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("Authorization")));
     }
 
     @Test

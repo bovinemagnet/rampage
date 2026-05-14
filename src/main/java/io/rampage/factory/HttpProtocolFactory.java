@@ -41,6 +41,9 @@ public class HttpProtocolFactory {
             if (env.getHttp().getContentTypeHeader() != null) {
                 builder = builder.contentTypeHeader(env.getHttp().getContentTypeHeader());
             }
+            if (!env.getHttp().isFollowRedirects()) {
+                builder = builder.disableFollowRedirect();
+            }
         }
 
         if (env.getSecurity() != null) {

@@ -42,10 +42,14 @@ public class ConfigValidator {
                     errors.add("environment.http.requestTimeoutMillis must be > 0");
                 }
             }
-            if (env.getSafety() != null && !env.getSafety().isAllowProduction()) {
-                String envId = env.getId() != null ? env.getId() : "";
-                if (envId.contains("prod")) {
-                    errors.add("Environment '" + envId + "' appears to be production but safety.allowProduction is false");
+            if (env.getSafety() != null) {
+                if (env.getSafety().isProduction() && !env.getSafety().isAllowProduction()) {
+                    errors.add("environment.safety.isProduction=true but safety.allowProduction=false");
+                } else if (!env.getSafety().isAllowProduction()) {
+                    String envId = env.getId() != null ? env.getId() : "";
+                    if (envId.contains("prod")) {
+                        errors.add("Environment '" + envId + "' appears to be production but safety.allowProduction is false");
+                    }
                 }
             }
             validateSecrets(env, errors);
@@ -86,6 +90,8 @@ public class ConfigValidator {
         if (env != null && scenarios != null) {
             for (ScenarioConfig sc : scenarios) {
                 validateScenarioReferences(env, sc, errors);
+                validateMutatingApproval(env, run, sc, errors);
+                errors.addAll(HeaderResolver.validateOverrides(env, sc));
             }
         }
 
@@ -182,6 +188,16 @@ public class ConfigValidator {
         }
         validateDurationField(workload.getRampUp(), path + ".rampUp", errors);
         validateDurationField(workload.getHoldFor(), path + ".holdFor", errors);
+    }
+
+    private void validateMutatingApproval(EnvironmentConfig env, RunConfig run, ScenarioConfig sc, List<String> errors) {
+        if (sc == null || sc.getSafety() == null || !sc.getSafety().isMutating()) return;
+        if (env.getSafety() == null || !env.getSafety().isRequireApprovalForMutatingRequests()) return;
+        boolean approved = run != null && run.getSafety() != null && run.getSafety().isApproveMutatingRequests();
+        if (!approved) {
+            errors.add("scenario." + sc.getId() + " is mutating and environment requires approval; "
+                + "set run.safety.approveMutatingRequests=true to acknowledge");
+        }
     }
 
     private boolean resourceExists(String path) {

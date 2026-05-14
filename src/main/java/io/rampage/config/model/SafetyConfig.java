@@ -9,6 +9,9 @@ public class SafetyConfig {
     @JsonProperty("requireApprovalForMutatingRequests")
     private boolean requireApprovalForMutatingRequests = false;
 
+    @JsonProperty("isProduction")
+    private boolean isProduction = false;
+
     public SafetyConfig() {}
 
     public boolean isAllowProduction() { return allowProduction; }
@@ -17,4 +20,6 @@ public class SafetyConfig {
     public void setRequireApprovalForMutatingRequests(boolean requireApprovalForMutatingRequests) {
         this.requireApprovalForMutatingRequests = requireApprovalForMutatingRequests;
     }
+    public boolean isProduction() { return isProduction; }
+    public void setProduction(boolean isProduction) { this.isProduction = isProduction; }
 }

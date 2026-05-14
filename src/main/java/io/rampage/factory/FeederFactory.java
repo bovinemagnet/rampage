@@ -5,6 +5,7 @@ import io.rampage.config.model.FeederConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sql.DataSource;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,24 +16,23 @@ import java.util.*;
 public class FeederFactory {
     private static final Logger log = LoggerFactory.getLogger(FeederFactory.class);
 
+    /**
+     * Backwards-compatible entry point that creates an ad-hoc pool per call. Prefer
+     * {@link #loadFromSql(DataSource, FeederConfig)} with a shared {@link DataSourceRegistry}.
+     */
     public List<Map<String, Object>> loadFromSql(DatabaseConfig db, FeederConfig feeder, SecretResolver secretResolver) {
-        String url = db.getJdbcUrl();
-        String username = secretResolver.resolveCredential(db.getUsername());
-        String password = secretResolver.resolveCredential(db.getPassword());
+        try (DataSourceRegistry registry = new DataSourceRegistry(secretResolver)) {
+            DataSource ds = registry.getOrCreate("adhoc", db);
+            return loadFromSql(ds, feeder);
+        }
+    }
 
+    public List<Map<String, Object>> loadFromSql(DataSource dataSource, FeederConfig feeder) {
         String sql = resolveSql(feeder);
         log.info("Loading feeder data from SQL, preload={}", feeder.isPreload());
 
-        if (db.getDriverClassName() != null) {
-            try {
-                Class.forName(db.getDriverClassName());
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException("JDBC driver not found: " + db.getDriverClassName(), e);
-            }
-        }
-
         List<Map<String, Object>> rows = new ArrayList<>();
-        try (Connection conn = DriverManager.getConnection(url, username, password);
+        try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 

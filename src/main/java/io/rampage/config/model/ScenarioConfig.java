@@ -47,6 +47,9 @@ public class ScenarioConfig {
     @JsonProperty("safety")
     private ScenarioSafetyConfig safety;
 
+    @JsonProperty("security")
+    private ScenarioSecurityConfig security;
+
     public ScenarioConfig() {}
 
     public String getId() { return id; }
@@ -77,4 +80,6 @@ public class ScenarioConfig {
     public void setTags(List<String> tags) { this.tags = tags; }
     public ScenarioSafetyConfig getSafety() { return safety; }
     public void setSafety(ScenarioSafetyConfig safety) { this.safety = safety; }
+    public ScenarioSecurityConfig getSecurity() { return security; }
+    public void setSecurity(ScenarioSecurityConfig security) { this.security = security; }
 }

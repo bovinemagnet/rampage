@@ -4,6 +4,7 @@ import io.gatling.javaapi.core.*;
 import io.gatling.javaapi.http.*;
 import io.rampage.config.model.*;
 import io.rampage.factory.*;
+import io.rampage.reporting.DryRunSummaryWriter;
 import io.rampage.reporting.RunMetadataWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,8 @@ public class RampageSimulation extends Simulation {
     private final WorkloadFactory workloadFactory = new WorkloadFactory();
     private final FeederFactory feederFactory = new FeederFactory();
     private final RunMetadataWriter runMetadataWriter = new RunMetadataWriter();
+    private final DryRunSummaryWriter dryRunSummaryWriter = new DryRunSummaryWriter();
+    private final DataSourceRegistry dataSourceRegistry = new DataSourceRegistry(secretResolver);
 
     private final EnvironmentConfig envConfig = configLoader.loadEnvironment();
     private final RunConfig runConfig = configLoader.loadRun();
@@ -43,6 +46,14 @@ public class RampageSimulation extends Simulation {
 
         validator.validate(envConfig, runConfig, scenarioConfigs);
 
+        if (isDryRun()) {
+            String outputDir = resolveOutputDir();
+            dryRunSummaryWriter.write(envConfig, runConfig, scenarioConfigs, outputDir);
+            log.info("DRY RUN: configuration validated and summary written to {}/dry-run-summary.json. "
+                + "Exiting before any traffic is generated.", outputDir);
+            System.exit(0);
+        }
+
         String endpointRef = scenarioConfigs.isEmpty() ? null
             : scenarioConfigs.get(0).getEndpointRef();
         HttpProtocolBuilder httpProtocol = httpProtocolFactory.build(envConfig, secretResolver, endpointRef);
@@ -59,34 +70,30 @@ public class RampageSimulation extends Simulation {
                 DatabaseConfig db = dbRef != null ? envConfig.getDatabases().get(dbRef) : null;
                 if (db != null) {
                     try {
-                        feederData = feederFactory.loadFromSql(db, scenarioCfg.getFeeder(), secretResolver);
+                        feederData = feederFactory.loadFromSql(
+                            dataSourceRegistry.getOrCreate(dbRef, db),
+                            scenarioCfg.getFeeder());
                     } catch (Exception e) {
                         log.warn("Failed to load feeder data: {}", e.getMessage());
                     }
                 }
             }
 
-            ScenarioBuilder scenarioBuilder = scenarioFactory.build(scenarioCfg, graphqlQuery);
+            Map<String, String> effectiveHeaders = HeaderResolver.resolveScenarioHeaders(envConfig, runConfig, scenarioCfg);
+            ScenarioBuilder scenarioBuilder = scenarioFactory.build(scenarioCfg, graphqlQuery, envConfig.getHttp(), effectiveHeaders);
 
             if (!feederData.isEmpty()) {
                 scenarioBuilder = scenarioBuilder.feed(listFeeder(feederData).circular());
             }
 
-            WorkloadConfig workload = null;
-            if (scenarioCfg.getWorkload() != null && !scenarioCfg.getWorkload().isInheritFromRun()) {
-                // Use scenario-level workload (not yet implemented)
-            } else if (runConfig.getExecution() != null) {
-                workload = runConfig.getExecution().getWorkload();
+            WorkloadConfig workload = WorkloadFactory.effectiveWorkload(runConfig, scenarioCfg);
+            if (isClosedMode()) {
+                ClosedInjectionStep[] injectionSteps = workloadFactory.buildClosedInjection(workload);
+                populations.add(scenarioBuilder.injectClosed(injectionSteps));
+            } else {
+                OpenInjectionStep[] injectionSteps = workloadFactory.buildInjection(workload);
+                populations.add(scenarioBuilder.injectOpen(injectionSteps));
             }
-
-            if (workload == null) {
-                workload = new WorkloadConfig();
-                workload.setType("smoke");
-                workload.setUsers(1);
-            }
-
-            OpenInjectionStep[] injectionSteps = workloadFactory.buildInjection(workload);
-            populations.add(scenarioBuilder.injectOpen(injectionSteps));
         }
 
         List<Assertion> assertions = buildAssertions(runConfig.getAssertions());
@@ -110,6 +117,29 @@ public class RampageSimulation extends Simulation {
                 log.warn("Failed to write run metadata: {}", e.getMessage());
             }
         }
+        dataSourceRegistry.logStats();
+    }
+
+    @Override
+    public void after() {
+        dataSourceRegistry.logStats();
+        dataSourceRegistry.close();
+    }
+
+    private boolean isClosedMode() {
+        return runConfig.getExecution() != null
+            && "closed".equalsIgnoreCase(runConfig.getExecution().getMode());
+    }
+
+    private boolean isDryRun() {
+        if ("true".equalsIgnoreCase(System.getProperty("loadtest.dryRun"))) return true;
+        return runConfig.getSafety() != null && runConfig.getSafety().isDryRun();
+    }
+
+    private String resolveOutputDir() {
+        ReportingConfig reporting = runConfig.getReporting();
+        String outputDir = reporting != null ? reporting.getOutputDirectory() : null;
+        return (outputDir == null || outputDir.isBlank()) ? "build/reports/gatling" : outputDir;
     }
 
     private List<Assertion> buildAssertions(AssertionsConfig assertionsConfig) {

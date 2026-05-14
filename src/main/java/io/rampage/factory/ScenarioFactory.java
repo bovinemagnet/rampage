@@ -10,6 +10,7 @@ import io.rampage.config.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +42,15 @@ public class ScenarioFactory {
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
+        return build(scenarioCfg, graphqlQuery, null, null);
+    }
+
+    public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery, HttpConfig httpConfig) {
+        return build(scenarioCfg, graphqlQuery, httpConfig, null);
+    }
+
+    public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
+                                 HttpConfig httpConfig, Map<String, String> effectiveHeaders) {
         log.info("Building scenario: {}", scenarioCfg.getName());
 
         String endpointRef = scenarioCfg.getEndpointRef() != null ? scenarioCfg.getEndpointRef() : "graphql";
@@ -54,8 +64,13 @@ public class ScenarioFactory {
             .post(endpoint)
             .header("Content-Type", "application/json");
 
-        if (scenarioCfg.getHeaders() != null) {
-            for (Map.Entry<String, String> entry : scenarioCfg.getHeaders().entrySet()) {
+        if (httpConfig != null && httpConfig.getRequestTimeoutMillis() > 0) {
+            request = request.requestTimeout(Duration.ofMillis(httpConfig.getRequestTimeoutMillis()));
+        }
+
+        Map<String, String> headers = effectiveHeaders != null ? effectiveHeaders : scenarioCfg.getHeaders();
+        if (headers != null) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
                 request = request.header(entry.getKey(), entry.getValue());
             }
         }

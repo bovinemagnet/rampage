@@ -21,6 +21,21 @@ public class WorkloadConfig {
     @JsonProperty("users")
     private int users = 1;
 
+    @JsonProperty("baselineRate")
+    private Double baselineRate;
+
+    @JsonProperty("spikeDuration")
+    private String spikeDuration;
+
+    @JsonProperty("stepRate")
+    private Double stepRate;
+
+    @JsonProperty("stepDuration")
+    private String stepDuration;
+
+    @JsonProperty("maxRate")
+    private Double maxRate;
+
     public WorkloadConfig() {}
 
     public String getType() { return type; }
@@ -35,4 +50,14 @@ public class WorkloadConfig {
     public void setRate(RateConfig rate) { this.rate = rate; }
     public int getUsers() { return users; }
     public void setUsers(int users) { this.users = users; }
+    public Double getBaselineRate() { return baselineRate; }
+    public void setBaselineRate(Double baselineRate) { this.baselineRate = baselineRate; }
+    public String getSpikeDuration() { return spikeDuration; }
+    public void setSpikeDuration(String spikeDuration) { this.spikeDuration = spikeDuration; }
+    public Double getStepRate() { return stepRate; }
+    public void setStepRate(Double stepRate) { this.stepRate = stepRate; }
+    public String getStepDuration() { return stepDuration; }
+    public void setStepDuration(String stepDuration) { this.stepDuration = stepDuration; }
+    public Double getMaxRate() { return maxRate; }
+    public void setMaxRate(Double maxRate) { this.maxRate = maxRate; }
 }

@@ -12,6 +12,9 @@ public class RunSafetyConfig {
     @JsonProperty("failIfEnvironmentAllowsProduction")
     private boolean failIfEnvironmentAllowsProduction = false;
 
+    @JsonProperty("approveMutatingRequests")
+    private boolean approveMutatingRequests = false;
+
     public RunSafetyConfig() {}
 
     public boolean isDryRun() { return dryRun; }
@@ -20,4 +23,6 @@ public class RunSafetyConfig {
     public void setRequireConfirmation(boolean requireConfirmation) { this.requireConfirmation = requireConfirmation; }
     public boolean isFailIfEnvironmentAllowsProduction() { return failIfEnvironmentAllowsProduction; }
     public void setFailIfEnvironmentAllowsProduction(boolean failIfEnvironmentAllowsProduction) { this.failIfEnvironmentAllowsProduction = failIfEnvironmentAllowsProduction; }
+    public boolean isApproveMutatingRequests() { return approveMutatingRequests; }
+    public void setApproveMutatingRequests(boolean approveMutatingRequests) { this.approveMutatingRequests = approveMutatingRequests; }
 }
