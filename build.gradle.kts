@@ -1,6 +1,6 @@
 plugins {
     java
-    id("io.gatling.gradle") version "3.13.5"
+    alias(libs.plugins.gatling)
 }
 
 repositories {
@@ -14,38 +14,31 @@ java {
     }
 }
 
-val jacksonVersion = "2.18.3"
-val junitVersion = "5.11.4"
-val gatlingVersion = "3.13.5"
-
 dependencies {
     // Jackson YAML
-    implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion")
+    implementation(libs.bundles.jackson)
 
     // SLF4J + Logback
-    implementation("org.slf4j:slf4j-api:2.0.16")
-    implementation("ch.qos.logback:logback-classic:1.5.12")
+    implementation(libs.bundles.logging)
 
     // H2 for SQL feeder (test DB)
-    implementation("com.h2database:h2:2.2.224")
+    implementation(libs.h2)
 
     // HikariCP connection pool
-    implementation("com.zaxxer:HikariCP:6.3.0")
+    implementation(libs.hikaricp)
 
     // Gatling on main compile classpath (factories use Gatling APIs)
-    compileOnly("io.gatling.highcharts:gatling-charts-highcharts:$gatlingVersion")
+    compileOnly(libs.gatling.charts.highcharts)
     // Gatling for the gatling source set
-    gatling("io.gatling.highcharts:gatling-charts-highcharts:$gatlingVersion")
+    gatling(libs.gatling.charts.highcharts)
 
     // Test dependencies
-    testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
-    testImplementation("org.assertj:assertj-core:3.27.3")
-    testImplementation("com.h2database:h2:2.2.224")
-    testImplementation("io.gatling.highcharts:gatling-charts-highcharts:$gatlingVersion")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockito.junit.jupiter)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.h2)
+    testImplementation(libs.gatling.charts.highcharts)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {

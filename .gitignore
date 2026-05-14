@@ -32,3 +32,4 @@ build/
 
 # Gradle user home cache (local machine)
 .gradle/
+CLAUDE.md
