@@ -1,20 +1,44 @@
 package io.rampage.factory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.gatling.javaapi.core.CheckBuilder;
+import io.gatling.javaapi.core.ChainBuilder;
+import io.gatling.javaapi.core.CoreDsl;
 import io.gatling.javaapi.core.ScenarioBuilder;
 import io.rampage.config.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import static io.gatling.javaapi.core.CoreDsl.*;
-import static io.gatling.javaapi.http.HttpDsl.*;
+import static io.gatling.javaapi.core.CoreDsl.StringBody;
+import static io.gatling.javaapi.core.CoreDsl.jsonPath;
+import static io.gatling.javaapi.core.CoreDsl.scenario;
+import static io.gatling.javaapi.http.HttpDsl.http;
+import static io.gatling.javaapi.http.HttpDsl.status;
 
 public class ScenarioFactory {
     private static final Logger log = LoggerFactory.getLogger(ScenarioFactory.class);
+    private static final ObjectMapper BODY_MAPPER = new ObjectMapper();
+    private static final Pattern FEEDER_PLACEHOLDER = Pattern.compile("^\\$\\{feeder:([^}]+)\\}$");
+
+    private final Supplier<String> correlationIdSupplier;
+
+    public ScenarioFactory() {
+        this(() -> UUID.randomUUID().toString());
+    }
+
+    public ScenarioFactory(Supplier<String> correlationIdSupplier) {
+        this.correlationIdSupplier = correlationIdSupplier;
+    }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
         log.info("Building scenario: {}", scenarioCfg.getName());
@@ -22,18 +46,7 @@ public class ScenarioFactory {
         String endpointRef = scenarioCfg.getEndpointRef() != null ? scenarioCfg.getEndpointRef() : "graphql";
         String endpoint = "/" + endpointRef;
 
-        String escapedQuery = graphqlQuery
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("\t", "\\t");
-
-        Map<String, String> variables = scenarioCfg.getRequest() != null
-            ? scenarioCfg.getRequest().getVariables() : null;
-        String variablesJson = buildVariablesJson(variables);
-
-        String bodyExpression = "{\"query\": \"" + escapedQuery + "\", \"variables\": " + variablesJson + "}";
+        String bodyExpression = buildRequestBody(scenarioCfg, graphqlQuery);
 
         List<CheckBuilder> checks = buildChecks(scenarioCfg.getChecks());
 
@@ -53,26 +66,43 @@ public class ScenarioFactory {
             request = request.check(checks.toArray(new CheckBuilder[0]));
         }
 
-        return scenario(scenarioCfg.getName()).exec(request);
+        Supplier<String> idSupplier = correlationIdSupplier;
+        ChainBuilder withCorrelationId = CoreDsl.exec(session -> session.set("correlationId", idSupplier.get()));
+
+        return scenario(scenarioCfg.getName()).exec(withCorrelationId, request);
     }
 
-    private String buildVariablesJson(Map<String, String> variables) {
-        if (variables == null || variables.isEmpty()) {
-            return "{}";
+    static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("query", graphqlQuery != null ? graphqlQuery : "");
+        body.put("variables", rewriteFeederPlaceholders(scenarioCfg.getRequest() != null
+            ? scenarioCfg.getRequest().getVariables() : null));
+        if (scenarioCfg.getOperationName() != null && !scenarioCfg.getOperationName().isBlank()) {
+            body.put("operationName", scenarioCfg.getOperationName());
         }
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            if (!first) sb.append(", ");
-            first = false;
-            String value = entry.getValue();
-            if (value != null && value.startsWith("${feeder:") && value.endsWith("}")) {
-                value = "#{" + value.substring(9, value.length() - 1) + "}";
+        try {
+            return BODY_MAPPER.writeValueAsString(body);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to build request body for scenario '"
+                + scenarioCfg.getName() + "'", e);
+        }
+    }
+
+    static Map<String, Object> rewriteFeederPlaceholders(Map<String, Object> variables) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (variables == null) return result;
+        for (Map.Entry<String, Object> entry : variables.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof String s) {
+                Matcher m = FEEDER_PLACEHOLDER.matcher(s);
+                if (m.matches()) {
+                    result.put(entry.getKey(), "#{" + m.group(1) + "}");
+                    continue;
+                }
             }
-            sb.append("\"").append(entry.getKey()).append("\": \"").append(value).append("\"");
+            result.put(entry.getKey(), value);
         }
-        sb.append("}");
-        return sb.toString();
+        return result;
     }
 
     private List<CheckBuilder> buildChecks(ChecksConfig checksConfig) {

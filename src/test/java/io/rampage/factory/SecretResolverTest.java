@@ -1,5 +1,7 @@
 package io.rampage.factory;
 
+import io.rampage.config.model.CredentialConfig;
+import io.rampage.config.model.TokenConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -79,5 +81,111 @@ class SecretResolverTest {
         Map<String, String> resolved = SecretResolver.resolveHeaders(null, secretResolver);
         assertNotNull(resolved);
         assertTrue(resolved.isEmpty());
+    }
+
+    @Test
+    void resolveCredential_throwsWhenRequiredEnvVarUnset() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("env");
+        cred.setEnvVar("RAMPAGE_TEST_UNSET_VAR_XYZ");
+        // required defaults to true
+
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveCredential(cred, "environment.databases.sourceData.password"));
+        assertTrue(ex.getMessage().contains("RAMPAGE_TEST_UNSET_VAR_XYZ"));
+        assertTrue(ex.getMessage().contains("environment.databases.sourceData.password"));
+    }
+
+    @Test
+    void resolveCredential_returnsEmptyWhenOptionalEnvVarUnset() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("env");
+        cred.setEnvVar("RAMPAGE_TEST_UNSET_VAR_XYZ");
+        cred.setRequired(false);
+
+        assertEquals("", secretResolver.resolveCredential(cred, "test.path"));
+    }
+
+    @Test
+    void resolveCredential_throwsWhenRequiredEnvVarNameBlank() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("env");
+        cred.setEnvVar("");
+
+        assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveCredential(cred, "test.path"));
+    }
+
+    @Test
+    void resolveCredential_throwsWhenSecretManagerPathMissing() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("secret-manager");
+
+        assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveCredential(cred, "test.path"));
+    }
+
+    @Test
+    void resolveCredential_returnsPlainValue() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("plain");
+        cred.setValue("hello");
+
+        assertEquals("hello", secretResolver.resolveCredential(cred, "test"));
+    }
+
+    @Test
+    void resolveToken_throwsWhenRequiredEnvVarUnset() {
+        TokenConfig token = new TokenConfig();
+        token.setSource("env");
+        token.setEnvVar("RAMPAGE_TEST_UNSET_TOKEN_XYZ");
+
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveToken(token, "environment.security.token"));
+        assertTrue(ex.getMessage().contains("RAMPAGE_TEST_UNSET_TOKEN_XYZ"));
+        assertTrue(ex.getMessage().contains("environment.security.token"));
+    }
+
+    @Test
+    void resolveToken_returnsEmptyWhenOptionalAndUnset() {
+        TokenConfig token = new TokenConfig();
+        token.setSource("env");
+        token.setEnvVar("RAMPAGE_TEST_UNSET_TOKEN_XYZ");
+        token.setRequired(false);
+
+        assertEquals("", secretResolver.resolveToken(token, "test"));
+    }
+
+    @Test
+    void getSensitiveValues_tracksResolvedPlainCredentials() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("plain");
+        cred.setValue("super-secret-pwd");
+
+        secretResolver.resolveCredential(cred, "test.password");
+
+        assertTrue(secretResolver.getSensitiveValues().contains("super-secret-pwd"));
+    }
+
+    @Test
+    void getSensitiveValues_doesNotTrackEmpty() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("plain");
+        cred.setValue("");
+
+        secretResolver.resolveCredential(cred, "test.password");
+
+        assertFalse(secretResolver.getSensitiveValues().contains(""));
+    }
+
+    @Test
+    void getSensitiveValues_doesNotTrackRedactedPlaceholder() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("secret-manager");
+        cred.setSecretPath("vault/secret");
+
+        secretResolver.resolveCredential(cred, "test.password");
+
+        assertFalse(secretResolver.getSensitiveValues().stream().anyMatch(v -> v.equals("***REDACTED***")));
     }
 }

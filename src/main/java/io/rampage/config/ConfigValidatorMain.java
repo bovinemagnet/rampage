@@ -23,12 +23,11 @@ public class ConfigValidatorMain {
             List<ScenarioConfig> scenarios = new ArrayList<>();
             if (run.getScenarios() != null) {
                 for (ScenarioRef ref : run.getScenarios()) {
-                    if (ref.isEnabled() && ref.getFile() != null) {
+                    if (ref.isEnabled()) {
                         try {
-                            ScenarioConfig sc = loader.loadScenarioFromFilesystem(ref.getFile());
-                            scenarios.add(sc);
+                            scenarios.add(loader.loadScenario(ref));
                         } catch (Exception e) {
-                            log.warn("Failed to load scenario '{}' from '{}': {}", ref.getId(), ref.getFile(), e.getMessage());
+                            log.warn("Failed to load scenario '{}': {}", ref.getId(), e.getMessage());
                         }
                     }
                 }

@@ -3,8 +3,14 @@ package io.rampage.factory;
 import io.rampage.config.model.EnvironmentConfig;
 import io.rampage.config.model.RunConfig;
 import io.rampage.config.model.ScenarioConfig;
+import io.rampage.config.model.ScenarioRef;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -99,5 +105,57 @@ class ConfigLoaderTest {
         RuntimeException ex = assertThrows(RuntimeException.class,
             () -> configLoader.loadRun("nonexistent-run.yaml"));
         assertTrue(ex.getMessage().contains("nonexistent-run.yaml"));
+    }
+
+    @Test
+    void loadScenario_byRef_resolvesFromFilesystem(@TempDir Path tempDir) throws IOException {
+        Path scenarioFile = tempDir.resolve("custom-scenario.yaml");
+        Files.writeString(scenarioFile, "id: fs-scenario\nname: From Filesystem\nprotocol: graphql\n");
+        ScenarioRef ref = new ScenarioRef();
+        ref.setId("fs-scenario");
+        ref.setFile(scenarioFile.toString());
+
+        ScenarioConfig config = configLoader.loadScenario(ref);
+
+        assertEquals("fs-scenario", config.getId());
+        assertEquals("From Filesystem", config.getName());
+    }
+
+    @Test
+    void loadScenario_byRef_resolvesFileAsClasspath() {
+        ScenarioRef ref = new ScenarioRef();
+        ref.setId("test-scenario");
+        ref.setFile("scenarios/test-scenario.yaml");
+
+        ScenarioConfig config = configLoader.loadScenario(ref);
+
+        assertEquals("test-scenario", config.getId());
+    }
+
+    @Test
+    void loadScenario_byRef_fallsBackToIdConventionOnClasspath() {
+        ScenarioRef ref = new ScenarioRef();
+        ref.setId("test-scenario");
+        // No file set — should resolve scenarios/test-scenario.yaml from classpath
+
+        ScenarioConfig config = configLoader.loadScenario(ref);
+
+        assertEquals("test-scenario", config.getId());
+    }
+
+    @Test
+    void loadScenario_byRef_throwsWithAttemptsWhenUnresolvable() {
+        ScenarioRef ref = new ScenarioRef();
+        ref.setId("does-not-exist");
+        ref.setFile("/nonexistent/path/scenario.yaml");
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+            () -> configLoader.loadScenario(ref));
+
+        // The message should include both attempted paths so users can debug
+        assertTrue(ex.getMessage().contains("/nonexistent/path/scenario.yaml"),
+            "Should mention filesystem path: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("does-not-exist"),
+            "Should mention id-based fallback: " + ex.getMessage());
     }
 }

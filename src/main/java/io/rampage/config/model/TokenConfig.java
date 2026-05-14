@@ -12,6 +12,9 @@ public class TokenConfig {
     @JsonProperty("secretPath")
     private String secretPath;
 
+    @JsonProperty("required")
+    private boolean required = true;
+
     public TokenConfig() {}
 
     public String getSource() { return source; }
@@ -20,4 +23,6 @@ public class TokenConfig {
     public void setEnvVar(String envVar) { this.envVar = envVar; }
     public String getSecretPath() { return secretPath; }
     public void setSecretPath(String secretPath) { this.secretPath = secretPath; }
+    public boolean isRequired() { return required; }
+    public void setRequired(boolean required) { this.required = required; }
 }

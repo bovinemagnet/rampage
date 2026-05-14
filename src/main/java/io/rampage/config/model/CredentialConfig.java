@@ -15,6 +15,9 @@ public class CredentialConfig {
     @JsonProperty("value")
     private String value;
 
+    @JsonProperty("required")
+    private boolean required = true;
+
     public CredentialConfig() {}
 
     public String getSource() { return source; }
@@ -25,4 +28,6 @@ public class CredentialConfig {
     public void setSecretPath(String secretPath) { this.secretPath = secretPath; }
     public String getValue() { return value; }
     public void setValue(String value) { this.value = value; }
+    public boolean isRequired() { return required; }
+    public void setRequired(boolean required) { this.required = required; }
 }

@@ -17,6 +17,7 @@ security:
   token:
     source: env
     envVar: API_TOKEN
+    required: false
   headers:
     X-Correlation-Source: gatling
     X-Test-Run-Id: ${run:id}
@@ -28,9 +29,11 @@ databases:
     username:
       source: env
       envVar: DB_USERNAME
+      required: false
     password:
       source: env
       envVar: DB_PASSWORD
+      required: false
     pool:
       maximumPoolSize: 5
       connectionTimeoutMillis: 5000

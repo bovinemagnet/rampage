@@ -4,6 +4,7 @@ Author: Paul Snow
 Version: 0.0.0
 Date: 2026-05-14
 Source PRD: `docs/prd/initial-prd.md`
+Last updated: 2026-05-14 — M1 (MVP Honesty) features F-001 through F-008 landed.
 
 Status legend:
 - **Done** — implemented and exercised by tests
@@ -31,7 +32,7 @@ Status legend:
 | RUN-002 | Global and scenario-level assertions | Partial | `AssertionsConfig` parsed; only global p95/p99/error% wired. Scenario-level assertions parsed and unused. |
 | RUN-003 | Open and closed workload models | Partial | `ExecutionConfig.mode: "open"` accepted; only open-model injection steps emitted. Closed model not implemented. |
 | RUN-004 | smoke, baseline, load, stress, spike, soak | Partial | `smoke`, `ramp-and-hold`, `soak`, `constant` implemented. `baseline`, `spike`, `stress` missing. |
-| RUN-005 | Run metadata for reporting/traceability | Partial | `MetadataConfig` parsed; `RunMetadataWriter` exists but is **not wired** (D1). `changeReference` not emitted (D13). |
+| RUN-005 | Run metadata for reporting/traceability | Done | `RunMetadataWriter` wired via `Simulation.before()` (F-001); emits `gitCommit`, `gitBranch`, `changeReference`, and scenario tags. |
 | RUN-006 | Dry-run validation without executing load | Partial | `validateLoadTest` Gradle task exists. `run.safety.dryRun` parsed but does not gate `gatlingRun`. |
 | RUN-007 | Disabled scenarios remain in file | Done | `ScenarioRef.enabled` honoured in `RampageSimulation`. |
 
@@ -41,7 +42,7 @@ Status legend:
 |---|---|---|---|
 | SCN-001 | GraphQL POST | Done | `ScenarioFactory.build` always POSTs to `/<endpointRef>`. |
 | SCN-002 | External GraphQL query files | Done | `RequestConfig.graphqlQueryFile`; loaded by `ConfigLoader.loadResource`. |
-| SCN-003 | GraphQL variables from feeders | Partial | `${feeder:X}` is rewritten to Gatling EL `#{X}`. Type safety is broken (D6) — booleans/numbers become strings. |
+| SCN-003 | GraphQL variables from feeders | Done | Jackson-based body construction (F-003); booleans/numbers/nulls round-trip correctly; `${feeder:X}` rewritten to `#{X}`. |
 | SCN-004 | SQL-backed JDBC feeders | Done | `FeederFactory.loadFromSql` reads SQL from filesystem or classpath. |
 | SCN-005 | Feeder strategies (queue, shuffle, random, circular) | Partial | `circular` and `random/shuffle` (shuffle-once). `queue` not implemented. Random is misnamed (D14). |
 | SCN-006 | Request-specific headers | Done | `ScenarioConfig.headers` are applied in `ScenarioFactory.build`. |
@@ -68,11 +69,11 @@ Status legend:
 |---|---|---|---|
 | SEC-001 | No raw secrets in source control | Done by convention | Sample YAMLs use env-var refs; no automated lint. |
 | SEC-002 | Env-var or secret-manager refs | Partial | Env vars supported. Secret-manager source returns `***REDACTED***` (stub). |
-| SEC-003 | Reports/snapshots redact secrets | Partial | `RunMetadataWriter` claims `redacted: true` but never holds resolved secrets. Config snapshot not generated at all (D10). |
+| SEC-003 | Reports/snapshots redact secrets | Partial | `RunMetadataWriter` writes `redactSecretsEnabled` reflecting the flag honestly (F-007); writer no longer serialises any secret-derived values. `SecretResolver.getSensitiveValues()` exposes resolved secrets for the config snapshot writer (still pending — F-029). |
 | SEC-004 | Authorization injected from environment | Done | `HttpProtocolFactory` adds `Authorization: Bearer <token>` for `bearer-token` mode. |
 | SEC-005 | Per-scenario headers on top of environment | Partial | Scenario headers applied; no enforcement against overriding `Authorization` (D12). |
 | SEC-006 | Token refresh / generation for long runs | Missing | Token is read once at simulation init. |
-| SEC-007 | Prevent accidental production execution | Partial | `ConfigValidator` checks `env.id.contains("prod")`. `run.safety.failIfEnvironmentAllowsProduction` parsed but unused. |
+| SEC-007 | Prevent accidental production execution | Partial | `ConfigValidator` checks `env.id.contains("prod")` and now also honours `run.safety.failIfEnvironmentAllowsProduction` (F-004). Stronger `isProduction` flag still pending (F-014). Missing required secrets now fail validation (F-002). |
 | SEC-008 | Avoid logging full request bodies with sensitive data | Missing | Gatling default logging used; no body redaction layer. |
 
 ## Config Resolution Rules (PRD §14)
@@ -112,13 +113,13 @@ Status legend:
 | # | Rule | Status |
 |---|---|---|
 | 1 | Required YAML files missing | Done (`ConfigLoader` throws) |
-| 2 | Unknown required fields / invalid enums | Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false`; no enum validation |
-| 3 | Missing GraphQL/SQL files | Missing — failure happens at simulation init, not validation |
+| 2 | Unknown required fields / invalid enums | Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false`; workload type enum now validated (F-004) |
+| 3 | Missing GraphQL/SQL files | Done — `ConfigValidator` checks filesystem and classpath (F-004) |
 | 4 | Empty JDBC feeder with `failIfEmpty=true` | Partial — caught at feeder load, not in `ConfigValidator` |
-| 5 | Required secret cannot be resolved | Missing — currently returns `""` |
-| 6 | Mutating scenario vs env disallowing mutation | Missing |
-| 7 | Production target without approval | Partial — string-match only |
-| 8 | Invalid workload duration/rate | Missing — parser falls back to default silently |
+| 5 | Required secret cannot be resolved | Done — `SecretResolver` throws; `ConfigValidator` aggregates (F-002) |
+| 6 | Mutating scenario vs env disallowing mutation | Missing (F-014) |
+| 7 | Production target without approval | Partial — string-match + `failIfEnvironmentAllowsProduction` (F-004); strict `isProduction` flag pending (F-014) |
+| 8 | Invalid workload duration/rate | Partial — strict duration parser validates rampUp/holdFor/duration (F-004); rate value sanity checks missing |
 | 9 | Malformed assertions | Missing |
 | 10 | Scenario with no checks | Missing |
 
@@ -127,12 +128,12 @@ Status legend:
 | Output | Status |
 |---|---|
 | Gatling HTML report | Done — produced by plugin |
-| Run metadata JSON | Partial — code exists, not wired (D1) |
-| Sanitised resolved config snapshot | Missing |
-| Scenario list + effective workload summary | Missing |
+| Run metadata JSON | Done — wired via `Simulation.before()` (F-001) |
+| Sanitised resolved config snapshot | Missing (F-029) |
+| Scenario list + effective workload summary | Partial — scenario list with tags emitted (F-001); effective workload pending (F-030) |
 | Feeder row counts | Partial — logged, not in report metadata |
 | Assertion results | Partial — Gatling-native; not in custom metadata |
-| Build/commit metadata | Partial — `gitCommit` captured, but `RunMetadataWriter` not invoked |
+| Build/commit metadata | Partial — `gitCommit` + `gitBranch` captured (F-001); build URL pending |
 
 ## MVP Acceptance Criteria (PRD §20)
 
@@ -141,13 +142,13 @@ Status legend:
 | 1 | Smoke test from Gradle on Java 25 | Done |
 | 2 | Loads env + run + scenario YAML | Done |
 | 3 | Executes GraphQL with external query | Done |
-| 4 | Variables from SQL feeder | Partial — works for strings only (D6) |
+| 4 | Variables from SQL feeder | Done — Jackson body preserves YAML types (F-003) |
 | 5 | Ramp-up, hold, request rate | Done |
 | 6 | Injects auth headers from secret refs | Done (env-var path only) |
-| 7 | Fails fast on unavailable secrets | Missing (D8) |
+| 7 | Fails fast on unavailable secrets | Done — `SecretResolver` + `ConfigValidator` (F-002) |
 | 8 | Generates Gatling report | Done |
 | 9 | At least one global assertion | Done |
-| 10 | Redacts secrets in logs/metadata | Partial — flag only, no behaviour (D10) |
+| 10 | Redacts secrets in logs/metadata | Done — writer honest about flag, no secret values serialised (F-001 + F-007) |
 
 ## Post-MVP Acceptance Criteria (PRD §20)
 

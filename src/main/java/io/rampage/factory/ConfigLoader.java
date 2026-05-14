@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import io.rampage.config.model.EnvironmentConfig;
 import io.rampage.config.model.RunConfig;
 import io.rampage.config.model.ScenarioConfig;
+import io.rampage.config.model.ScenarioRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +15,8 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConfigLoader {
     private static final Logger log = LoggerFactory.getLogger(ConfigLoader.class);
@@ -105,6 +108,52 @@ public class ConfigLoader {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load scenario config from filesystem: " + filePath, e);
         }
+    }
+
+    public ScenarioConfig loadScenario(ScenarioRef ref) {
+        if (ref == null) {
+            throw new IllegalArgumentException("ScenarioRef must not be null");
+        }
+        List<String> attempts = new ArrayList<>();
+        String file = ref.getFile();
+
+        if (file != null && !file.isBlank()) {
+            File fsFile = new File(file);
+            attempts.add("filesystem: " + file);
+            if (fsFile.exists() && fsFile.isFile()) {
+                return loadScenarioFromFilesystem(file);
+            }
+
+            attempts.add("classpath: " + file);
+            try (InputStream is = getClass().getClassLoader().getResourceAsStream(file)) {
+                if (is != null) {
+                    log.info("Loading scenario config from classpath: {}", file);
+                    ScenarioConfig config = mapper.readValue(is, ScenarioConfig.class);
+                    log.info("Loaded scenario: {}", config.getName());
+                    return config;
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load scenario config from classpath: " + file, e);
+            }
+        }
+
+        if (ref.getId() != null && !ref.getId().isBlank()) {
+            String idPath = "scenarios/" + ref.getId() + ".yaml";
+            attempts.add("classpath (id convention): " + idPath);
+            try (InputStream is = getClass().getClassLoader().getResourceAsStream(idPath)) {
+                if (is != null) {
+                    log.info("Loading scenario config from classpath: {}", idPath);
+                    ScenarioConfig config = mapper.readValue(is, ScenarioConfig.class);
+                    log.info("Loaded scenario: {}", config.getName());
+                    return config;
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load scenario config from classpath: " + idPath, e);
+            }
+        }
+
+        throw new RuntimeException(
+            "Failed to resolve scenario '" + ref.getId() + "'. Attempted: " + String.join("; ", attempts));
     }
 
     public String loadResource(String resourcePath) {

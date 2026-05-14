@@ -60,6 +60,18 @@ public class WorkloadFactory {
         if (durationStr == null || durationStr.isBlank()) {
             return defaultDuration;
         }
+        try {
+            return parseDurationStrict(durationStr);
+        } catch (IllegalArgumentException e) {
+            log.warn("Could not parse duration '{}', using default: {}", durationStr, defaultDuration);
+            return defaultDuration;
+        }
+    }
+
+    public static Duration parseDurationStrict(String durationStr) {
+        if (durationStr == null || durationStr.isBlank()) {
+            throw new IllegalArgumentException("Duration must not be null or blank");
+        }
         String s = durationStr.trim().toLowerCase();
         try {
             if (s.endsWith("ms")) {
@@ -74,8 +86,8 @@ public class WorkloadFactory {
                 return Duration.ofSeconds(Long.parseLong(s));
             }
         } catch (NumberFormatException e) {
-            log.warn("Could not parse duration '{}', using default: {}", durationStr, defaultDuration);
-            return defaultDuration;
+            throw new IllegalArgumentException("Invalid duration: '" + durationStr
+                + "'. Expected e.g. '5s', '2m', '1h', '500ms', or a bare number of seconds.", e);
         }
     }
 }

@@ -4,9 +4,11 @@ import io.gatling.javaapi.core.*;
 import io.gatling.javaapi.http.*;
 import io.rampage.config.model.*;
 import io.rampage.factory.*;
+import io.rampage.reporting.RunMetadataWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.*;
 
 import static io.gatling.javaapi.core.CoreDsl.*;
@@ -17,24 +19,27 @@ public class RampageSimulation extends Simulation {
 
     private final ConfigLoader configLoader = new ConfigLoader();
     private final SecretResolver secretResolver = new SecretResolver();
-    private final ConfigValidator validator = new ConfigValidator();
+    private final ConfigValidator validator = new ConfigValidator(secretResolver);
     private final HttpProtocolFactory httpProtocolFactory = new HttpProtocolFactory();
     private final ScenarioFactory scenarioFactory = new ScenarioFactory();
     private final WorkloadFactory workloadFactory = new WorkloadFactory();
     private final FeederFactory feederFactory = new FeederFactory();
+    private final RunMetadataWriter runMetadataWriter = new RunMetadataWriter();
 
     private final EnvironmentConfig envConfig = configLoader.loadEnvironment();
     private final RunConfig runConfig = configLoader.loadRun();
+    private final List<ScenarioConfig> activeScenarios = new ArrayList<>();
+    private final Instant startedAt = Instant.now();
 
     {
-        List<ScenarioConfig> scenarioConfigs = new ArrayList<>();
         if (runConfig.getScenarios() != null) {
             for (ScenarioRef ref : runConfig.getScenarios()) {
                 if (ref.isEnabled()) {
-                    scenarioConfigs.add(configLoader.loadScenario("scenarios/" + ref.getId() + ".yaml"));
+                    activeScenarios.add(configLoader.loadScenario(ref));
                 }
             }
         }
+        List<ScenarioConfig> scenarioConfigs = activeScenarios;
 
         validator.validate(envConfig, runConfig, scenarioConfigs);
 
@@ -89,6 +94,22 @@ public class RampageSimulation extends Simulation {
         setUp(populations.toArray(new PopulationBuilder[0]))
             .assertions(assertions.toArray(new Assertion[0]))
             .protocols(httpProtocol);
+    }
+
+    @Override
+    public void before() {
+        ReportingConfig reporting = runConfig.getReporting();
+        if (reporting != null && reporting.isWriteRunMetadata()) {
+            String outputDir = reporting.getOutputDirectory();
+            if (outputDir == null || outputDir.isBlank()) {
+                outputDir = "build/reports/gatling";
+            }
+            try {
+                runMetadataWriter.write(runConfig, envConfig, activeScenarios, outputDir, startedAt);
+            } catch (Exception e) {
+                log.warn("Failed to write run metadata: {}", e.getMessage());
+            }
+        }
     }
 
     private List<Assertion> buildAssertions(AssertionsConfig assertionsConfig) {

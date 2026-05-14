@@ -8,7 +8,7 @@ public class RequestConfig {
     private String graphqlQueryFile;
 
     @JsonProperty("variables")
-    private Map<String, String> variables;
+    private Map<String, Object> variables;
 
     @JsonProperty("bodyTemplate")
     private String bodyTemplate;
@@ -17,8 +17,8 @@ public class RequestConfig {
 
     public String getGraphqlQueryFile() { return graphqlQueryFile; }
     public void setGraphqlQueryFile(String graphqlQueryFile) { this.graphqlQueryFile = graphqlQueryFile; }
-    public Map<String, String> getVariables() { return variables; }
-    public void setVariables(Map<String, String> variables) { this.variables = variables; }
+    public Map<String, Object> getVariables() { return variables; }
+    public void setVariables(Map<String, Object> variables) { this.variables = variables; }
     public String getBodyTemplate() { return bodyTemplate; }
     public void setBodyTemplate(String bodyTemplate) { this.bodyTemplate = bodyTemplate; }
 }

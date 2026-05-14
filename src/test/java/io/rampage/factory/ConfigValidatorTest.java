@@ -144,4 +144,154 @@ class ConfigValidatorTest {
             () -> validator.validate(env, run, List.of(validScenario("test-scenario"))));
         assertTrue(ex.getErrors().size() >= 2, "Should have multiple errors");
     }
+
+    @Test
+    void validate_failsWhenRequiredSecretEnvVarUnset() {
+        EnvironmentConfig env = validEnv();
+        SecurityConfig sec = new SecurityConfig();
+        sec.setMode("bearer-token");
+        TokenConfig token = new TokenConfig();
+        token.setSource("env");
+        token.setEnvVar("RAMPAGE_TEST_UNSET_TOKEN_QQQ");
+        sec.setToken(token);
+        env.setSecurity(sec);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env, validRun(), List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("RAMPAGE_TEST_UNSET_TOKEN_QQQ")),
+            "Expected error to mention the missing env var: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_passesWhenOptionalSecretEnvVarUnset() {
+        EnvironmentConfig env = validEnv();
+        SecurityConfig sec = new SecurityConfig();
+        sec.setMode("bearer-token");
+        TokenConfig token = new TokenConfig();
+        token.setSource("env");
+        token.setEnvVar("RAMPAGE_TEST_UNSET_TOKEN_QQQ");
+        token.setRequired(false);
+        sec.setToken(token);
+        env.setSecurity(sec);
+
+        assertDoesNotThrow(() ->
+            validator.validate(env, validRun(), List.of(validScenario("test-scenario"))));
+    }
+
+    @Test
+    void validate_failsWhenGraphqlQueryFileMissing() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        RequestConfig req = new RequestConfig();
+        req.setGraphqlQueryFile("/no/such/path/query.graphql");
+        sc.setRequest(req);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("graphqlQueryFile")),
+            "Expected graphqlQueryFile error in: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_failsWhenSqlFileMissing() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        FeederConfig feeder = new FeederConfig();
+        feeder.setSqlFile("/no/such/path/feeder.sql");
+        sc.setFeeder(feeder);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("sqlFile")));
+    }
+
+    @Test
+    void validate_failsWhenDatabaseRefMissing() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        FeederConfig feeder = new FeederConfig();
+        feeder.setDatabaseRef("nonexistent");
+        sc.setFeeder(feeder);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("databaseRef")));
+    }
+
+    @Test
+    void validate_passesWhenDatabaseRefDefined() {
+        EnvironmentConfig env = validEnv();
+        DatabaseConfig db = new DatabaseConfig();
+        db.setJdbcUrl("jdbc:h2:mem:test");
+        env.setDatabases(Map.of("sourceData", db));
+
+        ScenarioConfig sc = validScenario("test-scenario");
+        FeederConfig feeder = new FeederConfig();
+        feeder.setDatabaseRef("sourceData");
+        sc.setFeeder(feeder);
+
+        assertDoesNotThrow(() -> validator.validate(env, validRun(), List.of(sc)));
+    }
+
+    @Test
+    void validate_failsForUnknownWorkloadType() {
+        RunConfig run = validRun();
+        run.getExecution().getWorkload().setType("teleport-storm");
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("teleport-storm")));
+    }
+
+    @Test
+    void validate_failsForMalformedDuration() {
+        RunConfig run = validRun();
+        run.getExecution().getWorkload().setRampUp("forever");
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("rampUp")
+            && e.contains("Invalid duration")));
+    }
+
+    @Test
+    void validate_failsWhenFailIfEnvAllowsProductionAndEnvAllows() {
+        EnvironmentConfig env = validEnv();
+        env.getSafety().setAllowProduction(true);
+
+        RunConfig run = validRun();
+        RunSafetyConfig safety = new RunSafetyConfig();
+        safety.setFailIfEnvironmentAllowsProduction(true);
+        run.setSafety(safety);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env, run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("failIfEnvironmentAllowsProduction")));
+    }
+
+    @Test
+    void validate_reportsUnresolvedDatabaseCredentials() {
+        EnvironmentConfig env = validEnv();
+        DatabaseConfig db = new DatabaseConfig();
+        db.setJdbcUrl("jdbc:h2:mem:test");
+        CredentialConfig user = new CredentialConfig();
+        user.setSource("env");
+        user.setEnvVar("RAMPAGE_TEST_UNSET_USER_QQQ");
+        db.setUsername(user);
+        CredentialConfig pwd = new CredentialConfig();
+        pwd.setSource("env");
+        pwd.setEnvVar("RAMPAGE_TEST_UNSET_PWD_QQQ");
+        db.setPassword(pwd);
+        env.setDatabases(Map.of("sourceData", db));
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env, validRun(), List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("environment.databases.sourceData.username")));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("environment.databases.sourceData.password")));
+    }
 }
