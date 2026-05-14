@@ -1,0 +1,228 @@
+= Reporting and CI
+:author: Paul Snow
+:version: 0.0.0
+
+Rampage produces several output files alongside the Gatling HTML report. This page documents what is written, where it lands, and how to integrate the outputs into a CI pipeline.
+
+== Output directory
+
+The report output directory is configured in the run YAML:
+
+[source,yaml]
+----
+reporting:
+  outputDirectory: build/reports/gatling
+----
+
+When `outputDirectory` is not set, Gatling uses its own default (`build/reports/gatling`). Gatling creates a timestamped sub-directory per run inside this path.
+
+== Files produced
+
+=== Gatling HTML report
+
+Produced unconditionally by the Gatling plugin. Open `index.html` in any sub-directory under `build/reports/gatling/` to view response time percentiles, throughput graphs, and assertion results.
+
+=== `run-metadata.json`
+
+Written when `reporting.writeRunMetadata: true`. Contains machine-readable metadata about the run.
+
+[source,yaml]
+----
+reporting:
+  writeRunMetadata: true
+  redactSecrets: true
+----
+
+Top-level fields:
+
+[cols="1,3",options="header"]
+|===
+| Field | Description
+
+| `runId`
+| The `id` from the run YAML.
+
+| `runName`
+| The `name` from the run YAML.
+
+| `environment`
+| The resolved environment `id`.
+
+| `startedAt`
+| ISO-8601 instant when the metadata was written.
+
+| `gitCommit`
+| Short SHA from `git rev-parse --short HEAD`. `"unknown"` if git is unavailable.
+
+| `gitBranch`
+| Branch name from `git rev-parse --abbrev-ref HEAD`. `"unknown"` if git is unavailable.
+
+| `redactSecretsEnabled`
+| Boolean reflecting the value of `reporting.redactSecrets` in the run YAML.
+
+| `scenarios`
+| Array of scenario summaries. See below.
+
+| `scenarioCounts`
+| Object with `enabled`, `disabled`, `totalRate`, and `totalUsers` counts.
+
+| `runMetadata`
+| Object from the run YAML `metadata` block: `owner`, `application`, `service`, `changeReference`, `description`.
+|===
+
+Each entry in `scenarios` includes:
+
+[cols="1,3",options="header"]
+|===
+| Field | Description
+
+| `id`
+| Scenario `id`.
+
+| `name`
+| Scenario `name`.
+
+| `tags`
+| List of tags from the scenario YAML.
+
+| `effectiveWorkload`
+| Summary of the resolved workload: `type`, `rampUp`, `holdFor`, `rate`, `users`, and `source` (`"run"` or `"scenario-override"`).
+
+| `feederRowCount`
+| Number of rows loaded by the feeder (when provided by the simulation).
+
+| `effectiveAssertions`
+| Per-scenario assertion thresholds from the run's `assertions.scenarios.<id>` block.
+|===
+
+[[dry-run]]
+=== `dry-run-summary.json`
+
+Written when `run.safety.dryRun: true` or when `-Dloadtest.dryRun=true` is passed on the command line. No HTTP traffic is sent. The process exits 0 after writing the file.
+
+The summary contains the same structure as `run-metadata.json` with an additional `dryRun: true` field, allowing CI pipelines to verify the config without side-effects.
+
+=== `config-snapshot.yaml`
+
+Written when `reporting.includeConfigSnapshot: true`. Contains the fully resolved (post-substitution) configuration with secrets redacted according to the `redactSecrets` flag.
+
+[source,yaml]
+----
+reporting:
+  includeConfigSnapshot: true
+  redactSecrets: true
+----
+
+When `redactSecrets: true`, any value that was resolved from a secret source is replaced with `***REDACTED***` in the snapshot. The substitution table is built from the set of resolved secret values at validation time.
+
+WARNING: The sanitised config snapshot feature is partially implemented. The `includeConfigSnapshot` flag is parsed but the writer is pending (`F-029`). Do not rely on this file being present until the feature is marked Done in the xref:reference/requirements-traceability.adoc[requirements traceability].
+
+== `redactSecrets` flag
+
+When `reporting.redactSecrets: true` (the default), the `RunMetadataWriter` does not serialise any secret-derived values into the metadata. The flag is recorded as `redactSecretsEnabled: true` in `run-metadata.json` to confirm the policy was applied.
+
+The Gatling HTML report is produced by the plugin and is not filtered by Rampage. Avoid setting sensitive values as Gatling session attributes if the report will be uploaded as a CI artefact.
+
+== GitHub Actions integration
+
+=== `ci.yml` — build and test
+
+Runs on every push and pull request to `main`:
+
+[source,yaml]
+----
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build and test
+        run: ./gradlew --no-daemon build test
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test/
+          if-no-files-found: ignore
+----
+
+=== `smoke.yml` — manual smoke test
+
+Triggered via `workflow_dispatch` with optional inputs for environment and run YAML paths. Credentials are supplied via repository secrets:
+
+[source,yaml]
+----
+name: Smoke load test
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment YAML path'
+        required: false
+        default: 'config/environments/local.yaml'
+      run:
+        description: 'Run YAML path'
+        required: false
+        default: 'config/runs/smoke.yaml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      LOADTEST_ENV: ${{ inputs.env }}
+      LOADTEST_RUN: ${{ inputs.run }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Validate config
+        run: ./gradlew --no-daemon validateLoadTest
+              -Dloadtest.env="$LOADTEST_ENV" -Dloadtest.run="$LOADTEST_RUN"
+      - name: Run smoke test
+        run: ./gradlew --no-daemon gatlingRun
+              -Dloadtest.env="$LOADTEST_ENV" -Dloadtest.run="$LOADTEST_RUN"
+      - name: Upload Gatling report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatling-report
+          path: build/reports/gatling/
+          if-no-files-found: warn
+----
+
+The `Upload Gatling report` step uses `if: always()` so the report is uploaded even when the run fails due to a Gatling assertion breach.
+
+TIP: Replace `API_TOKEN`, `DB_USERNAME`, and `DB_PASSWORD` with the names of the secrets configured in your GitHub repository settings (`Settings → Secrets and variables → Actions`).
+
+== Gatling assertion failure and exit code
+
+When a global or per-scenario assertion threshold is breached, Gatling exits with a non-zero code. This causes the CI step to fail and the pipeline to stop. The Gatling HTML report is still written, which is why `if: always()` is used on the upload step.
+
+See xref:scenario-authoring.adoc#checks[Response checks] for the supported assertion types.
+
+== See also
+
+* xref:getting-started.adoc[Getting started] — where to find the HTML report after a local run.
+* xref:security.adoc[Security and secrets] — how secrets are redacted.
+* xref:troubleshooting.adoc[Troubleshooting] — common CI failure patterns.

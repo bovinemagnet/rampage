@@ -1,0 +1,9 @@
+name: rampage
+title: Rampage
+version: 0.0.0
+nav:
+  - modules/ROOT/nav.adoc
+asciidoc:
+  attributes:
+    project-author: Paul Snow
+    project-version: 0.0.0

@@ -1,0 +1,23 @@
+= Rampage
+:author: Paul Snow
+:version: 0.0.0
+
+Rampage is a configuration-driven Gatling load testing framework. YAML files describe the environment, run, and scenarios; a thin Java engine resolves them into Gatling protocols, scenarios, feeders, and injection profiles.
+
+== Why Rampage
+
+* Three orthogonal YAML files — environment, run, scenario — so the same scenarios run unchanged across local, CI, and perf environments.
+* Native GraphQL request shape with externalised query files and SQL-backed feeders.
+* Open and closed workload models, including smoke, baseline, ramp-and-hold, soak, spike, and stress profiles.
+* Secret-aware validation that fails fast when required credentials are missing.
+* Run metadata, dry-run summaries, and sanitised configuration snapshots written alongside the Gatling HTML report.
+
+== Where to start
+
+* xref:getting-started.adoc[Getting started] — run the smoke test against the bundled sample config.
+* xref:scenario-authoring.adoc[Scenario authoring] — write your first new scenario.
+* xref:configuration-reference.adoc[Configuration reference] — auto-generated field-by-field reference for env/run/scenario YAML.
+
+== Project conventions
+
+Author: Paul Snow. Version: 0.0.0. British spelling throughout. The codebase uses `gradle21w` locally and `./gradlew` in CI.

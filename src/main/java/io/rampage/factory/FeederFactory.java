@@ -18,14 +18,26 @@ import java.util.Locale;
 public class FeederFactory {
     private static final Logger log = LoggerFactory.getLogger(FeederFactory.class);
 
+    private SecretResolver secretResolverForTracking;
+
+    public FeederFactory() {}
+
+    public FeederFactory(SecretResolver secretResolverForTracking) {
+        this.secretResolverForTracking = secretResolverForTracking;
+    }
+
     /**
      * Backwards-compatible entry point that creates an ad-hoc pool per call. Prefer
      * {@link #loadFromSql(DataSource, FeederConfig)} with a shared {@link DataSourceRegistry}.
      */
     public List<Map<String, Object>> loadFromSql(DatabaseConfig db, FeederConfig feeder, SecretResolver secretResolver) {
+        SecretResolver previous = this.secretResolverForTracking;
+        this.secretResolverForTracking = secretResolver;
         try (DataSourceRegistry registry = new DataSourceRegistry(secretResolver)) {
             DataSource ds = registry.getOrCreate("adhoc", db);
             return loadFromSql(ds, feeder);
+        } finally {
+            this.secretResolverForTracking = previous;
         }
     }
 
@@ -109,6 +121,10 @@ public class FeederFactory {
                     throw new RuntimeException("Feeder row missing required column '" + declaredName + "'");
                 }
                 return null;
+            }
+
+            if (col.isSensitive() && value != null && secretResolverForTracking != null) {
+                secretResolverForTracking.trackSensitive(value.toString());
             }
 
             String key = col.getSessionKey() != null && !col.getSessionKey().isBlank()

@@ -1,0 +1,303 @@
+= Workload profiles
+:author: Paul Snow
+:version: 0.0.0
+
+A workload profile describes how Gatling injects virtual users or arrivals into a scenario. The `execution.workload` block in the run YAML selects the profile and its parameters.
+
+== Open vs closed model
+
+[cols="1,3",options="header"]
+|===
+| Mode | Behaviour
+
+| `open` (default)
+| Controls the *arrival rate* — new users are injected per second regardless of how many are already active. Use for systems where you know the expected request rate (e.g. "sustain 100 rps").
+
+| `closed`
+| Controls *concurrency* — a fixed number of virtual users are always active. A new user is injected only when a previous user finishes. Use for connection-pool or thread-pool limited systems.
+|===
+
+Set the mode in the run YAML:
+
+[source,yaml]
+----
+execution:
+  mode: open      # or: closed
+  workload:
+    type: ramp-and-hold
+    ...
+----
+
+Workload types that support closed mode: `smoke`, `baseline`, `constant`, `soak`, `ramp-and-hold`. The `spike` and `stress` profiles are open-model only.
+
+== Workload types
+
+=== smoke
+
+Injects a small number of users immediately. Used to confirm wiring and auth before committing to a longer run.
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `users`
+| Number of virtual users to inject at once. Default: 1.
+
+| `duration`
+| _(open model)_ How long to hold the single injection. Not used in closed model.
+|===
+
+[source,yaml]
+----
+execution:
+  mode: open
+  workload:
+    type: smoke
+    users: 1
+    duration: 30s
+----
+
+=== baseline / constant
+
+Holds a steady request rate or concurrency level for a defined period. `baseline` and `constant` are synonyms.
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `rate.to`
+| Target arrivals per second (open) or concurrent users (closed).
+
+| `holdFor`
+| How long to sustain the level. Accepts `s`, `m`, `h` suffixes or bare seconds.
+|===
+
+[source,yaml]
+----
+execution:
+  mode: open
+  workload:
+    type: baseline
+    rate:
+      unit: per-second
+      from: 0
+      to: 20
+    holdFor: 5m
+----
+
+=== ramp-and-hold
+
+Ramps arrivals from a low rate to a target rate, then holds. The most common profile for capacity tests.
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `rate.from`
+| Starting arrivals per second (open) or starting concurrency (closed).
+
+| `rate.to`
+| Target arrivals per second (open) or target concurrency (closed).
+
+| `rampUp`
+| Duration of the linear ramp.
+
+| `holdFor`
+| Duration to sustain at `rate.to` after the ramp completes.
+|===
+
+[source,yaml]
+----
+execution:
+  mode: open
+  workload:
+    type: ramp-and-hold
+    rampUp: 1m
+    holdFor: 5m
+    rate:
+      unit: per-second
+      from: 1
+      to: 10
+----
+
+=== soak
+
+Applies a low, constant request rate for an extended period to detect memory leaks, connection pool exhaustion, and gradual degradation.
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `rate.to`
+| Steady-state arrivals per second.
+
+| `holdFor`
+| Total soak duration. Default: 1 hour.
+|===
+
+[source,yaml]
+----
+execution:
+  mode: open
+  workload:
+    type: soak
+    rate:
+      unit: per-second
+      from: 0
+      to: 5
+    holdFor: 2h
+----
+
+=== spike
+
+Applies a warm-up at a baseline rate, then rapidly injects a short peak burst before returning to baseline. Useful for testing auto-scaling latency and circuit-breaker behaviour.
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `rate.from`
+| Baseline arrivals per second during warm-up and recovery.
+
+| `rate.to`
+| Peak arrivals per second at the tip of the spike.
+
+| `baselineRate`
+| _(optional)_ Explicit baseline rate if you want it to differ from `rate.from`.
+
+| `rampUp`
+| Duration of the warm-up phase before the spike. Default: 30 s.
+
+| `spikeDuration`
+| Duration of the ramp up to — and ramp back from — peak. Default: 1 s.
+
+| `holdFor`
+| How long to sustain the peak before ramping back down. Default: 60 s.
+|===
+
+[source,yaml]
+----
+execution:
+  mode: open
+  workload:
+    type: spike
+    rate:
+      unit: per-second
+      from: 5
+      to: 100
+    rampUp: 1m
+    spikeDuration: 10s
+    holdFor: 2m
+----
+
+NOTE: `spike` is open-model only and cannot be used with `execution.mode: closed`.
+
+=== stress
+
+Steps the request rate up in increments until the system fails or `maxRate` is reached. Used to find the breaking point of a service.
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `rate.from`
+| Starting arrivals per second.
+
+| `maxRate`
+| Ceiling arrivals per second. If omitted, `rate.to` is used.
+
+| `stepRate`
+| How much to add per step.
+
+| `stepDuration`
+| How long each step lasts. Default: 30 s.
+|===
+
+[source,yaml]
+----
+execution:
+  mode: open
+  workload:
+    type: stress
+    rate:
+      unit: per-second
+      from: 10
+      to: 100
+    stepRate: 10
+    stepDuration: 1m
+    maxRate: 100
+----
+
+This generates ten steps: 10, 20, 30, … 100 rps, each lasting 1 minute.
+
+NOTE: `stress` is open-model only.
+
+== Duration format
+
+All duration fields (`rampUp`, `holdFor`, `duration`, `spikeDuration`, `stepDuration`) accept:
+
+[cols="1,2",options="header"]
+|===
+| Format | Example
+
+| Milliseconds
+| `500ms`
+
+| Seconds
+| `30s`
+
+| Minutes
+| `5m`
+
+| Hours
+| `2h`
+
+| Bare integer (seconds)
+| `60`
+|===
+
+An unrecognised format is logged as a warning and the field's default value is used. The validator rejects malformed durations at preflight time.
+
+[[weighting]]
+== Scenario weighting
+
+When a run contains multiple scenarios that all inherit the run-level workload (`workload.inheritFromRun: true`), each scenario's effective rate is the run-level rate multiplied by its proportional weight:
+
+----
+effectiveRate = runRate × (scenarioWeight / totalWeightOfAllEnabledScenarios)
+----
+
+[source,yaml]
+----
+scenarios:
+  - id: read-user
+    file: config/scenarios/read-user.yaml
+    enabled: true
+    weight: 70
+
+  - id: search-products
+    file: config/scenarios/search-products.yaml
+    enabled: true
+    weight: 30
+
+execution:
+  mode: open
+  workload:
+    type: ramp-and-hold
+    rate:
+      unit: per-second
+      from: 0
+      to: 100
+    rampUp: 2m
+    holdFor: 10m
+----
+
+`read-user` ramps to 70 rps, `search-products` to 30 rps.
+
+A scenario with `workload.inheritFromRun: false` defines its own injection profile and is not subject to weighting.
+
+== See also
+
+* xref:scenario-authoring.adoc#workload-override[Scenario-level workload override]
+* xref:configuration-reference.adoc[Configuration reference]
+* xref:getting-started.adoc[Getting started]

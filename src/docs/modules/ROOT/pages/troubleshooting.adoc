@@ -1,0 +1,206 @@
+= Troubleshooting
+:author: Paul Snow
+:version: 0.0.0
+
+This page covers the most common errors encountered when configuring and running Rampage, with causes and remedies for each.
+
+== Missing environment variable
+
+=== Symptom
+
+[source]
+----
+[ERROR] Required environment variable 'API_TOKEN' is not set.
+[ERROR] Validation failed with 1 error(s). Correct the above before running.
+----
+
+=== Cause
+
+A `CredentialConfig` or `TokenConfig` in the environment YAML has `required: true` (the default) and the named environment variable is absent from the process environment.
+
+=== Remedy
+
+Set the variable before calling Gradle:
+
+[source,bash]
+----
+export API_TOKEN=your-token-value
+gradle21w validateLoadTest \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+Or, for local development where the token is genuinely optional, set `required: false` in the environment YAML:
+
+[source,yaml]
+----
+security:
+  token:
+    source: env
+    envVar: API_TOKEN
+    required: false
+----
+
+CAUTION: Setting `required: false` means a missing token is silently treated as empty, which will produce an `Authorization: Bearer ` header rather than failing. Only use this for environments where auth is genuinely disabled.
+
+== Placeholder not resolved
+
+=== Symptom
+
+[source]
+----
+[ERROR] YAML placeholder expansion failed: unresolved placeholder '${env:PERF_REGION}'.
+----
+
+=== Cause
+
+A string value in an environment, run, or scenario YAML contains a `${...}` placeholder that could not be resolved. The four supported forms are `${run:<key>}`, `${env:<NAME>}`, `${secret:<path>}`, and `${sys:<NAME>}`.
+
+=== Remedy
+
+* Check the spelling of the placeholder name matches an actual environment variable or run key.
+* Run `printenv | grep PERF_REGION` to confirm the variable exists in the shell session.
+* If the value is intentionally a literal `${...}` string (not a placeholder), escape it with a backslash: `\${env:PERF_REGION}`.
+
+== Aggregated validation errors
+
+`ConfigValidator` collects all errors before aborting, so a single run may report several problems at once:
+
+[source]
+----
+[ERROR] File not found: config/graphql/missing-query.graphql
+[ERROR] Unknown workload type 'ramped' (expected: smoke, baseline, constant, ramp-and-hold, soak, spike, stress)
+[ERROR] Duration '5 minutes' is not valid. Expected e.g. '5m', '30s', '1h', '500ms'.
+[ERROR] Mutating scenario 'update-order' requires run.safety.approveMutatingRequests=true.
+[ERROR] Validation failed with 4 error(s). Correct the above before running.
+----
+
+Work through the errors in order. Earlier errors (such as a missing file) may be the root cause of later ones.
+
+=== File not found
+
+The `graphqlQueryFile` or `feeder.sqlFile` path is checked against both the filesystem and the classpath. Paths are relative to the project root.
+
+[source,yaml]
+----
+request:
+  graphqlQueryFile: config/graphql/get-user.graphql   # must exist at this path
+----
+
+=== Unknown workload type
+
+The `type` field in `execution.workload` must be one of: `smoke`, `baseline`, `constant`, `ramp-and-hold`, `soak`, `spike`, `stress`. Typos produce this error.
+
+=== Malformed duration
+
+Duration strings must use the format `<number><unit>` where unit is `ms`, `s`, `m`, or `h`. Examples:
+
+[cols="1,1",options="header"]
+|===
+| Valid | Invalid
+
+| `30s` | `30 seconds`
+| `5m` | `5 minutes`
+| `1h` | `1hr`
+| `500ms` | `0.5s`
+|===
+
+=== Mutating scenario without approval
+
+A scenario with `safety.mutating: true` was included in a run where `run.safety.approveMutatingRequests: false` (the default). Set it to `true` in the run YAML to proceed, or change the scenario's `mutating` flag if it does not actually write data.
+
+== Gatling assertion failure
+
+=== Symptom
+
+Gatling exits with a non-zero code and the CI step fails. In the console output you will see a block such as:
+
+[source]
+----
+================================================================================
+---- Global Information --------------------------------------------------------
+> request count          100 (OK=95, KO=5)
+> min response time      112 (OK=112, KO=5001)
+> max response time      5001 (OK=498, KO=5001)
+...
+Assertion failed: Global errors percentage is 5.0, which is above 0.0
+================================================================================
+----
+
+=== Cause
+
+A global or per-scenario assertion threshold was breached. The exit code from Gatling is non-zero.
+
+=== Remedy
+
+* The Gatling HTML report in `build/reports/gatling/` provides per-request breakdown. Open `index.html` to identify which requests are failing.
+* If the threshold is too tight for the target environment, adjust `assertions.global.maxErrorPercentage` in the run YAML.
+* The report is still written even when assertions fail; CI pipelines should upload it with `if: always()`.
+
+== Dry-run mode
+
+=== Symptom
+
+You ran with `-Dloadtest.dryRun=true` (or `run.safety.dryRun: true`) and no HTTP traffic was sent.
+
+=== Expected behaviour
+
+This is the correct behaviour. Dry-run mode:
+
+1. Validates the full configuration (same checks as `validateLoadTest`).
+2. Writes `dry-run-summary.json` to the output directory containing scenario and workload information.
+3. Exits 0.
+
+Use this in CI to confirm YAML correctness without touching the target system.
+
+[source,bash]
+----
+gradle21w gatlingRun \
+  -Dloadtest.env=config/environments/staging.yaml \
+  -Dloadtest.run=config/runs/load.yaml \
+  -Dloadtest.dryRun=true
+----
+
+Inspect the summary:
+
+[source,bash]
+----
+cat build/reports/gatling/dry-run-summary.json
+----
+
+== `validateLoadTest` passes but `gatlingRun` fails
+
+=== Cause
+
+The two tasks may resolve scenario files differently. `validateLoadTest` (via `ConfigValidatorMain`) uses filesystem paths as declared in the run YAML. `gatlingRun` (via `RampageSimulation`) may also look for scenarios on the classpath under `scenarios/<id>.yaml`.
+
+If the classpath copy is missing or out of date, the simulation can fail after the validator passes.
+
+=== Remedy
+
+Ensure scenario files exist at both the declared filesystem path (`ref.file` in the run YAML) and under `src/gatling/resources/scenarios/` if your build copies them there. The recommended fix is to use consistent filesystem paths in both contexts and not rely on classpath copies of scenario YAML files.
+
+== Environment safety rejection
+
+=== Symptom
+
+[source]
+----
+[ERROR] Environment 'prod' has safety.allowProduction=false. This run cannot target a production environment.
+----
+
+=== Cause
+
+The resolved environment YAML has `safety.allowProduction: false` and the run does not override it, or the run has `safety.failIfEnvironmentAllowsProduction: true` and the environment has `allowProduction: true`.
+
+=== Remedy
+
+* For non-production runs: ensure you are pointing at the correct environment YAML. A CI misconfiguration that points at a prod environment is a common source of this error.
+* For intentional production runs: set `safety.allowProduction: true` in the environment YAML *and* remove any `failIfEnvironmentAllowsProduction: true` guard from the run YAML. Both changes should be peer-reviewed.
+
+== See also
+
+* xref:security.adoc[Security and secrets] — credential configuration and protected headers.
+* xref:configuration-reference.adoc[Configuration reference] — full field reference.
+* xref:getting-started.adoc[Getting started] — CLI reference for system properties.
+* xref:reference/requirements-traceability.adoc[Requirements traceability] — which validation rules are implemented and which are pending.

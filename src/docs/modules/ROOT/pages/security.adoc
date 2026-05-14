@@ -1,0 +1,253 @@
+= Security and secrets
+:author: Paul Snow
+:version: 0.0.0
+
+Rampage is designed to run against real infrastructure, including production-adjacent environments. This page explains how to supply credentials safely, how headers are layered and protected, and how the production guardrails work.
+
+== Credential shape
+
+Credentials are declared in the environment YAML and never contain raw values. The engine resolves them at startup and fails fast if a required credential cannot be resolved.
+
+=== `CredentialConfig`
+
+`CredentialConfig` represents a database username or password:
+
+[source,yaml]
+----
+username:
+  source: env        # <1>
+  envVar: DB_USERNAME
+  required: false    # <2>
+----
+<1> `source: env` reads the value from the named environment variable. `source: secret` is also accepted but currently returns a redacted stub for secret-manager paths.
+<2> `required: false` allows the value to be absent (a warning is logged). `required: true` (the default) causes `validateLoadTest` and `gatlingRun` to abort when the variable is not set.
+
+=== `TokenConfig`
+
+`TokenConfig` is used for HTTP bearer tokens and OAuth client secrets:
+
+[source,yaml]
+----
+security:
+  mode: bearer-token
+  token:
+    source: env
+    envVar: API_TOKEN
+    required: true
+----
+
+Fields:
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `source`
+| `env` reads from an environment variable via `envVar`. `secret` reads from a secret-manager path via `secretPath`.
+
+| `envVar`
+| Name of the environment variable to read when `source: env`.
+
+| `secretPath`
+| Path in the secret manager when `source: secret`. Currently returns a redacted stub.
+
+| `required`
+| Default `true`. When `true`, a missing or unresolvable value aborts startup. When `false`, a warning is logged and the value is treated as empty.
+|===
+
+== Auth modes
+
+=== `bearer-token`
+
+The token value is read at startup and injected as `Authorization: Bearer <token>` on every request. For long runs, use `oauth-client-credentials` with `TokenRefresher` instead.
+
+[source,yaml]
+----
+security:
+  mode: bearer-token
+  token:
+    source: env
+    envVar: API_TOKEN
+    required: true
+----
+
+=== `oauth-client-credentials`
+
+An OAuth 2.0 client-credentials flow is performed at startup. The resulting access token is stored in a Gatling session attribute (`authToken`) and injected as `Authorization: Bearer #{authToken}`.
+
+[source,yaml]
+----
+security:
+  mode: oauth-client-credentials
+  oauth:
+    tokenUrl: https://auth.example.com/oauth/token
+    clientId:
+      source: env
+      envVar: OAUTH_CLIENT_ID
+      required: true
+    clientSecret:
+      source: env
+      envVar: OAUTH_CLIENT_SECRET
+      required: true
+    scopes:
+      - read:users
+      - read:orders
+----
+
+== Token refresh for long runs
+
+For load tests that outlast the access token's TTL, configure `TokenRefresher` in the security block:
+
+[source,yaml]
+----
+security:
+  mode: oauth-client-credentials
+  tokenRefresh:
+    refreshIntervalSeconds: 1800
+    onRefreshFailure: continue    # or: stop
+----
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+
+| `refreshIntervalSeconds`
+| How often (in seconds) the refresher fetches a new token. Minimum effective value is 1.
+
+| `onRefreshFailure`
+| `continue` (default) — logs the error and keeps using the previous token. `stop` — cancels the refresher and halts further refresh attempts; the simulation continues until Gatling finishes.
+|===
+
+`TokenRefresher` runs in a daemon thread named `rampage-token-refresher` and shuts down cleanly when the simulation ends.
+
+[[header-precedence]]
+== Header precedence
+
+Headers are layered from broadest to most specific. Later layers override earlier layers for the same header name.
+
+----
+framework defaults → environment → run → scenario
+----
+
+`HeaderResolver` enforces this order. The environment layer is applied to the Gatling `HttpProtocol` builder; run and scenario headers are applied per-request.
+
+=== Protected headers
+
+Two headers are always protected and cannot be overridden by a scenario:
+
+* `Authorization` — set by the engine from the resolved token.
+* The configured correlation ID header (e.g. `X-Correlation-Id` from `observability.correlationIdHeader`).
+
+If a scenario's `headers` block attempts to set either of these, the validator rejects the run with an error message:
+
+----
+scenario.get-order.headers must not override protected header 'Authorization'.
+Set scenario.security.allowAuthOverride=true to permit this.
+----
+
+To explicitly allow a scenario to override the auth header (for example, when testing multi-tenant behaviour):
+
+[source,yaml]
+----
+security:
+  allowAuthOverride: true
+----
+
+This opt-in is intentionally verbose to prevent accidental credential bypass.
+
+== Placeholder expansion
+
+String values in environment, run, and scenario YAML files may contain placeholders. These are expanded after YAML parsing and before validation.
+
+[cols="2,3",options="header"]
+|===
+| Placeholder syntax | Resolved from
+
+| `${run:<key>}`
+| The loaded `RunConfig`. Keys: `id`, `name`, `version`, `environment`.
+
+| `${env:<NAME>}` or `${ENV:<NAME>}`
+| JVM environment variable `NAME`.
+
+| `${secret:<path>}`
+| Secret manager at path. Currently returns a stub value; full integration is pending.
+
+| `${sys:<NAME>}`
+| JVM system property `NAME` (set via `-D<NAME>=<value>` on the Gradle command line).
+|===
+
+Example header using a run-level placeholder:
+
+[source,yaml]
+----
+security:
+  headers:
+    X-Test-Run-Id: ${run:id}
+----
+
+Unresolved placeholders cause a validation failure consistent with the fail-fast secret resolution in `ConfigValidator`.
+
+NOTE: Placeholders are not expanded inside GraphQL query files — those use Gatling's `#{sessionAttribute}` EL syntax.
+
+== Fail-fast preflight
+
+`ConfigValidator` aggregates all credential and placeholder errors across the whole config before aborting. This means a single `gradle21w validateLoadTest` run reports every missing variable in one pass rather than one at a time.
+
+Example error output when `API_TOKEN` is not set:
+
+----
+[ERROR] Required environment variable 'API_TOKEN' is not set.
+[ERROR] Validation failed with 1 error(s). Correct the above before running.
+----
+
+The process exits with code 1, which fails a CI step without leaving ambiguity.
+
+== Production environment guardrails
+
+Rampage has two independent safety checks for production environments.
+
+=== Environment-side controls
+
+Set in the environment YAML:
+
+[source,yaml]
+----
+safety:
+  isProduction: true              # <1>
+  allowProduction: false          # <2>
+  requireApprovalForMutatingRequests: true   # <3>
+----
+<1> Marks this environment as production. Checked against the run's `failIfEnvironmentAllowsProduction`.
+<2> When `false`, any run against this environment is rejected unless the run explicitly overrides this.
+<3> When `true`, any `mutating: true` scenario requires `run.safety.approveMutatingRequests: true`.
+
+=== Run-side controls
+
+Set in the run YAML:
+
+[source,yaml]
+----
+safety:
+  dryRun: false
+  failIfEnvironmentAllowsProduction: true    # <1>
+  approveMutatingRequests: false             # <2>
+----
+<1> When `true`, the run aborts if the resolved environment has `allowProduction: true`. Use this in CI pipelines to prevent a misconfigured environment YAML from accidentally pointing at production.
+<2> Must be `true` for any `mutating: true` scenario to execute in an environment that requires approval.
+
+=== Scenario-side marker
+
+[source,yaml]
+----
+safety:
+  mutating: true
+  idempotent: false
+----
+
+A scenario with `mutating: true` is blocked by the validator unless the run approves it and the environment permits it.
+
+== See also
+
+* xref:configuration-reference.adoc[Configuration reference] — full field listing.
+* xref:troubleshooting.adoc[Troubleshooting] — common error messages and fixes.
+* xref:reference/requirements-traceability.adoc[Requirements traceability] — implementation status of security requirements `SEC-001` through `SEC-008`.

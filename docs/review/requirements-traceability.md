@@ -4,7 +4,7 @@ Author: Paul Snow
 Version: 0.0.0
 Date: 2026-05-14
 Source PRD: `docs/prd/initial-prd.md`
-Last updated: 2026-05-14 — M1 + M2 + M3 features landed (F-001 through F-028).
+Last updated: 2026-05-14 — M1 + M2 + M3 + M4 features landed (F-001 through F-038).
 
 Status legend:
 - **Done** — implemented and exercised by tests
@@ -49,7 +49,7 @@ Status legend:
 | SCN-007 | HTTP status + JSONPath checks | Partial | `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession` supported. No regex, no XPath, no JSON schema, no header checks. |
 | SCN-008 | Scenario-specific workload overrides | Done | `WorkloadFactory.effectiveWorkload` honours `scenario.workload.inheritFromRun=false` (F-017). |
 | SCN-009 | Mutating vs read-only marker | Done | `ScenarioSafetyConfig.mutating` enforced against `requireApprovalForMutatingRequests` + `run.safety.approveMutatingRequests` (F-014). |
-| SCN-010 | Tags for filtering and reporting | Partial | `tags` emitted in `run-metadata.json` and `dry-run-summary.json` (F-001, F-013); no scenario-filter CLI yet. |
+| SCN-010 | Tags for filtering and reporting | Partial | `tags` emitted in `run-metadata.json`, `dry-run-summary.json`, and the config snapshot (F-001, F-013, F-029); no scenario-filter CLI yet. |
 
 ## Feeder Requirements
 
@@ -69,12 +69,12 @@ Status legend:
 |---|---|---|---|
 | SEC-001 | No raw secrets in source control | Done by convention | Sample YAMLs use env-var refs; no automated lint. |
 | SEC-002 | Env-var or secret-manager refs | Partial | Env vars supported. Secret-manager source returns `***REDACTED***` (stub). |
-| SEC-003 | Reports/snapshots redact secrets | Partial | `RunMetadataWriter` writes `redactSecretsEnabled` reflecting the flag honestly (F-007); writer no longer serialises any secret-derived values. `SecretResolver.getSensitiveValues()` exposes resolved secrets for the config snapshot writer (still pending — F-029). |
+| SEC-003 | Reports/snapshots redact secrets | Done | `ConfigSnapshotWriter` substitutes `SecretResolver.getSensitiveValues()` with `***REDACTED***` (F-029). `BodyRedactor` provides JSONPath + substring redaction for body logging (F-036). `RunMetadataWriter.redactSecretsEnabled` reflects the run flag honestly. |
 | SEC-004 | Authorization injected from environment | Done | `HttpProtocolFactory` adds `Authorization: Bearer <token>` for `bearer-token` mode. |
 | SEC-005 | Per-scenario headers on top of environment | Done | `HeaderResolver` layers env → run → scenario; scenario override of `Authorization`/correlation header is rejected unless `scenario.security.allowAuthOverride: true` (F-015). |
 | SEC-006 | Token refresh / generation for long runs | Done | `TokenRefresher` schedules background refresh; `onRefreshFailure: continue|stop` configurable; Authorization header reads `#{authToken}` session attribute (F-022). |
 | SEC-007 | Prevent accidental production execution | Done | `env.safety.isProduction` + `allowProduction` enforced; `run.safety.failIfEnvironmentAllowsProduction` honoured; missing required secrets fail validation (F-002 + F-004 + F-014). |
-| SEC-008 | Avoid logging full request bodies with sensitive data | Missing | Gatling default logging used; no body redaction layer. |
+| SEC-008 | Avoid logging full request bodies with sensitive data | Partial | `BodyRedactor` utility provides JSONPath + substring redaction; `ScenarioSecurityConfig.sensitiveFields` and `ColumnConfig.sensitive` declare the redaction set; integration with Gatling's internal logging is still application-side (F-036). |
 
 ## Config Resolution Rules (PRD §14)
 
@@ -102,11 +102,11 @@ Status legend:
 |---|---|
 | Gradle Wrapper | Done (`gradlew`, `gradlew.bat`) |
 | Java 25 toolchain | Done |
-| Gatling plugin | Done (3.13.5 — older than PRD-recommended 3.15.0.2) |
+| Gatling plugin | Done (3.15.0; matched to gatling-charts-highcharts 3.15.0) — F-037 |
 | Jackson YAML | Done |
 | JDBC drivers | Partial — only H2; production drivers must be user-supplied |
 | `validateLoadTest` task | Done |
-| CI-friendly reports | Missing |
+| CI-friendly reports | Done — `.github/workflows/ci.yml` + `smoke.yml` upload `build/reports/gatling/` and `build/reports/tests/test/` (F-031) |
 
 ## Validation Rules (PRD §18)
 
@@ -129,9 +129,9 @@ Status legend:
 |---|---|
 | Gatling HTML report | Done — produced by plugin |
 | Run metadata JSON | Done — wired via `Simulation.before()` (F-001) |
-| Sanitised resolved config snapshot | Missing (F-029) |
-| Scenario list + effective workload summary | Partial — scenario list with tags emitted (F-001); effective workload pending (F-030) |
-| Feeder row counts | Partial — logged, not in report metadata |
+| Sanitised resolved config snapshot | Done — `ConfigSnapshotWriter` with secret-value redaction (F-029) |
+| Scenario list + effective workload summary | Done — per-scenario effectiveWorkload + scenarioCounts + totalRate/totalUsers (F-030) |
+| Feeder row counts | Done — emitted in `run-metadata.json` per scenario (F-030) |
 | Assertion results | Partial — Gatling-native; not in custom metadata |
 | Build/commit metadata | Partial — `gitCommit` + `gitBranch` captured (F-001); build URL pending |
 
@@ -158,7 +158,7 @@ Status legend:
 | 2 | Scenario weighting | Done — `ScenarioRef.weight` applied via `WorkloadFactory.scaleWorkload` (F-020) |
 | 3 | OAuth client-credentials token | Done — `OAuthClientCredentialsTokenProvider` (F-021) |
 | 4 | Token refresh for long runs | Done — `TokenRefresher` background scheduler (F-022) |
-| 5 | CI/CD report artifacts | Missing |
-| 6 | Scenario templates via CLI task | Missing |
-| 7 | Metadata: branch, commit, build URL, change ref | Partial — only short commit |
-| 8 | Auto-generated config schema docs | Missing |
+| 5 | CI/CD report artifacts | Done — `.github/workflows/{ci,smoke}.yml` upload Gatling reports + test results (F-031) |
+| 6 | Scenario templates via CLI task | Done — `gradle newScenario -PscenarioId=foo` scaffolds yaml + graphql + sql (F-034) |
+| 7 | Metadata: branch, commit, build URL, change ref | Partial — branch + commit + changeReference captured; build URL pending |
+| 8 | Auto-generated config schema docs | Done — `gradle generateSchemaDocs` produces `build/schema/reference.adoc` + `schemas.json` (F-035) |

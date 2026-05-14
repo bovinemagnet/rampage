@@ -1,6 +1,6 @@
 [versions]
 # Plugins
-gatling-plugin = "3.13.5"
+gatling-plugin = "3.15.0"
 
 # Runtime libraries
 # Next major: tools.jackson.core:jackson-databind:3.1.3

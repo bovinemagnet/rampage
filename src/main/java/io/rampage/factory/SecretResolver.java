@@ -22,7 +22,7 @@ public class SecretResolver {
         return Set.copyOf(sensitiveValues);
     }
 
-    private String trackSensitive(String value) {
+    public String trackSensitive(String value) {
         if (value != null && !value.isEmpty() && !REDACTED.equals(value)) {
             sensitiveValues.add(value);
         }

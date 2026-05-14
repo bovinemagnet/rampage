@@ -1,0 +1,219 @@
+= Configuration reference
+:author: Paul Snow
+:version: 0.0.0
+
+Rampage resolves three independent YAML files at startup. Keeping them separate means you can mix and match environments, runs, and scenarios without duplicating configuration.
+
+== The three-file split
+
+[cols="1,2,3",options="header"]
+|===
+| File | Controlled by | Contains
+
+| Environment YAML
+| Infra / platform team
+| Base URLs, HTTP defaults, auth mode and token references, database connections, observability config, safety controls.
+
+| Run YAML
+| Load test author
+| Which scenarios to include, workload profile, global and per-scenario assertions, reporting options, safety flags.
+
+| Scenario YAML
+| Feature team
+| GraphQL query, feeder definition, column mapping, request headers, response checks, workload override, tags, safety marker.
+|===
+
+Each file is loaded independently and composed at runtime by the factory layer. The run YAML references scenario files by path, not by embedding.
+
+== Specifying files at runtime
+
+Pass file paths on the Gradle command line:
+
+[source,bash]
+----
+gradle21w gatlingRun \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+Both properties accept filesystem paths or classpath resource names. See xref:getting-started.adoc[Getting started] for the full CLI reference.
+
+== Environment YAML — `config/environments/local.yaml`
+
+[source,yaml]
+----
+id: local
+name: Local Development Environment
+
+baseUrls:
+  graphql: http://localhost:8080/graphql
+  rest: http://localhost:8080
+
+http:
+  connectTimeoutMillis: 5000
+  requestTimeoutMillis: 30000
+  followRedirects: false
+  acceptHeader: application/json
+  contentTypeHeader: application/json
+
+security:
+  mode: bearer-token
+  token:
+    source: env
+    envVar: API_TOKEN
+    required: false
+  headers:
+    X-Correlation-Source: gatling
+    X-Test-Run-Id: ${run:id}
+
+databases:
+  sourceData:
+    driverClassName: org.h2.Driver
+    jdbcUrl: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username:
+      source: env
+      envVar: DB_USERNAME
+      required: false
+    password:
+      source: env
+      envVar: DB_PASSWORD
+      required: false
+    pool:
+      maximumPoolSize: 5
+      connectionTimeoutMillis: 5000
+
+observability:
+  correlationIdHeader: X-Correlation-Id
+  includeRunMetadataHeaders: true
+
+safety:
+  allowProduction: false
+  requireApprovalForMutatingRequests: true
+----
+
+Key points:
+
+* `baseUrls` is a named map; scenarios reference entries by `endpointRef`.
+* `security.mode` is `bearer-token` or `oauth-client-credentials`. See xref:security.adoc[Security and secrets].
+* `token.required: false` means a missing env var logs a warning rather than aborting; set `required: true` to enforce fail-fast.
+* Placeholder `${run:id}` is expanded at runtime. Supported placeholders: `${run:<key>}`, `${env:<NAME>}`, `${secret:<path>}`, `${sys:<NAME>}`.
+* `safety.allowProduction: false` prevents the environment being targeted unless the run explicitly approves it.
+
+== Run YAML — `config/runs/smoke.yaml`
+
+[source,yaml]
+----
+id: customer-graphql-smoke
+name: Customer GraphQL Smoke Test
+version: 1
+environment: local
+
+metadata:
+  owner: platform-performance
+  application: customer-api
+  service: customer-graphql
+  description: Smoke test to validate wiring, auth, and feeder availability.
+
+scenarios:
+  - id: scenario-one
+    file: config/scenarios/scenario-one.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
+  workload:
+    type: smoke
+    users: 1
+    duration: 30s
+
+assertions:
+  global:
+    maxErrorPercentage: 0.0
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false
+----
+
+Key points:
+
+* `scenarios[].weight` controls proportional load allocation when multiple scenarios share a run-level workload. See xref:workloads.adoc#weighting[Scenario weighting].
+* `execution.mode` is `open` (arrivals per second) or `closed` (concurrent users). See xref:workloads.adoc[Workload profiles].
+* `reporting.writeRunMetadata: true` enables `run-metadata.json`. See xref:reporting.adoc[Reporting and CI].
+* `safety.dryRun: true` (or `-Dloadtest.dryRun=true`) skips traffic and writes `dry-run-summary.json`.
+* Global assertions set a threshold that applies to the entire simulation. Per-scenario assertions live under `assertions.scenarios.<id>`.
+
+== Scenario YAML — `config/scenarios/scenario-one.yaml`
+
+[source,yaml]
+----
+id: scenario-one
+name: Get User by ID
+protocol: graphql
+endpointRef: graphql
+operationName: GetUser
+
+description: >
+  Executes a GraphQL user lookup using user IDs read from the source data database.
+
+headers:
+  X-Scenario-Id: scenario-one
+  X-Business-Process: user-lookup
+
+request:
+  graphqlQueryFile: config/graphql/get-user.graphql
+  variables:
+    userId: ${feeder:userId}
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+checks:
+  httpStatus: 200
+  jsonPath:
+    - path: $.errors
+      expectation: absentOrEmpty
+    - path: $.data.user.id
+      expectation: exists
+
+workload:
+  inheritFromRun: true
+
+tags:
+  - graphql
+  - user
+  - read-only
+
+safety:
+  mutating: false
+  idempotent: true
+----
+
+Key points:
+
+* `endpointRef` must match a key in the environment's `baseUrls`.
+* `request.variables` values using `${feeder:columnName}` are rewritten to Gatling session references at build time.
+* `feeder.columns.<name>.sessionKey` renames a SQL column into the Gatling session under a different key.
+* `workload.inheritFromRun: false` activates a scenario-level workload override; see xref:scenario-authoring.adoc#workload-override[Workload override].
+* `safety.mutating: true` requires `run.safety.approveMutatingRequests: true` to execute against environments with `requireApprovalForMutatingRequests: true`.
+
+== Auto-generated field reference
+
+The following section is generated from the model classes by `gradle21w generateSchemaDocs`. Re-run that task after model changes to update it.
+
+include::partial$config-reference-generated.adoc[]

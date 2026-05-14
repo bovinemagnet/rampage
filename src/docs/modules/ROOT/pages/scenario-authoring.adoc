@@ -1,0 +1,261 @@
+= Scenario authoring
+:author: Paul Snow
+:version: 0.0.0
+
+A scenario in Rampage is a YAML file that fully describes one logical test flow: the GraphQL query to send, the data source to feed it, the response checks to apply, and the safety markers that control where it can run. You never write Java.
+
+== Scaffolding a new scenario
+
+Use the `newScenario` Gradle task to generate a scenario YAML, a GraphQL query file, and an SQL query file from the templates in `config/templates/`.
+
+[source,bash]
+----
+gradle21w newScenario -PscenarioId=get-order
+----
+
+This creates:
+
+----
+config/scenarios/get-order.yaml
+config/graphql/get-order.graphql
+config/queries/get-order-data.sql
+----
+
+The template (`config/templates/scenario.yaml.tpl`) includes placeholder comments for every field you are expected to fill in. Open the three files and work through the `TODO` markers in order.
+
+NOTE: The scaffolding task produces a runnable skeleton, not a finished scenario. You must provide a real GraphQL operation and a SQL query that returns the columns declared in `feeder.columns`.
+
+== Structure of a scenario YAML
+
+=== Identity and routing
+
+[source,yaml]
+----
+id: get-order
+name: Get Order by ID
+protocol: graphql
+endpointRef: graphql      # <1>
+operationName: GetOrder   # <2>
+----
+<1> Must match a key in the environment's `baseUrls` map.
+<2> Embedded in the GraphQL request body as the `operationName` field.
+
+=== Request definition
+
+[source,yaml]
+----
+request:
+  graphqlQueryFile: config/graphql/get-order.graphql   # <1>
+  variables:
+    orderId: ${feeder:orderId}                          # <2>
+----
+<1> Path to the `.graphql` file, relative to the project root, or a classpath resource.
+<2> `${feeder:<column>}` binds a feeder column into a GraphQL variable. The value is rewritten to `#{orderId}` (Gatling's session EL syntax) before the request is built.
+
+The `graphqlQueryFile` must contain a valid GraphQL document. Variables declared in the query must have matching entries under `request.variables`.
+
+=== Feeder definition
+
+The feeder supplies one row of test data per virtual user iteration.
+
+[source,yaml]
+----
+feeder:
+  type: jdbc
+  databaseRef: sourceData        # <1>
+  sqlFile: config/queries/get-order-data.sql
+  strategy: circular             # <2>
+  preload: true                  # <3>
+  failIfEmpty: false             # <4>
+  maxRows: 10000                 # <5>
+  columns:
+    order_id:                    # <6>
+      type: string
+      required: true
+      sessionKey: orderId        # <7>
+----
+<1> Must match a key in the environment's `databases` map.
+<2> Strategy: `circular`, `queue`, `shuffle`, or `random`. See xref:scenario-authoring.adoc#feeder-strategies[Feeder strategies].
+<3> `preload: true` loads all rows into memory at startup. Set to `false` for streaming.
+<4> `failIfEmpty: false` allows the run to continue with an empty result set (a warning is logged). Set to `true` to abort.
+<5> Optional row cap. If the SQL returns more than `maxRows` the excess is silently truncated unless `failIfOverLimit: true` is also set.
+<6> Column name as returned by the SQL query.
+<7> `sessionKey` renames the column in the Gatling session. Use this when the SQL column name and the GraphQL variable name differ.
+
+[[feeder-strategies]]
+=== Feeder strategies
+
+[cols="1,3",options="header"]
+|===
+| Strategy | Behaviour
+
+| `circular`
+| Iterates through rows in order and loops back to the start. Default for most scenarios.
+
+| `queue`
+| Iterates in order; each row is consumed once. The scenario ends when rows are exhausted.
+
+| `shuffle`
+| Randomises row order once at startup, then iterates circularly through the shuffled list.
+
+| `random`
+| Picks a random row per request from the full dataset.
+|===
+
+=== `${feeder:X}` variable binding
+
+Any value under `request.variables` may reference a feeder column:
+
+[source,yaml]
+----
+variables:
+  orderId: ${feeder:orderId}
+  active: ${feeder:activeFlag}
+----
+
+YAML types are preserved by the Jackson body serialiser. A column value of `true` (a YAML boolean) produces `"active": true` in the JSON body, not `"active": "true"`.
+
+=== Response checks
+
+[source,yaml]
+----
+checks:
+  httpStatus: 200
+  jsonPath:
+    - path: $.errors
+      expectation: absentOrEmpty
+    - path: $.data.order.id
+      expectation: exists
+    - path: $.data.order.status
+      expectation: equalsSession
+      sessionKey: expectedStatus
+----
+
+Supported check expectations:
+
+[cols="1,3",options="header"]
+|===
+| Expectation | Meaning
+
+| `exists`
+| The JSONPath must resolve to at least one value.
+
+| `absentOrEmpty`
+| The JSONPath must resolve to no value, null, or an empty array/object. Used to assert `$.errors` is absent.
+
+| `equalsSession`
+| The resolved value must equal the Gatling session attribute named by `sessionKey`.
+|===
+
+NOTE: Regex, XPath, JSON schema, and header checks are not yet implemented. See the xref:reference/requirements-traceability.adoc[requirements traceability] for the current status of `SCN-007`.
+
+=== Headers
+
+Scenario headers are merged on top of environment and run headers. The `Authorization` header and the configured correlation ID header are protected and cannot be overridden unless `scenario.security.allowAuthOverride: true` is set. See xref:security.adoc#header-precedence[Header precedence].
+
+[source,yaml]
+----
+headers:
+  X-Scenario-Id: get-order
+  X-Business-Process: order-management
+----
+
+=== Tags
+
+Tags are emitted in `run-metadata.json` and `dry-run-summary.json` and can be used for grouping in CI dashboards.
+
+[source,yaml]
+----
+tags:
+  - graphql
+  - order
+  - read-only
+----
+
+=== Safety markers
+
+[source,yaml]
+----
+safety:
+  mutating: false     # <1>
+  idempotent: true    # <2>
+----
+<1> `mutating: true` marks the scenario as one that writes data. The run must set `safety.approveMutatingRequests: true`, and the environment must allow it (`requireApprovalForMutatingRequests`), for the scenario to execute.
+<2> `idempotent` is informational only; it is not enforced by the engine.
+
+[[workload-override]]
+=== Scenario-level workload override
+
+By default a scenario inherits the workload from the run YAML (`workload.inheritFromRun: true`). To give a scenario its own injection profile, set `inheritFromRun: false` and supply the workload fields:
+
+[source,yaml]
+----
+workload:
+  inheritFromRun: false
+  type: constant
+  rate:
+    unit: per-second
+    from: 0
+    to: 5
+  holdFor: 2m
+----
+
+When a scenario uses `inheritFromRun: true` and there are multiple scenarios in the run, each scenario's effective rate is the run-level rate scaled by `ScenarioRef.weight / totalWeight`. See xref:workloads.adoc#weighting[Scenario weighting].
+
+== Adding the scenario to a run
+
+Open the run YAML and add an entry under `scenarios`:
+
+[source,yaml]
+----
+scenarios:
+  - id: get-order
+    file: config/scenarios/get-order.yaml
+    enabled: true
+    weight: 100
+----
+
+Then validate before running:
+
+[source,bash]
+----
+gradle21w validateLoadTest \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/load.yaml
+----
+
+== Worked example — two scenarios with different weights
+
+[source,yaml]
+----
+# config/runs/weighted.yaml
+scenarios:
+  - id: get-order
+    file: config/scenarios/get-order.yaml
+    enabled: true
+    weight: 75
+
+  - id: create-order
+    file: config/scenarios/create-order.yaml
+    enabled: true
+    weight: 25
+
+execution:
+  mode: open
+  workload:
+    type: ramp-and-hold
+    rampUp: 2m
+    holdFor: 10m
+    rate:
+      unit: per-second
+      from: 0
+      to: 100
+----
+
+`get-order` receives 75 % of the target rate (0 → 75 rps) and `create-order` receives 25 % (0 → 25 rps).
+
+== See also
+
+* xref:workloads.adoc[Workload profiles] — full reference for injection profiles.
+* xref:security.adoc[Security and secrets] — credential wiring and header protection.
+* xref:configuration-reference.adoc[Configuration reference] — field-by-field YAML documentation.

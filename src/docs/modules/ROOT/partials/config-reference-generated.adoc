@@ -1,0 +1,20 @@
+// =============================================================================
+// AUTO-GENERATED FILE — DO NOT EDIT BY HAND
+//
+// This file is overwritten by:
+//
+//   gradle21w generateSchemaDocs
+//
+// The task is implemented in SchemaDocsGenerator.java and writes its output to
+// build/schema/reference.adoc, which is then copied here as part of the build.
+//
+// To regenerate after changing a model class:
+//
+//   gradle21w generateSchemaDocs
+//
+// Then commit the updated partial alongside the model change.
+// =============================================================================
+
+NOTE: The auto-generated field reference has not yet been produced. Run `gradle21w generateSchemaDocs` to generate `build/schema/reference.adoc` and copy it into this file. The `generateSchemaDocs` task reads Jackson annotations on the config model classes and produces a field-by-field table for each YAML file type (environment, run, scenario).
+
+Until the generated content is available, refer to xref:configuration-reference.adoc[the configuration reference page] for annotated YAML examples and field descriptions.

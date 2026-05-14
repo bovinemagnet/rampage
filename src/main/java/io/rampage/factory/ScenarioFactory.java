@@ -98,7 +98,7 @@ public class ScenarioFactory {
         return scenario(scenarioCfg.getName()).exec(withSessionPrep, request);
     }
 
-    static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
+    public static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("query", graphqlQuery != null ? graphqlQuery : "");
         body.put("variables", rewriteFeederPlaceholders(scenarioCfg.getRequest() != null
@@ -114,7 +114,7 @@ public class ScenarioFactory {
         }
     }
 
-    static Map<String, Object> rewriteFeederPlaceholders(Map<String, Object> variables) {
+    public static Map<String, Object> rewriteFeederPlaceholders(Map<String, Object> variables) {
         Map<String, Object> result = new LinkedHashMap<>();
         if (variables == null) return result;
         for (Map.Entry<String, Object> entry : variables.entrySet()) {

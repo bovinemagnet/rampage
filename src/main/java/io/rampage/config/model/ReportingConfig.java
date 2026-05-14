@@ -12,6 +12,9 @@ public class ReportingConfig {
     @JsonProperty("redactSecrets")
     private boolean redactSecrets = true;
 
+    @JsonProperty("includeConfigSnapshot")
+    private boolean includeConfigSnapshot = false;
+
     public ReportingConfig() {}
 
     public String getOutputDirectory() { return outputDirectory; }
@@ -20,4 +23,6 @@ public class ReportingConfig {
     public void setWriteRunMetadata(boolean writeRunMetadata) { this.writeRunMetadata = writeRunMetadata; }
     public boolean isRedactSecrets() { return redactSecrets; }
     public void setRedactSecrets(boolean redactSecrets) { this.redactSecrets = redactSecrets; }
+    public boolean isIncludeConfigSnapshot() { return includeConfigSnapshot; }
+    public void setIncludeConfigSnapshot(boolean includeConfigSnapshot) { this.includeConfigSnapshot = includeConfigSnapshot; }
 }

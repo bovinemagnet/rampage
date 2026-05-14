@@ -1,0 +1,137 @@
+= Getting started
+:author: Paul Snow
+:version: 0.0.0
+
+This guide walks you from a freshly cloned repository to a passing smoke test in a few minutes.
+
+== Prerequisites
+
+Before running any Gradle tasks, ensure the following are available on your machine.
+
+[cols="1,2",options="header"]
+|===
+| Requirement | Detail
+
+| Java 25
+| The build is configured with a Java 25 toolchain (Adoptium Temurin). Install via https://adoptium.net[Adoptium] or `sdk install java 25-tem` with SDKMAN.
+
+| `gradle21w` on `PATH`
+| The project uses `gradle21w` as the local Gradle wrapper alias. Confirm it resolves: `which gradle21w`.
+
+| H2 database (bundled)
+| The sample `config/environments/local.yaml` uses an in-process H2 database, so no external database is required for the smoke test.
+|===
+
+NOTE: Production databases require you to add the appropriate JDBC driver to the build. H2 is the only driver bundled by default.
+
+== Verify the toolchain
+
+[source,bash]
+----
+java -version     # expect 25.x.x
+gradle21w --version
+----
+
+== Running the smoke test
+
+The smoke test uses the bundled config in `config/runs/smoke.yaml` against the local environment defined in `config/environments/local.yaml`.
+
+=== Step 1 — validate the config
+
+Run the config validator before executing any load traffic. This performs fail-fast checks on YAML structure, file references, secret availability, and safety constraints.
+
+[source,bash]
+----
+gradle21w validateLoadTest \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+The task exits 0 when the config is valid and 1 when errors are found. All errors are printed together so you can fix them in one pass.
+
+=== Step 2 — run the simulation
+
+[source,bash]
+----
+gradle21w gatlingRun \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+Gatling will start one virtual user (`users: 1`), send GraphQL requests for 30 seconds, and write the HTML report.
+
+=== Where the report lands
+
+By default the report is written to `build/reports/gatling/`. Inside that directory Gatling creates a timestamped sub-directory for each run, for example:
+
+----
+build/reports/gatling/
+└── rampagesimulation-20260514-120000-001/
+    ├── index.html           <1>
+    ├── run-metadata.json    <2>
+    └── js/
+----
+<1> Open in a browser for the full Gatling HTML report.
+<2> Machine-readable metadata including `gitCommit`, `gitBranch`, and scenario summaries. See xref:reporting.adoc[Reporting and CI] for the full schema.
+
+The output directory can be overridden in the run YAML:
+
+[source,yaml]
+----
+reporting:
+  outputDirectory: build/reports/gatling
+----
+
+== Pointing at a custom environment or run
+
+All three resolution paths accept filesystem paths or classpath resource names.
+
+[cols="2,3",options="header"]
+|===
+| System property | Effect
+
+| `-Dloadtest.env=<path>`
+| Overrides the environment YAML. Example: `-Dloadtest.env=config/environments/staging.yaml`.
+
+| `-Dloadtest.run=<path>`
+| Overrides the run YAML. Example: `-Dloadtest.run=config/runs/load.yaml`.
+
+| `-Dloadtest.dryRun=true`
+| Skips execution, writes `dry-run-summary.json` to the output directory, and exits 0. Useful for CI preflight checks. See xref:reporting.adoc#dry-run[Dry-run output].
+|===
+
+Example — validate-then-dry-run a load profile against a staging environment:
+
+[source,bash]
+----
+gradle21w validateLoadTest \
+  -Dloadtest.env=config/environments/staging.yaml \
+  -Dloadtest.run=config/runs/load.yaml
+
+gradle21w gatlingRun \
+  -Dloadtest.env=config/environments/staging.yaml \
+  -Dloadtest.run=config/runs/load.yaml \
+  -Dloadtest.dryRun=true
+----
+
+The dry run prints the effective workload and feeder row counts without sending any HTTP traffic.
+
+== Disabling scenarios temporarily
+
+Set `enabled: false` on a `ScenarioRef` in the run YAML to skip a scenario without removing it:
+
+[source,yaml]
+----
+scenarios:
+  - id: scenario-one
+    file: config/scenarios/scenario-one.yaml
+    enabled: false
+    weight: 100
+----
+
+== Next steps
+
+* xref:scenario-authoring.adoc[Scenario authoring] — scaffold a new scenario from a template.
+* xref:configuration-reference.adoc[Configuration reference] — full field listing for environment, run, and scenario YAML.
+* xref:workloads.adoc[Workload profiles] — pick the right injection profile for your test objective.
+* xref:security.adoc[Security and secrets] — wire up credentials and production guardrails.

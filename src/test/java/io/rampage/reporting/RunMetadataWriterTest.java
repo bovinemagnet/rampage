@@ -74,6 +74,57 @@ class RunMetadataWriterTest {
     }
 
     @Test
+    void write_includesEffectiveWorkload(@TempDir Path tempDir) throws IOException {
+        RunConfig run = new RunConfig();
+        run.setId("r1");
+        run.setName("r1");
+        io.rampage.config.model.ExecutionConfig exec = new io.rampage.config.model.ExecutionConfig();
+        io.rampage.config.model.WorkloadConfig wc = new io.rampage.config.model.WorkloadConfig();
+        wc.setType("ramp-and-hold");
+        io.rampage.config.model.RateConfig r = new io.rampage.config.model.RateConfig();
+        r.setFrom(0);
+        r.setTo(10);
+        wc.setRate(r);
+        wc.setRampUp("30s");
+        wc.setHoldFor("60s");
+        exec.setWorkload(wc);
+        run.setExecution(exec);
+
+        EnvironmentConfig env = new EnvironmentConfig();
+        env.setId("test");
+        ScenarioConfig sc = new ScenarioConfig();
+        sc.setId("sc-1");
+        sc.setName("Scenario 1");
+
+        writer.write(run, env, List.of(sc), tempDir.toString());
+
+        String content = Files.readString(tempDir.resolve("run-metadata.json"));
+        assertTrue(content.contains("effectiveWorkload"));
+        assertTrue(content.contains("ramp-and-hold"));
+        assertTrue(content.contains("\"source\" : \"run\""));
+        assertTrue(content.contains("scenarioCounts"));
+    }
+
+    @Test
+    void write_includesFeederRowCount(@TempDir Path tempDir) throws IOException {
+        RunConfig run = new RunConfig();
+        run.setId("r1");
+        run.setName("r1");
+        EnvironmentConfig env = new EnvironmentConfig();
+        env.setId("test");
+        ScenarioConfig sc = new ScenarioConfig();
+        sc.setId("sc-1");
+        sc.setName("Scenario 1");
+
+        writer.write(run, env, List.of(sc), tempDir.toString(),
+            java.time.Instant.now(), java.util.Map.of("sc-1", 42));
+
+        String content = Files.readString(tempDir.resolve("run-metadata.json"));
+        assertTrue(content.contains("feederRowCount"));
+        assertTrue(content.contains("42"));
+    }
+
+    @Test
     void write_includesScenarioTags(@TempDir Path tempDir) throws IOException {
         RunConfig run = new RunConfig();
         run.setId("r1");

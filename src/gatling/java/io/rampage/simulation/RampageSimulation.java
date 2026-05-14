@@ -4,6 +4,7 @@ import io.gatling.javaapi.core.*;
 import io.gatling.javaapi.http.*;
 import io.rampage.config.model.*;
 import io.rampage.factory.*;
+import io.rampage.reporting.ConfigSnapshotWriter;
 import io.rampage.reporting.DryRunSummaryWriter;
 import io.rampage.reporting.RunMetadataWriter;
 import org.slf4j.Logger;
@@ -23,9 +24,10 @@ public class RampageSimulation extends Simulation {
     private final ConfigValidator validator = new ConfigValidator(secretResolver);
     private final HttpProtocolFactory httpProtocolFactory = new HttpProtocolFactory();
     private final WorkloadFactory workloadFactory = new WorkloadFactory();
-    private final FeederFactory feederFactory = new FeederFactory();
+    private final FeederFactory feederFactory = new FeederFactory(secretResolver);
     private final RunMetadataWriter runMetadataWriter = new RunMetadataWriter();
     private final DryRunSummaryWriter dryRunSummaryWriter = new DryRunSummaryWriter();
+    private final ConfigSnapshotWriter configSnapshotWriter = new ConfigSnapshotWriter();
     private final DataSourceRegistry dataSourceRegistry = new DataSourceRegistry(secretResolver);
 
     private final EnvironmentConfig envConfig = configLoader.loadEnvironment();
@@ -36,6 +38,7 @@ public class RampageSimulation extends Simulation {
     private TokenRefresher tokenRefresher;
     private ScenarioFactory scenarioFactory;
     private final List<FeederFactory.StreamingFeeder> streamingFeeders = new ArrayList<>();
+    private final Map<String, Object> feederRowCounts = new LinkedHashMap<>();
 
     {
         if (runConfig.getScenarios() != null) {
@@ -88,12 +91,14 @@ public class RampageSimulation extends Simulation {
                             feederData = feederFactory.loadFromSql(
                                 dataSourceRegistry.getOrCreate(dbRef, db),
                                 scenarioCfg.getFeeder());
+                            feederRowCounts.put(scenarioCfg.getId(), feederData.size());
                         } else {
                             FeederFactory.StreamingFeeder sf = feederFactory.streamFromSql(
                                 dataSourceRegistry.getOrCreate(dbRef, db),
                                 scenarioCfg.getFeeder());
                             streamingFeeders.add(sf);
                             streamingFeeder = sf;
+                            feederRowCounts.put(scenarioCfg.getId(), "streaming");
                         }
                     } catch (Exception e) {
                         log.warn("Failed to load feeder data: {}", e.getMessage());
@@ -157,9 +162,17 @@ public class RampageSimulation extends Simulation {
                 outputDir = "build/reports/gatling";
             }
             try {
-                runMetadataWriter.write(runConfig, envConfig, activeScenarios, outputDir, startedAt);
+                runMetadataWriter.write(runConfig, envConfig, activeScenarios, outputDir, startedAt, feederRowCounts);
             } catch (Exception e) {
                 log.warn("Failed to write run metadata: {}", e.getMessage());
+            }
+            if (reporting.isIncludeConfigSnapshot()) {
+                try {
+                    configSnapshotWriter.write(envConfig, runConfig, activeScenarios, outputDir,
+                        secretResolver, reporting.isRedactSecrets());
+                } catch (Exception e) {
+                    log.warn("Failed to write config snapshot: {}", e.getMessage());
+                }
             }
         }
         startTokenRefresher();
