@@ -1,0 +1,49 @@
+name: Smoke load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment YAML path'
+        required: false
+        default: 'config/environments/local.yaml'
+      run:
+        description: 'Run YAML path'
+        required: false
+        default: 'config/runs/smoke.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      LOADTEST_ENV: ${{ inputs.env }}
+      LOADTEST_RUN: ${{ inputs.run }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Validate config
+        run: ./gradlew --no-daemon validateLoadTest -Dloadtest.env="$LOADTEST_ENV" -Dloadtest.run="$LOADTEST_RUN"
+
+      - name: Run smoke test
+        run: ./gradlew --no-daemon gatlingRun -Dloadtest.env="$LOADTEST_ENV" -Dloadtest.run="$LOADTEST_RUN"
+
+      - name: Upload Gatling report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatling-report
+          path: build/reports/gatling/
+          if-no-files-found: warn
