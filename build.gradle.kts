@@ -9,7 +9,7 @@ repositories {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(21)
         vendor = JvmVendorSpec.ADOPTIUM
     }
 }
@@ -31,6 +31,15 @@ dependencies {
     compileOnly(libs.gatling.charts.highcharts)
     // Gatling for the gatling source set
     gatling(libs.gatling.charts.highcharts)
+
+    // Runtime dependencies for the gatling source set: RampageSimulation transitively
+    // pulls in Jackson YAML (via ConfigLoader), logging, JDBC, and HikariCP. The
+    // gatling configuration does not inherit from main's `implementation`, so these
+    // must be declared explicitly to be on the gatlingRun runtime classpath.
+    gatlingImplementation(libs.bundles.jackson)
+    gatlingImplementation(libs.bundles.logging)
+    gatlingImplementation(libs.h2)
+    gatlingImplementation(libs.hikaricp)
 
     // Test dependencies
     testImplementation(libs.junit.jupiter)
