@@ -1,0 +1,49 @@
+id: rest-single
+name: Get User REST
+protocol: rest
+endpointRef: rest
+
+description: >
+  Single REST GET that fetches a user by ID. Demonstrates HTTP-method support and
+  path templating with feeder-supplied values.
+
+headers:
+  X-Scenario-Id: rest-single
+  X-Business-Process: user-lookup
+
+request:
+  method: GET
+  path: /users/${feeder:userId}
+  bodyType: none
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+checks:
+  httpStatus: 200
+  responseTimeMillis: 800
+  jsonPath:
+    - path: $.id
+      expectation: exists
+
+workload:
+  inheritFromRun: true
+
+tags:
+  - rest
+  - user
+  - read-only
+
+safety:
+  mutating: false
+  idempotent: true

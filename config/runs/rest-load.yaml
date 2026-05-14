@@ -1,0 +1,45 @@
+id: rest-load
+name: REST Order Flow Load Test
+version: 1
+environment: local
+
+metadata:
+  owner: platform-performance
+  application: customer-api
+  service: order-service
+  description: Multi-step REST load test exercising the order cancellation flow.
+
+scenarios:
+  - id: rest-single
+    file: config/scenarios/rest-single.yaml
+    enabled: true
+    weight: 70
+  - id: rest-flow
+    file: config/scenarios/rest-flow.yaml
+    enabled: true
+    weight: 30
+
+execution:
+  mode: open
+  workload:
+    type: ramp-and-hold
+    rampUp: 30s
+    holdFor: 2m
+    rate:
+      unit: per-second
+      from: 1
+      to: 5
+
+assertions:
+  global:
+    maxResponseTimeP95Millis: 2000
+    maxErrorPercentage: 5.0
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false
+  approveMutatingRequests: true

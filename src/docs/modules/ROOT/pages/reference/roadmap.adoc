@@ -8,7 +8,7 @@ Date: 2026-05-14 +
 Source PRD: `docs/prd/initial-prd.md` +
 Source Review: `docs/review/code-review.md`, `docs/review/requirements-traceability.md`
 
-NOTE: This is a reference snapshot of `docs/roadmap/roadmap.md`. It is not updated automatically.
+NOTE: This is a reference snapshot of `docs/roadmap/roadmap.md`. It is not updated automatically. Last updated: 2026-05-15 — REST/HTTP support, multi-step scenarios, response extraction, inter-step pauses, and rich checks (regex, header, responseTime, bodyContains) shipped.
 
 == Vision
 
@@ -16,9 +16,11 @@ Deliver a reusable, configuration-driven Gatling load testing framework where en
 
 == Current state (snapshot)
 
-PRD Phase 2 (YAML Loading) is complete; Phases 3–5 are partially implemented; Phase 6 (Reporting and CI) has only the disconnected `RunMetadataWriter`. See xref:requirements-traceability.adoc[the requirements traceability] for the line-by-line status.
+PRD Phase 2 (YAML Loading) is complete; Phases 3–5 are partially implemented; Phase 6 (Reporting and CI) has only the disconnected `RunMetadataWriter`. See xref:reference/requirements-traceability.adoc[the requirements traceability] for the line-by-line status.
 
 The MVP backbone runs end-to-end against a hand-rolled environment, but does not yet meet MVP acceptance criteria 4, 7, and 10 honestly.
+
+The following capabilities shipped after M4: REST/HTTP-method scenarios, multi-step scenarios with per-step `endpointRef`, response extraction (`extract:`), inter-step pauses (`pauseAfter:`), and richer check types (regex, header, `responseTimeMillis`, `bodyContains`, `equalsValue`, `saveAs`). These are not yet reflected in the milestone feature list below; they will be formalised in a future milestone update.
 
 == Milestones
 
@@ -167,4 +169,4 @@ Each feature brief in `docs/features/` is sized to fit a single GitHub issue, wi
 1. Open the GitHub repo and create four milestones named *M1*, *M2*, *M3*, *M4*.
 2. For each feature brief in `docs/features/F-NNN-*.md`, paste the body into a new issue, set the milestone, and apply the labels listed at the bottom of the brief.
 3. Track progress against this roadmap by checking off features in `docs/features/README.md`.
-4. Update xref:requirements-traceability.adoc[the traceability matrix] as items move from Partial/Missing to Done.
+4. Update xref:reference/requirements-traceability.adoc[the traceability matrix] as items move from Partial/Missing to Done.

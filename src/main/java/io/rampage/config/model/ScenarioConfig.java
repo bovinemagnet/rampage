@@ -35,6 +35,9 @@ public class ScenarioConfig {
     @JsonProperty("checks")
     private ChecksConfig checks;
 
+    @JsonProperty("steps")
+    private List<StepConfig> steps;
+
     @JsonProperty("workload")
     private ScenarioWorkloadConfig workload;
 
@@ -72,6 +75,8 @@ public class ScenarioConfig {
     public void setFeeder(FeederConfig feeder) { this.feeder = feeder; }
     public ChecksConfig getChecks() { return checks; }
     public void setChecks(ChecksConfig checks) { this.checks = checks; }
+    public List<StepConfig> getSteps() { return steps; }
+    public void setSteps(List<StepConfig> steps) { this.steps = steps; }
     public ScenarioWorkloadConfig getWorkload() { return workload; }
     public void setWorkload(ScenarioWorkloadConfig workload) { this.workload = workload; }
     public PausesConfig getPauses() { return pauses; }

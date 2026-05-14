@@ -150,6 +150,8 @@ Key points:
 
 == Scenario YAML — `config/scenarios/scenario-one.yaml`
 
+=== GraphQL scenario
+
 [source,yaml]
 ----
 id: scenario-one
@@ -211,6 +213,212 @@ Key points:
 * `feeder.columns.<name>.sessionKey` renames a SQL column into the Gatling session under a different key.
 * `workload.inheritFromRun: false` activates a scenario-level workload override; see xref:scenario-authoring.adoc#workload-override[Workload override].
 * `safety.mutating: true` requires `run.safety.approveMutatingRequests: true` to execute against environments with `requireApprovalForMutatingRequests: true`.
+
+=== REST single-step scenario
+
+[source,yaml]
+----
+id: rest-single
+name: Get User REST
+protocol: rest
+endpointRef: rest
+
+request:
+  method: GET                          # <1>
+  path: /users/${feeder:userId}        # <2>
+  bodyType: none                       # <3>
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+checks:
+  httpStatus: 200
+  responseTimeMillis: 800              # <4>
+  jsonPath:
+    - path: $.id
+      expectation: exists
+
+workload:
+  inheritFromRun: true
+
+safety:
+  mutating: false
+  idempotent: true
+----
+<1> `method` — one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`. Required unless `graphqlQueryFile` is set (which defaults to `POST`).
+<2> `path` — appended to the `baseUrls` entry for `endpointRef`. Supports `${feeder:<col>}` and `${session:<key>}` placeholders. Defaults to `/<endpointRef>` for backward compatibility when null.
+<3> `bodyType` — `graphql`, `json`, `form`, `text`, or `none`. When omitted the engine infers a value (see xref:scenario-authoring.adoc[Scenario authoring]).
+<4> `responseTimeMillis` — per-request response-time gate. Fails the request if elapsed time exceeds the threshold.
+
+=== Multi-step scenario
+
+[source,yaml]
+----
+id: rest-flow
+name: Cancel Pending Order Flow
+protocol: rest
+endpointRef: rest
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+steps:                                   # <1>
+  - name: get-pending-order              # <2>
+    request:
+      method: GET
+      path: /users/${feeder:userId}/orders/pending
+      bodyType: none
+    checks:
+      httpStatus: 200
+    extract:                             # <3>
+      - type: jsonPath
+        path: $.id
+        sessionKey: orderId
+
+  - name: cancel-order
+    request:
+      method: POST
+      path: /orders/${session:orderId}/cancel   # <4>
+      bodyType: json
+      body: |
+        {"reason": "user-requested", "userId": "${feeder:userId}"}
+    checks:
+      httpStatus: 202
+      responseTimeMillis: 1500
+    pauseAfter:                          # <5>
+      strategy: uniform
+      minMillis: 200
+      maxMillis: 500
+
+  - name: verify-cancelled
+    request:
+      method: GET
+      path: /orders/${session:orderId}
+      bodyType: none
+    checks:
+      httpStatus: 200
+      jsonPath:
+        - path: $.status
+          expectation: equalsValue
+          equalsValue: CANCELLED         # <6>
+
+safety:
+  mutating: true
+  idempotent: false
+----
+<1> `steps` — ordered list of requests executed per virtual user iteration. When present, top-level `request`/`checks` are ignored.
+<2> `name` — required; must be unique within the scenario; becomes the Gatling request label.
+<3> `extract` — captures response values into the session. `type` is `jsonPath`, `regex`, `header`, or `body`. `sessionKey` names the session attribute. Optional `defaultValue` is stored when the path resolves to nothing.
+<4> `${session:orderId}` — resolved from the value captured in the previous step.
+<5> `pauseAfter` — think-time after this step. `strategy` is `constant`, `uniform`, or `exponential`. `constant` uses `minMillis`; `uniform` draws from `[minMillis, maxMillis]`; `exponential` uses `minMillis` as the mean.
+<6> `equalsValue` — new expectation that compares the JSONPath result to a literal string.
+
+=== `request` field reference
+
+[cols="1,1,3",options="header"]
+|===
+| Field | Required | Description
+
+| `method`
+| Yes (unless `graphqlQueryFile` set)
+| HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`.
+
+| `path`
+| No
+| Request path appended to the base URL. Supports `${feeder:X}` and `${session:X}`. Defaults to `/<endpointRef>`.
+
+| `bodyType`
+| No
+| `graphql`, `json`, `form`, `text`, `none`. Inferred when omitted.
+
+| `graphqlQueryFile`
+| No
+| Path to a `.graphql` file. Implies `bodyType: graphql` and `method: POST`.
+
+| `variables`
+| No
+| Map of GraphQL variable name → value. Values may use `${feeder:X}`.
+
+| `body`
+| No
+| Inline body string. Templated. Used with `bodyType: json` or `bodyType: text`.
+
+| `bodyFile`
+| No
+| Path to a body file (filesystem then classpath). Templated after load. Validator checks existence.
+
+| `queryParams`
+| No
+| `Map<String,String>` of query-string parameters. All values templated.
+
+| `formParams`
+| No
+| `Map<String,String>` for `bodyType: form`. All values templated.
+|===
+
+=== `checks` field reference
+
+[cols="1,3",options="header"]
+|===
+| Field | Description
+
+| `httpStatus`
+| Expected HTTP status code (integer).
+
+| `responseTimeMillis`
+| Maximum elapsed time in milliseconds. Fails the request if exceeded.
+
+| `jsonPath`
+| List of `{path, expectation, sessionKey?, equalsValue?, saveAs?}`. Expectations: `exists`, `absentOrEmpty`, `equalsSession`, `equalsValue`.
+
+| `regex`
+| List of `{pattern, expectation: exists\|matches, sessionKey?}`. Optionally captures the first group into `sessionKey`.
+
+| `header`
+| List of `{name, expectation: exists\|equals\|matches, value?, sessionKey?}`. Optionally captures the matched value.
+
+| `bodyContains`
+| List of literal substrings that must be present in the response body.
+|===
+
+=== `extract` field reference
+
+[cols="1,3",options="header"]
+|===
+| Field | Description
+
+| `type`
+| Extraction strategy: `jsonPath`, `regex`, `header`, `body`.
+
+| `path`
+| JSONPath expression, regex pattern, or header name depending on `type`. Unused for `body`.
+
+| `sessionKey`
+| Name of the Gatling session attribute. Required; must be non-blank.
+
+| `defaultValue`
+| Value stored when `path` resolves to nothing. Defaults to empty string.
+|===
 
 == Auto-generated field reference
 

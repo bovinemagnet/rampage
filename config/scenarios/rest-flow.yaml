@@ -1,0 +1,83 @@
+id: rest-flow
+name: Cancel Pending Order Flow
+protocol: rest
+endpointRef: rest
+
+description: >
+  Three-step REST flow exercising response extraction and inter-step pauses:
+  (1) GET the user's pending order to capture its id,
+  (2) POST a cancellation against that captured order id (with a small think-time pause),
+  (3) GET the order back to confirm the status transition.
+
+headers:
+  X-Scenario-Id: rest-flow
+  X-Business-Process: order-cancel
+
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-user-data.sql
+  strategy: circular
+  preload: true
+  failIfEmpty: false
+  columns:
+    userId:
+      type: string
+      required: true
+      sessionKey: userId
+
+steps:
+  - name: get-pending-order
+    request:
+      method: GET
+      path: /users/${feeder:userId}/orders/pending
+      bodyType: none
+    checks:
+      httpStatus: 200
+      jsonPath:
+        - path: $.id
+          expectation: exists
+    extract:
+      - type: jsonPath
+        path: $.id
+        sessionKey: orderId
+
+  - name: cancel-order
+    request:
+      method: POST
+      path: /orders/${session:orderId}/cancel
+      bodyType: json
+      body: |
+        {"reason": "user-requested", "userId": "${feeder:userId}"}
+    checks:
+      httpStatus: 202
+      responseTimeMillis: 1500
+    pauseAfter:
+      strategy: uniform
+      minMillis: 200
+      maxMillis: 500
+
+  - name: verify-cancelled
+    request:
+      method: GET
+      path: /orders/${session:orderId}
+      bodyType: none
+    checks:
+      httpStatus: 200
+      jsonPath:
+        - path: $.status
+          expectation: equalsValue
+          equalsValue: CANCELLED
+
+workload:
+  inheritFromRun: true
+
+tags:
+  - rest
+  - order
+  - flow
+  - mutating
+
+safety:
+  mutating: true
+  idempotent: false

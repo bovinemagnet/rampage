@@ -12,6 +12,12 @@ public class JsonPathCheck {
     @JsonProperty("sessionKey")
     private String sessionKey;
 
+    @JsonProperty("equalsValue")
+    private String equalsValue;
+
+    @JsonProperty("saveAs")
+    private String saveAs;
+
     public JsonPathCheck() {}
 
     public String getPath() { return path; }
@@ -20,4 +26,8 @@ public class JsonPathCheck {
     public void setExpectation(String expectation) { this.expectation = expectation; }
     public String getSessionKey() { return sessionKey; }
     public void setSessionKey(String sessionKey) { this.sessionKey = sessionKey; }
+    public String getEqualsValue() { return equalsValue; }
+    public void setEqualsValue(String equalsValue) { this.equalsValue = equalsValue; }
+    public String getSaveAs() { return saveAs; }
+    public void setSaveAs(String saveAs) { this.saveAs = saveAs; }
 }

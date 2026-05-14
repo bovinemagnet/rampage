@@ -2,7 +2,9 @@
 :author: Paul Snow
 :version: 0.0.0
 
-A scenario in Rampage is a YAML file that fully describes one logical test flow: the GraphQL query to send, the data source to feed it, the response checks to apply, and the safety markers that control where it can run. You never write Java.
+A scenario in Rampage is a YAML file that fully describes one logical test flow: the protocol and request to send, the data source to feed it, the response checks to apply, and the safety markers that control where it can run. You never write Java.
+
+Rampage supports both GraphQL and REST/HTTP scenarios. All existing GraphQL YAML is fully backward compatible — no changes are required to existing scenario files.
 
 == Scaffolding a new scenario
 
@@ -42,6 +44,8 @@ operationName: GetOrder   # <2>
 
 === Request definition
 
+==== GraphQL request
+
 [source,yaml]
 ----
 request:
@@ -50,9 +54,111 @@ request:
     orderId: ${feeder:orderId}                          # <2>
 ----
 <1> Path to the `.graphql` file, relative to the project root, or a classpath resource.
-<2> `${feeder:<column>}` binds a feeder column into a GraphQL variable. The value is rewritten to `#{orderId}` (Gatling's session EL syntax) before the request is built.
+<2> `${feeder:<column>}` binds a feeder column into a GraphQL variable. The value is rewritten to `+#{orderId}+` (Gatling's session EL syntax) before the request is built.
 
 The `graphqlQueryFile` must contain a valid GraphQL document. Variables declared in the query must have matching entries under `request.variables`.
+
+When `graphqlQueryFile` is set the engine defaults `method` to `POST` and `bodyType` to `graphql` automatically. Existing GraphQL scenarios that omit `method` and `bodyType` continue to work unchanged.
+
+==== REST and other HTTP methods
+
+For REST and other HTTP endpoints, supply `method` and `path` instead:
+
+[source,yaml]
+----
+request:
+  method: GET          # <1>
+  path: /users/${feeder:userId}   # <2>
+  bodyType: none       # <3>
+----
+<1> One of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`. Required when no `graphqlQueryFile` is set.
+<2> The request path, appended to the `baseUrls` entry selected by `endpointRef`. Supports `${feeder:<col>}` and `${session:<key>}` placeholders (see <<session-references>>).
+<3> `bodyType` controls how the request body is built and which `Content-Type` header is set. When omitted the engine infers a value.
+
+.Supported `bodyType` values
+[cols="1,2,2",options="header"]
+|===
+| Value | Content-Type set | Body source
+
+| `graphql`
+| `application/json`
+| `graphqlQueryFile` + `variables`
+
+| `json`
+| `application/json`
+| `body` (inline string) or `bodyFile` (filesystem/classpath path)
+
+| `form`
+| `application/x-www-form-urlencoded`
+| `formParams` map
+
+| `text`
+| `text/plain`
+| `body` or `bodyFile`
+
+| `none`
+| _(not set)_
+| _(no body sent)_
+|===
+
+TIP: If `bodyType` is omitted, the engine infers the value: `graphql` when `graphqlQueryFile` is set; `form` when `formParams` is set; `json` when `body` or `bodyFile` is set; otherwise `none`.
+
+===== Inline JSON body
+
+[source,yaml]
+----
+request:
+  method: POST
+  path: /orders/${session:orderId}/cancel
+  bodyType: json
+  body: |
+    {"reason": "user-requested", "userId": "${feeder:userId}"}
+----
+
+The `body` string is templated: `${feeder:<col>}` and `${session:<key>}` placeholders are substituted before the request is sent.
+
+===== Body from a file
+
+[source,yaml]
+----
+request:
+  method: PUT
+  path: /products/${feeder:sku}
+  bodyType: json
+  bodyFile: config/bodies/update-product.json
+----
+
+The file is loaded from the filesystem first, then the classpath. Placeholders are expanded after the file is read. The validator checks that the file exists at startup.
+
+===== Form parameters
+
+[source,yaml]
+----
+request:
+  method: POST
+  path: /auth/token
+  bodyType: form
+  formParams:
+    grant_type: client_credentials
+    client_id: ${feeder:clientId}
+----
+
+===== Query parameters
+
+Any request can carry query-string parameters independently of `bodyType`:
+
+[source,yaml]
+----
+request:
+  method: GET
+  path: /search
+  queryParams:
+    q: ${feeder:searchTerm}
+    page: "1"
+    size: "20"
+----
+
+All values are templated. The parameters are URL-encoded and appended to the path automatically.
 
 === Feeder definition
 
@@ -102,7 +208,7 @@ feeder:
 | Picks a random row per request from the full dataset.
 |===
 
-=== `${feeder:X}` variable binding
+=== `$\{feeder:X}` variable binding
 
 Any value under `request.variables` may reference a feeder column:
 
@@ -117,10 +223,33 @@ YAML types are preserved by the Jackson body serialiser. A column value of `true
 
 === Response checks
 
+The `checks` block applies assertions to every response. All check types can be combined freely.
+
+==== HTTP status
+
 [source,yaml]
 ----
 checks:
   httpStatus: 200
+----
+
+==== Response time
+
+Fail the request if the elapsed time exceeds the threshold:
+
+[source,yaml]
+----
+checks:
+  responseTimeMillis: 800
+----
+
+This is a per-request gate, separate from the global `assertions` block in the run YAML.
+
+==== JSON path
+
+[source,yaml]
+----
+checks:
   jsonPath:
     - path: $.errors
       expectation: absentOrEmpty
@@ -128,26 +257,262 @@ checks:
       expectation: exists
     - path: $.data.order.status
       expectation: equalsSession
-      sessionKey: expectedStatus
+      sessionKey: expectedStatus       # <1>
+    - path: $.data.order.total
+      expectation: equalsValue
+      equalsValue: "0.00"              # <2>
+    - path: $.data.order.reference
+      saveAs: orderRef                 # <3>
 ----
+<1> `equalsSession` compares the resolved value to a Gatling session attribute.
+<2> `equalsValue` compares the resolved value to a literal string.
+<3> `saveAs` extracts the resolved value into the Gatling session — shorthand for a separate `extract` entry.
 
-Supported check expectations:
-
+.Supported JSONPath expectations
 [cols="1,3",options="header"]
 |===
 | Expectation | Meaning
 
 | `exists`
-| The JSONPath must resolve to at least one value.
+| The path must resolve to at least one value.
 
 | `absentOrEmpty`
-| The JSONPath must resolve to no value, null, or an empty array/object. Used to assert `$.errors` is absent.
+| The path must resolve to no value, null, or an empty array/object. Use to assert `$.errors` is absent.
 
 | `equalsSession`
-| The resolved value must equal the Gatling session attribute named by `sessionKey`.
+| The resolved value must equal the session attribute named by `sessionKey`.
+
+| `equalsValue`
+| The resolved value must equal the literal string in `equalsValue`.
 |===
 
-NOTE: Regex, XPath, JSON schema, and header checks are not yet implemented. See the xref:reference/requirements-traceability.adoc[requirements traceability] for the current status of `SCN-007`.
+==== Regex checks
+
+[source,yaml]
+----
+checks:
+  regex:
+    - pattern: "order-[0-9]+"
+      expectation: exists        # <1>
+    - pattern: "status=([A-Z]+)"
+      expectation: matches       # <2>
+      sessionKey: statusCapture  # <3>
+----
+<1> `exists` asserts the pattern is found anywhere in the response body.
+<2> `matches` asserts the pattern matches and optionally captures the first group.
+<3> When `sessionKey` is set the first capture group is stored for later steps.
+
+==== Header checks
+
+[source,yaml]
+----
+checks:
+  header:
+    - name: Content-Type
+      expectation: exists                  # <1>
+    - name: X-Request-Id
+      expectation: equals
+      value: "my-fixed-id"                 # <2>
+    - name: Location
+      expectation: matches
+      value: "^/orders/[0-9]+"             # <3>
+      sessionKey: locationHeader           # <4>
+----
+<1> `exists` asserts the header is present.
+<2> `equals` asserts an exact value match.
+<3> `matches` asserts the value satisfies a regular expression.
+<4> Capture the matched header value into the session for use in a later step.
+
+==== Body contains
+
+Assert that the response body contains one or more literal substrings:
+
+[source,yaml]
+----
+checks:
+  bodyContains:
+    - "CONFIRMED"
+    - "order-reference"
+----
+
+NOTE: XPath and JSON schema checks are not yet implemented. See the xref:reference/requirements-traceability.adoc[requirements traceability] for the current status of `SCN-007`.
+
+[[session-references]]
+=== Session references in paths and bodies
+
+Any field that accepts a templated string recognises two placeholder forms:
+
+[cols="1,2,3",options="header"]
+|===
+| Syntax | Source | Example
+
+| `${feeder:<col>}`
+| Feeder column value for the current virtual user
+| `+${feeder:userId}+` → the `userId` column from the SQL result
+
+| `${session:<key>}`
+| Value extracted from an earlier step's response (see <<response-extraction>>)
+| `+${session:orderId}+` → the `orderId` captured by a previous step
+|===
+
+The validator performs a static reference check: every `${session:<key>}` used in a step's `path`, `body`, `queryParams`, or `formParams` must either come from the feeder's declared columns or be produced by an `extract` entry in an earlier step. An unresolvable reference is reported as a validation error rather than a runtime failure.
+
+=== Multi-step scenarios
+
+A scenario can define a `steps` list to chain multiple requests per virtual user iteration. Each step runs in order, and extracted values flow forward through the Gatling session.
+
+[source,yaml]
+----
+steps:
+  - name: get-pending-order           # <1>
+    request:
+      method: GET
+      path: /users/${feeder:userId}/orders/pending
+      bodyType: none
+    checks:
+      httpStatus: 200
+      jsonPath:
+        - path: $.id
+          expectation: exists
+    extract:                          # <2>
+      - type: jsonPath
+        path: $.id
+        sessionKey: orderId
+
+  - name: cancel-order
+    request:
+      method: POST
+      path: /orders/${session:orderId}/cancel   # <3>
+      bodyType: json
+      body: |
+        {"reason": "user-requested", "userId": "${feeder:userId}"}
+    checks:
+      httpStatus: 202
+      responseTimeMillis: 1500
+    pauseAfter:                       # <4>
+      strategy: uniform
+      minMillis: 200
+      maxMillis: 500
+
+  - name: verify-cancelled
+    request:
+      method: GET
+      path: /orders/${session:orderId}
+      bodyType: none
+    checks:
+      httpStatus: 200
+      jsonPath:
+        - path: $.status
+          expectation: equalsValue
+          equalsValue: CANCELLED
+----
+<1> `name` is required and must be unique within the scenario. It becomes the Gatling request label in reports.
+<2> `extract` captures response values into the Gatling session for use in later steps.
+<3> `${session:orderId}` is resolved from the value captured in step one.
+<4> `pauseAfter` introduces a think-time between this step and the next.
+
+When `steps` is absent the top-level `request`, `checks`, and `pauseAfter` fields are used as a single synthesised step. All existing single-step scenarios continue to work unchanged.
+
+Each step may also carry an `endpointRef` to route that step to a different `baseUrls` entry — useful when a flow spans multiple services:
+
+[source,yaml]
+----
+steps:
+  - name: auth
+    endpointRef: auth-service
+    request:
+      method: POST
+      path: /token
+      bodyType: form
+      formParams:
+        username: ${feeder:user}
+        password: ${feeder:pass}
+
+  - name: fetch-profile
+    endpointRef: api
+    request:
+      method: GET
+      path: /me
+      bodyType: none
+----
+
+[[response-extraction]]
+=== Response extraction
+
+The `extract` list on a step captures values from the response into the Gatling session, where they become available as `${session:<key>}` in all later steps.
+
+[source,yaml]
+----
+extract:
+  - type: jsonPath          # <1>
+    path: $.id
+    sessionKey: orderId     # <2>
+    defaultValue: ""        # <3>
+
+  - type: regex
+    path: "order-([A-Z0-9]+)"
+    sessionKey: orderCode
+
+  - type: header
+    path: Location
+    sessionKey: locationHeader
+
+  - type: body
+    path: ""                # path is unused for full-body capture
+    sessionKey: rawBody
+----
+<1> `type` is one of `jsonPath`, `regex`, `header`, `body`.
+<2> `sessionKey` names the session attribute. Must be non-blank.
+<3> `defaultValue` is stored when the path resolves to nothing. Defaults to an empty string.
+
+The `saveAs` shorthand on a `jsonPath` check entry is equivalent to a separate `extract` entry with `type: jsonPath`. Use whichever reads more clearly.
+
+=== Inter-step pauses
+
+A `pauseAfter` block introduces a think-time delay after a step completes and before the next step starts. It can be placed directly on a step, or at the top of the scenario as a default for all steps. Step-level always wins over scenario-level.
+
+[source,yaml]
+----
+# Scenario-level default pause
+pauses:
+  afterRequest:
+    strategy: constant
+    minMillis: 300
+
+steps:
+  - name: search
+    request:
+      method: GET
+      path: /search?q=${feeder:term}
+    # Uses scenario-level pause (300 ms constant)
+
+  - name: view-result
+    request:
+      method: GET
+      path: /items/${session:itemId}
+    pauseAfter:             # Overrides the scenario-level default
+      strategy: uniform
+      minMillis: 100
+      maxMillis: 400
+----
+
+.Pause strategies
+[cols="1,2,3",options="header"]
+|===
+| Strategy | Behaviour | Required fields
+
+| `constant`
+| Pauses for exactly `minMillis` milliseconds.
+| `minMillis`
+
+| `uniform`
+| Pauses for a random duration drawn uniformly from `[minMillis, maxMillis]`.
+| `minMillis`, `maxMillis`
+
+| `exponential`
+| Uses Gatling's exponential pause with a mean of `minMillis` milliseconds.
+| `minMillis`
+|===
 
 === Headers
 
@@ -253,6 +618,34 @@ execution:
 ----
 
 `get-order` receives 75 % of the target rate (0 → 75 rps) and `create-order` receives 25 % (0 → 25 rps).
+
+== Worked example — REST scenarios
+
+The repository ships two ready-to-run REST scenarios under `config/scenarios/`:
+
+`config/scenarios/rest-single.yaml`::
+A single `GET /users/\{userId}` request with a feeder-templated path and a `responseTimeMillis: 800` check. Demonstrates the simplest REST form.
+
+`config/scenarios/rest-flow.yaml`::
+A three-step cancel-order flow: fetch the pending order (extracting `$.id` → `orderId`), POST a cancellation using `+${session:orderId}+`, then verify the status transition with an `equalsValue` check. A uniform pause of 200–500 ms follows the cancellation step.
+
+Both are exercised together by `config/runs/rest-load.yaml` with a 70/30 weight split. Validate with:
+
+[source,bash]
+----
+gradle21w validateLoadTest \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/rest-load.yaml
+----
+
+=== Cancel-order sequence
+
+The following diagram shows the message sequence for `rest-flow.yaml`.
+
+[source]
+----
+include::example$cancel-order-flow.mmd[]
+----
 
 == See also
 

@@ -6,14 +6,14 @@ Author: Paul Snow +
 Version: 0.0.0 +
 Date: 2026-05-14 +
 Source PRD: `docs/prd/initial-prd.md` +
-Last updated: 2026-05-14 — M1 + M2 + M3 features landed (F-001 through F-028).
+Last updated: 2026-05-15 — M1 + M2 + M3 features landed (F-001 through F-028); REST/HTTP support, multi-step scenarios, response extraction, inter-step pauses, regex/header/responseTime/bodyContains checks shipped.
 
 NOTE: This is a reference snapshot of `docs/review/requirements-traceability.md`. It is not updated automatically.
 
 Status legend:
 
 * *Done* — implemented and exercised by tests
-* *Partial* — implemented for the happy path but with gaps or defects (see xref:code-review.adoc[the code review])
+* *Partial* — implemented for the happy path but with gaps or defects (see xref:reference/code-review.adoc[the code review])
 * *Missing* — no implementation in tree
 * *N/A* — out of scope for current state
 
@@ -110,7 +110,7 @@ Status legend:
 | SCN-001
 | GraphQL POST
 | Done
-| `ScenarioFactory.build` always POSTs to `/<endpointRef>`.
+| `ScenarioFactory.build` POSTs to `/<endpointRef>` for GraphQL. REST scenarios honour the declared `method` and `path`.
 
 | SCN-002
 | External GraphQL query files
@@ -138,9 +138,24 @@ Status legend:
 | `ScenarioConfig.headers` are applied in `ScenarioFactory.build`.
 
 | SCN-007
-| HTTP status + JSONPath checks
+| HTTP status + JSONPath checks + rich check types
 | Partial
-| `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession` supported. No regex, no XPath, no JSON schema, no header checks.
+| `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession`, `equalsValue`, `saveAs` supported. `regex`, `header`, `responseTimeMillis`, and `bodyContains` checks now implemented. XPath and JSON schema checks still missing.
+
+| SCN-007a
+| REST / HTTP-method scenarios
+| Done
+| `request.method` and `request.path` supported; `bodyType` inferred or explicit; `queryParams`, `formParams`, `body`, `bodyFile` wired through `ScenarioFactory`. Path defaults to `/<endpointRef>` for backward compatibility.
+
+| SCN-007b
+| Multi-step scenarios with response extraction
+| Done
+| `ScenarioConfig.steps` list chains multiple requests per virtual user. `extract` captures JSONPath/regex/header/body values into the Gatling session. `${session:<key>}` placeholders resolved in later steps. Validator performs static reference check.
+
+| SCN-007c
+| Inter-step pauses
+| Done
+| `pauseAfter` on a step (or `pauses.afterRequest` at scenario level) inserts a think-time. Strategies: `constant`, `uniform`, `exponential`. Step-level wins over scenario-level.
 
 | SCN-008
 | Scenario-specific workload overrides
@@ -341,11 +356,11 @@ Status legend:
 
 | 2
 | Unknown required fields / invalid enums
-| Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false`; workload type enum now validated (F-004)
+| Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false`; workload type and HTTP method enums validated; `bodyType` compatibility with body-source fields validated.
 
 | 3
-| Missing GraphQL/SQL files
-| Done — `ConfigValidator` checks filesystem and classpath (F-004)
+| Missing GraphQL/SQL/body files
+| Done — `ConfigValidator` checks filesystem and classpath (F-004); `bodyFile` existence now also checked.
 
 | 4
 | Empty JDBC feeder with `failIfEmpty=true`

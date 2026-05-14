@@ -216,4 +216,4 @@ Existing tests are well-targeted at the factories. Missing:
 
 == 6. Conclusion
 
-The MVP backbone is sound. The remaining work to honestly meet the MVP acceptance criteria is roughly two focused sprints: one closing the validation/security/reporting gaps (items 1–6 above), one closing the workload and operational gaps (items 7–12). See xref:roadmap.adoc[the roadmap] for the phased plan, and `docs/features/` for ticket-shaped briefs.
+The MVP backbone is sound. The remaining work to honestly meet the MVP acceptance criteria is roughly two focused sprints: one closing the validation/security/reporting gaps (items 1–6 above), one closing the workload and operational gaps (items 7–12). See xref:reference/roadmap.adoc[the roadmap] for the phased plan, and `docs/features/` for ticket-shaped briefs.

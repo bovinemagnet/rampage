@@ -69,7 +69,8 @@ public class RampageSimulation extends Simulation {
         tokenProvider = TokenProvider.fromEnvironment(envConfig, secretResolver);
         scenarioFactory = new ScenarioFactory(
             () -> java.util.UUID.randomUUID().toString(),
-            () -> tokenProvider.currentToken());
+            () -> tokenProvider.currentToken(),
+            configLoader::loadResource);
 
         Map<String, HttpProtocolBuilder> protocolsByRef = new LinkedHashMap<>();
         int totalInheritedWeight = totalInheritedWeight(runConfig, scenarioConfigs);

@@ -1,50 +1,49 @@
 package io.rampage.factory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.gatling.javaapi.core.CheckBuilder;
 import io.gatling.javaapi.core.ChainBuilder;
+import io.gatling.javaapi.core.CheckBuilder;
 import io.gatling.javaapi.core.CoreDsl;
 import io.gatling.javaapi.core.ScenarioBuilder;
-import io.rampage.config.model.*;
+import io.rampage.config.model.ChecksConfig;
+import io.rampage.config.model.HttpConfig;
+import io.rampage.config.model.RequestConfig;
+import io.rampage.config.model.ScenarioConfig;
+import io.rampage.config.model.StepConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static io.gatling.javaapi.core.CoreDsl.StringBody;
-import static io.gatling.javaapi.core.CoreDsl.jsonPath;
-import static io.gatling.javaapi.core.CoreDsl.scenario;
-import static io.gatling.javaapi.http.HttpDsl.http;
-import static io.gatling.javaapi.http.HttpDsl.status;
 
 public class ScenarioFactory {
     private static final Logger log = LoggerFactory.getLogger(ScenarioFactory.class);
-    private static final ObjectMapper BODY_MAPPER = new ObjectMapper();
-    private static final Pattern FEEDER_PLACEHOLDER = Pattern.compile("^\\$\\{feeder:([^}]+)\\}$");
 
     private final Supplier<String> correlationIdSupplier;
     private final Supplier<String> authTokenSupplier;
+    private final Function<String, String> resourceLoader;
 
     public ScenarioFactory() {
-        this(() -> UUID.randomUUID().toString(), () -> null);
+        this(() -> UUID.randomUUID().toString(), () -> null, path -> "");
     }
 
     public ScenarioFactory(Supplier<String> correlationIdSupplier) {
-        this(correlationIdSupplier, () -> null);
+        this(correlationIdSupplier, () -> null, path -> "");
     }
 
     public ScenarioFactory(Supplier<String> correlationIdSupplier, Supplier<String> authTokenSupplier) {
+        this(correlationIdSupplier, authTokenSupplier, path -> "");
+    }
+
+    public ScenarioFactory(Supplier<String> correlationIdSupplier,
+                           Supplier<String> authTokenSupplier,
+                           Function<String, String> resourceLoader) {
         this.correlationIdSupplier = correlationIdSupplier;
         this.authTokenSupplier = authTokenSupplier != null ? authTokenSupplier : () -> null;
+        this.resourceLoader = resourceLoader != null ? resourceLoader : path -> "";
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
@@ -59,100 +58,71 @@ public class ScenarioFactory {
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders) {
         log.info("Building scenario: {}", scenarioCfg.getName());
 
-        String endpointRef = scenarioCfg.getEndpointRef() != null ? scenarioCfg.getEndpointRef() : "graphql";
-        String endpoint = "/" + endpointRef;
-
-        String bodyExpression = buildRequestBody(scenarioCfg, graphqlQuery);
-
-        List<CheckBuilder> checks = buildChecks(scenarioCfg.getChecks());
-
-        var request = http(scenarioCfg.getName())
-            .post(endpoint)
-            .header("Content-Type", "application/json");
-
-        if (httpConfig != null && httpConfig.getRequestTimeoutMillis() > 0) {
-            request = request.requestTimeout(Duration.ofMillis(httpConfig.getRequestTimeoutMillis()));
-        }
-
-        Map<String, String> headers = effectiveHeaders != null ? effectiveHeaders : scenarioCfg.getHeaders();
-        if (headers != null) {
-            for (Map.Entry<String, String> entry : headers.entrySet()) {
-                request = request.header(entry.getKey(), entry.getValue());
-            }
-        }
-
-        request = request.body(StringBody(bodyExpression));
-
-        if (!checks.isEmpty()) {
-            request = request.check(checks.toArray(new CheckBuilder[0]));
-        }
+        List<StepConfig> steps = resolveSteps(scenarioCfg);
 
         Supplier<String> idSupplier = correlationIdSupplier;
         Supplier<String> tokenSupplier = authTokenSupplier;
-        ChainBuilder withSessionPrep = CoreDsl.exec(session -> {
+        ChainBuilder sessionPrep = CoreDsl.exec(session -> {
             var s = session.set("correlationId", idSupplier.get());
             String token = tokenSupplier.get();
             return token != null ? s.set("authToken", token) : s.set("authToken", "");
         });
 
-        return scenario(scenarioCfg.getName()).exec(withSessionPrep, request);
+        ChainBuilder body = sessionPrep;
+        for (StepConfig step : steps) {
+            String inlineBody = loadStepBody(step);
+            body = body.exec(StepBuilder.build(scenarioCfg, step, graphqlQuery, inlineBody,
+                httpConfig, effectiveHeaders));
+        }
+        return CoreDsl.scenario(scenarioCfg.getName()).exec(body);
     }
 
-    public static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("query", graphqlQuery != null ? graphqlQuery : "");
-        body.put("variables", rewriteFeederPlaceholders(scenarioCfg.getRequest() != null
-            ? scenarioCfg.getRequest().getVariables() : null));
-        if (scenarioCfg.getOperationName() != null && !scenarioCfg.getOperationName().isBlank()) {
-            body.put("operationName", scenarioCfg.getOperationName());
+    private List<StepConfig> resolveSteps(ScenarioConfig scenarioCfg) {
+        if (scenarioCfg.getSteps() != null && !scenarioCfg.getSteps().isEmpty()) {
+            return scenarioCfg.getSteps();
         }
+        StepConfig synthesised = new StepConfig();
+        synthesised.setName(scenarioCfg.getName());
+        synthesised.setEndpointRef(scenarioCfg.getEndpointRef());
+        synthesised.setRequest(scenarioCfg.getRequest());
+        synthesised.setChecks(scenarioCfg.getChecks());
+        List<StepConfig> single = new ArrayList<>();
+        single.add(synthesised);
+        return single;
+    }
+
+    private String loadStepBody(StepConfig step) {
+        RequestConfig req = step.getRequest();
+        if (req == null || req.getBodyFile() == null || req.getBodyFile().isBlank()) return null;
         try {
-            return BODY_MAPPER.writeValueAsString(body);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to build request body for scenario '"
-                + scenarioCfg.getName() + "'", e);
+            return resourceLoader.apply(req.getBodyFile());
+        } catch (Exception e) {
+            log.warn("Failed to load bodyFile '{}' for step '{}': {}",
+                req.getBodyFile(), step.getName(), e.getMessage());
+            return null;
         }
     }
 
+    /**
+     * Builds a GraphQL JSON envelope body. Retained as a static helper for tests and
+     * backward compatibility — production code calls into {@link RequestBuilder}.
+     */
+    public static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
+        return RequestBuilder.buildGraphqlBody(scenarioCfg, graphqlQuery);
+    }
+
+    /**
+     * Backward-compatible alias for {@link PlaceholderRewriter#rewriteVariableMap(Map)}.
+     */
     public static Map<String, Object> rewriteFeederPlaceholders(Map<String, Object> variables) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        if (variables == null) return result;
-        for (Map.Entry<String, Object> entry : variables.entrySet()) {
-            Object value = entry.getValue();
-            if (value instanceof String s) {
-                Matcher m = FEEDER_PLACEHOLDER.matcher(s);
-                if (m.matches()) {
-                    result.put(entry.getKey(), "#{" + m.group(1) + "}");
-                    continue;
-                }
-            }
-            result.put(entry.getKey(), value);
-        }
-        return result;
+        return PlaceholderRewriter.rewriteVariableMap(variables);
     }
 
-    private List<CheckBuilder> buildChecks(ChecksConfig checksConfig) {
-        List<CheckBuilder> checks = new ArrayList<>();
-        if (checksConfig == null) return checks;
-
-        if (checksConfig.getHttpStatus() != null) {
-            checks.add(status().is(checksConfig.getHttpStatus()));
-        }
-
-        if (checksConfig.getJsonPath() != null) {
-            for (JsonPathCheck check : checksConfig.getJsonPath()) {
-                if (check.getPath() == null) continue;
-                String expectation = check.getExpectation();
-                if ("exists".equalsIgnoreCase(expectation)) {
-                    checks.add(jsonPath(check.getPath()).exists());
-                } else if ("absentOrEmpty".equalsIgnoreCase(expectation)) {
-                    checks.add(jsonPath(check.getPath()).notExists());
-                } else if ("equalsSession".equalsIgnoreCase(expectation) && check.getSessionKey() != null) {
-                    checks.add(jsonPath(check.getPath()).isEL("#{" + check.getSessionKey() + "}"));
-                }
-            }
-        }
-
-        return checks;
+    /**
+     * Backward-compatible helper that builds a list of {@link CheckBuilder}s from a
+     * {@link ChecksConfig}. Production code calls {@link CheckFactory#build} directly.
+     */
+    public static List<CheckBuilder> buildChecks(ChecksConfig checksConfig) {
+        return CheckFactory.build(checksConfig, null);
     }
 }

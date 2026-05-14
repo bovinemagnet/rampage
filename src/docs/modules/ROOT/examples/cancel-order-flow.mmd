@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant VU as Virtual user
+    participant SUT as Order service
+
+    VU->>SUT: GET /users/${feeder:userId}/orders/pending
+    SUT-->>VU: 200 OK  { "id": "ord-123", ... }
+    Note over VU: extract $.id → orderId
+
+    VU->>SUT: POST /orders/${session:orderId}/cancel<br/>{ "reason": "user-requested", "userId": "..." }
+    SUT-->>VU: 202 Accepted
+    Note over VU: pauseAfter uniform 200–500 ms
+
+    VU->>SUT: GET /orders/${session:orderId}
+    SUT-->>VU: 200 OK  { "status": "CANCELLED", ... }
+    Note over VU: check $.status equalsValue CANCELLED
