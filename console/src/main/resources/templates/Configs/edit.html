@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Editing {relativePath}</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Editing <code>{relativePath}</code></h1>
+        <p class="subtitle">Save validates against the engine's loader before writing to disk.</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/configs">Configs</a>
+        <a href="/history">History</a>
+    </nav>
+</header>
+
+<main>
+    <section class="editor">
+        <form hx-post="/configs/save" hx-target="#save-result" hx-swap="innerHTML">
+            <input type="hidden" name="path" value="{relativePath}">
+            <label>
+                YAML
+                <textarea name="body" spellcheck="false">{body}</textarea>
+            </label>
+            <button type="submit">Save</button>
+        </form>
+        <div id="save-result"></div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rampage Console — History</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+    <div>
+        <h1>Run history</h1>
+        <p class="subtitle">Past Gatling runs found under <code>build/reports/gatling/</code>.</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/configs">Configs</a>
+        <a href="/history">History</a>
+    </nav>
+</header>
+
+<main>
+    <section>
+        {#if entries.isEmpty}
+            <p class="muted">No runs found yet. Launch one from the dashboard.</p>
+        {#else}
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Simulation</th>
+                        <th>Finished</th>
+                        <th>Metadata</th>
+                        <th>Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#for e in entries}
+                        <tr>
+                            <td><code>{e.simulationDir}</code></td>
+                            <td>{e.finishedAt}</td>
+                            <td>
+                                {#if e.hasMetadata}
+                                    <a href="/reports/{e.simulationDir}/run-metadata.json">JSON</a>
+                                {#else}
+                                    <span class="muted">—</span>
+                                {/if}
+                            </td>
+                            <td><a href="{e.reportPath}">Open</a></td>
+                        </tr>
+                    {/for}
+                </tbody>
+            </table>
+        {/if}
+    </section>
+</main>
+</body>
+</html>

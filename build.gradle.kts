@@ -58,6 +58,21 @@ tasks.test {
     jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
 }
 
+// Forward selected -D system properties from the Gradle invocation through to
+// the forked Gatling JVM. The console subproject relies on this to propagate
+// loadtest.* (env/run paths) and rampage.console.* (Carbon writer overrides).
+gatling {
+    val forwarded = System.getProperties()
+        .stringPropertyNames()
+        .filter { name ->
+            name.startsWith("loadtest.") ||
+                name.startsWith("rampage.") ||
+                name.startsWith("gatling.data.")
+        }
+        .associateWith { System.getProperty(it) as Any }
+    systemProperties = forwarded.toMutableMap()
+}
+
 tasks.register("validateLoadTest", JavaExec::class) {
     group = "verification"
     description = "Validates load test YAML configuration and feeder availability."

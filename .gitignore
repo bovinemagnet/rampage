@@ -33,3 +33,12 @@ build/
 # Gradle user home cache (local machine)
 .gradle/
 CLAUDE.md
+
+# Eclipse IDE
+bin/
+.classpath
+.project
+.settings/
+
+# Playwright MCP transient artefacts (snapshots, console logs)
+.playwright-mcp/

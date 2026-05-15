@@ -1,0 +1,313 @@
+:root {
+    color-scheme: light dark;
+    --bg: #0e1116;
+    --panel: #161b22;
+    --border: #30363d;
+    --fg: #e6edf3;
+    --muted: #7d8590;
+    --accent: #58a6ff;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --err: #f85149;
+    --kill: #db61a2;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+        Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #ffffff;
+        --panel: #f6f8fa;
+        --border: #d0d7de;
+        --fg: #1f2328;
+        --muted: #656d76;
+    }
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+nav { display: flex; gap: 1rem; }
+nav a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+}
+nav a:hover { border-color: var(--border); }
+
+main {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr) 2fr;
+    grid-template-areas:
+        "launcher queue   metrics"
+        "status   status  status"
+        "logs     logs    logs";
+    gap: 1rem;
+    padding: 1rem 2rem 2rem;
+}
+
+.launcher { grid-area: launcher; }
+.queue    { grid-area: queue; }
+.metrics  { grid-area: metrics; }
+.status   { grid-area: status; }
+.logs     { grid-area: logs; }
+
+section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+section h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+}
+
+section h3 {
+    margin: 1rem 0 0.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+form label {
+    display: block;
+    margin-bottom: 0.75rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+form select, form textarea, form input[type="text"] {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.4rem;
+    font: inherit;
+    box-sizing: border-box;
+}
+
+button {
+    background: var(--accent);
+    color: var(--bg);
+    border: 0;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    cursor: pointer;
+}
+
+button.kill-btn {
+    background: var(--err);
+    color: var(--bg);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+button.verify-btn {
+    background: var(--ok);
+    color: var(--bg);
+}
+
+.verify-form {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border);
+}
+
+.verify-help {
+    font-size: 0.75rem;
+}
+
+.feedback {
+    margin-top: 0.75rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+
+.muted { color: var(--muted); }
+
+.status-row, .queue-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 0.85rem;
+}
+
+.status-row:last-child, .queue-row:last-child { border-bottom: 0; }
+
+.status-badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--border);
+    color: var(--fg);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+}
+
+.status-RUNNING   .status-badge { background: var(--accent); color: var(--bg); }
+.status-COMPLETED .status-badge { background: var(--ok);     color: var(--bg); }
+.status-FAILED    .status-badge { background: var(--err);    color: var(--bg); }
+.status-KILLED    .status-badge { background: var(--kill);   color: var(--bg); }
+
+.run-id {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--muted);
+    font-size: 0.7rem;
+}
+
+.run-paths {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.exit-code {
+    color: var(--muted);
+    font-size: 0.75rem;
+}
+
+.queue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.queue-active {
+    padding: 0.6rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.metric {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metric-value {
+    font-size: 1.25rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.metric-error .metric-value { color: var(--err); }
+.metric-tick  .metric-value { color: var(--muted); font-size: 0.95rem; }
+
+.logs pre {
+    height: 50vh;
+    overflow: auto;
+    margin: 0;
+    padding: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+}
+
+.editor textarea {
+    height: 60vh;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+.validation-errors {
+    background: rgba(248, 81, 73, 0.08);
+    border-left: 3px solid var(--err);
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+}
+
+.validation-ok {
+    color: var(--ok);
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.history-table th,
+.history-table td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.history-table th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}

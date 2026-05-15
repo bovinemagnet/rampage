@@ -1,0 +1,26 @@
+<div class="queue-panel">
+  {#if view.hasActive}
+    <div class="queue-row queue-active status-{view.active.status}">
+      <span class="status-badge">{view.active.status}</span>
+      <span class="run-paths">{view.active.queued.envPath} &rarr; {view.active.queued.runPath}</span>
+      <span class="run-id">{view.active.id}</span>
+      <button class="kill-btn" hx-delete="/runs/{view.active.id}" hx-swap="none">Kill</button>
+    </div>
+  {#else}
+    <p class="muted">No run in flight.</p>
+  {/if}
+
+  {#if view.hasQueue}
+    <h3>Queue</h3>
+    <ul class="queue-list">
+      {#for q in view.queue}
+        <li class="queue-row queued">
+          <span class="status-badge">QUEUED</span>
+          <span class="run-paths">{q.queued.envPath} &rarr; {q.queued.runPath}</span>
+          <span class="run-id">{q.id}</span>
+          <button class="kill-btn" hx-delete="/runs/{q.id}" hx-swap="none">Cancel</button>
+        </li>
+      {/for}
+    </ul>
+  {/if}
+</div>

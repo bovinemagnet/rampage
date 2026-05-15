@@ -1,6 +1,7 @@
 [versions]
 # Plugins
 gatling-plugin = "3.15.0"
+quarkus = "3.35.3"
 
 # Runtime libraries
 # Next major: tools.jackson.core:jackson-databind:3.1.3
@@ -37,6 +38,9 @@ hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 # Gatling (compileOnly for factories, gatling source set, and tests)
 gatling-charts-highcharts = { module = "io.gatling.highcharts:gatling-charts-highcharts", version.ref = "gatling" }
 
+# Quarkus (console subproject)
+quarkus-bom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
+
 # Test
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
@@ -49,3 +53,4 @@ logging = ["slf4j-api", "logback-classic"]
 
 [plugins]
 gatling = { id = "io.gatling.gradle", version.ref = "gatling-plugin" }
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }
