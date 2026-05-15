@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: Sample API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      summary: Get user by ID
+      tags: [users, read-only]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: expand
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object }
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Create an order
+      tags: [orders, mutating]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId: { type: string }
+                items: { type: array }
+            example:
+              userId: u-1
+              items:
+                - sku: abc
+                  qty: 2
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+  /orders/{orderId}/cancel:
+    post:
+      summary: Cancel an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Accepted

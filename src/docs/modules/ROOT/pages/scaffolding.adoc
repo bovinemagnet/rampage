@@ -1,0 +1,241 @@
+= Scenario scaffolding
+:author: Paul Snow
+:version: 0.0.0
+
+Rampage provides two import tasks that generate scenario YAML from existing artefacts, reducing the time needed to instrument a service that already has observable traffic or an API specification.
+
+[cols="1,3",options="header"]
+|===
+| Task | Source
+
+| `importHar`
+| HTTP Archive (`.har`) captured from a browser or proxy.
+
+| `importOpenApi`
+| OpenAPI 3.x specification (YAML or JSON).
+|===
+
+Both tasks write ready-to-edit scenario YAML to `config/scenarios/`. You review the output, replace dynamic values with feeder placeholders, then reference the scenario from a run YAML. Neither task modifies any existing file.
+
+WARNING: Always review generated scenario YAML before committing it. HAR captures may contain sensitive values in headers or query strings that were not stripped automatically. See <<har-security,HAR security notes>> for the full list of headers that are removed.
+
+[[import-har]]
+== `importHar` — import from a browser capture
+
+Use this task when you want to replay real user traffic. Capture a HAR file from browser DevTools or a proxy, then import it:
+
+[source,bash]
+----
+gradle21w importHar \
+  -Drampage.har.file=path/to/capture.har \
+  -Drampage.scenario.id=checkout-flow
+----
+
+=== Options
+
+[cols="1,1,3",options="header"]
+|===
+| Property | Default | Description
+
+| `-Drampage.har.file`
+| _(required)_
+| Path to the `.har` file.
+
+| `-Drampage.scenario.id`
+| _(required)_
+| ID for the generated scenario. Must be unique across your `config/scenarios/` directory.
+
+| `-Drampage.har.host`
+| Busiest host in the capture
+| Restrict import to requests sent to this host. Useful when a capture contains requests to third-party CDNs or analytics endpoints.
+
+| `-Drampage.har.methods`
+| All methods
+| Comma-separated list of HTTP methods to include, e.g. `GET,POST`.
+
+| `-Drampage.har.includeStatic`
+| `false`
+| Include static assets (JS, CSS, images, fonts). Disabled by default because load testing static assets served by a CDN is rarely meaningful.
+
+| `-Drampage.scenario.dir`
+| `config/scenarios`
+| Output directory for the generated YAML.
+|===
+
+=== Filtering applied automatically
+
+The importer drops the following request categories regardless of options:
+
+* `OPTIONS` preflight requests.
+* Requests to hosts other than the target host.
+* Static assets — files matching common JS/CSS/image/font extensions — when `includeStatic` is `false`.
+
+[[har-security]]
+=== HAR security notes
+
+The following headers are stripped from every generated step to prevent credentials and browser-managed tokens from appearing in committed YAML:
+
+`Authorization`, `Cookie`, `Host`, `Content-Length`, `Connection`, `Origin`, `Referer`, `Accept-Encoding`
+
+Headers not in this list are preserved. Review the generated YAML and remove any remaining tokens, API keys, or session identifiers before committing.
+
+=== Output
+
+The task writes `config/scenarios/<scenarioId>.yaml`. Each captured request becomes one step in the scenario's `steps` list.
+
+When any step uses a mutating HTTP method (POST, PUT, PATCH, DELETE), the importer sets `safety.mutating: true` in the generated file.
+
+=== Example
+
+[source,bash]
+----
+gradle21w importHar \
+  -Drampage.har.file=captures/checkout.har \
+  -Drampage.scenario.id=checkout-flow \
+  -Drampage.har.host=api.example.com \
+  -Drampage.har.methods=GET,POST
+----
+
+Generated skeleton (excerpt):
+
+[source,yaml]
+----
+id: checkout-flow
+name: Checkout flow
+safety:
+  mutating: true
+steps:
+  - name: GET /cart
+    method: GET
+    path: /cart
+    headers:
+      Accept: application/json
+  - name: POST /orders
+    method: POST
+    path: /orders
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+    body: |
+      {"cartId":"REPLACE_ME","currencyCode":"GBP"}
+----
+
+Replace hard-coded identifiers with feeder placeholders:
+
+[source,yaml]
+----
+    body: |
+      {"cartId":"${feeder:cartId}","currencyCode":"GBP"}
+----
+
+[[import-openapi]]
+== `importOpenApi` — import from an OpenAPI spec
+
+Use this task when you have an OpenAPI 3.x description and want to generate one scenario per operation without capturing live traffic first.
+
+[source,bash]
+----
+gradle21w importOpenApi \
+  -Drampage.openapi.file=path/to/openapi.yaml
+----
+
+=== Options
+
+[cols="1,1,3",options="header"]
+|===
+| Property | Default | Description
+
+| `-Drampage.openapi.file`
+| _(required)_
+| Path to the OpenAPI YAML or JSON file (local filesystem or URL).
+
+| `-Drampage.scenario.prefix`
+| _(none)_
+| String prepended to every generated scenario ID, e.g. `orders-` produces `orders-list-orders`, `orders-get-order`, etc.
+
+| `-Drampage.openapi.endpointRef`
+| `rest`
+| The `baseUrls` key from `environment.yaml` to use as the base URL for all generated scenarios.
+
+| `-Drampage.scenario.dir`
+| `config/scenarios`
+| Output directory for the generated YAML files.
+|===
+
+=== What gets generated
+
+One YAML file is written per operation (path × HTTP method). The task:
+
+* Converts path parameters to feeder placeholders: `/users/\{userId}` becomes `/users/${feeder:userId}`.
+* Converts query parameters to feeder placeholders.
+* Inlines the request body `example` field (from the schema or `example` property) with `bodyType: json`.
+* Sets `checks.httpStatus` to the first declared 2xx response code.
+* Carries `tags` from the operation through to the scenario.
+* Sets `safety.mutating: true` for POST, PUT, PATCH, and DELETE operations.
+* Sets `safety.idempotent: true` for GET, HEAD, OPTIONS, and DELETE operations.
+
+=== Example
+
+Spec fragment:
+
+[source,yaml]
+----
+paths:
+  /users/{userId}/orders:
+    get:
+      operationId: list-user-orders
+      tags: [orders]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+      responses:
+        '200':
+          description: OK
+----
+
+Command:
+
+[source,bash]
+----
+gradle21w importOpenApi \
+  -Drampage.openapi.file=config/openapi/orders-api.yaml \
+  -Drampage.scenario.prefix=orders- \
+  -Drampage.openapi.endpointRef=rest \
+  -Drampage.scenario.dir=config/scenarios
+----
+
+Generated `config/scenarios/orders-list-user-orders.yaml` (excerpt):
+
+[source,yaml]
+----
+id: orders-list-user-orders
+name: List user orders
+tags:
+  - orders
+endpointRef: rest
+safety:
+  idempotent: true
+protocol:
+  method: GET
+  path: /users/${feeder:userId}/orders
+checks:
+  httpStatus: 200
+----
+
+== Recommended workflow
+
+. *Import* — run `importHar` or `importOpenApi` with the relevant options.
+. *Review* — open each generated YAML and read every field. Remove or redact any residual sensitive values.
+. *Replace dynamic values* — substitute hard-coded IDs, tokens, and session values with `${feeder:colName}` placeholders. Add or update the `feeder` block to declare the columns and point at a SQL query.
+. *Validate* — run `gradle21w validateLoadTest` to confirm the scenario is structurally correct.
+. *Reference* — add the scenario ID(s) to a run YAML `scenarios` list.
+. *Commit* — commit the YAML files. Do not commit the original `.har` file or any OpenAPI spec that contains sensitive information unless it is intentional.
+
+NOTE: The importer produces a starting point, not a finished scenario. Path parameters are converted to placeholders automatically, but body fields containing dynamic data must be replaced manually. Review the `feeder.columns` declaration to ensure every placeholder has a corresponding column.
+
+== See also
+
+* xref:scenario-authoring.adoc[Scenario authoring] — full reference for scenario YAML fields.
+* xref:configuration-reference.adoc[Configuration reference] — field-by-field reference for feeder and safety blocks.
+* xref:reporting.adoc#ci-quality-gate[CI quality gate] — run the quality-gate loop after adding new scenarios.

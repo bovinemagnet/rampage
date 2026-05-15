@@ -221,8 +221,173 @@ When a global or per-scenario assertion threshold is breached, Gatling exits wit
 
 See xref:scenario-authoring.adoc#checks[Response checks] for the supported assertion types.
 
+[[ci-quality-gate]]
+== CI quality gate
+
+The `summariseRun` Gradle task parses the most recent Gatling report directory and emits two machine-readable artefacts alongside it. Combined with the `load-test-pr.yml` workflow, this forms a quality gate that blocks PR merges on performance regressions.
+
+=== `summariseRun` task
+
+[source,bash]
+----
+gradle21w summariseRun
+----
+
+By default the task scans `build/reports/gatling/` for the most recent `rampagesimulation-*` directory. Override the scan root or supply a baseline with system properties:
+
+[cols="1,1,3",options="header"]
+|===
+| Property | Default | Description
+
+| `-Drampage.report.dir`
+| `build/reports/gatling`
+| Root directory to scan for Gatling report sub-directories.
+
+| `-Drampage.baseline.json`
+| _(none)_
+| Path to a `run-summary.json` from a previous run. When supplied, the Markdown output includes P95/P99 delta columns.
+
+| `-Drampage.fail.on.regression`
+| `true`
+| Exit with code 1 if any parsed assertion is FAIL. Set to `false` to report without failing.
+|===
+
+Exit codes:
+
+* `0` — all parsed assertions are OK (or none were found).
+* `1` — one or more assertions are FAIL.
+* `2` — parser error (unreadable or missing report directory).
+
+=== `run-summary.json`
+
+Written next to the Gatling report directory. Contains structured per-request statistics and the overall status.
+
+[source,json]
+----
+{
+  "status": "PASS",
+  "assertions": [
+    { "name": "Global p95 < 500 ms", "result": "OK", "actualValue": 312 }
+  ],
+  "requests": [
+    {
+      "name": "GraphQL /orders",
+      "total": 12000,
+      "ok": 11994,
+      "ko": 6,
+      "koPct": 0.05,
+      "rps": 40.0,
+      "min": 45,
+      "p50": 110,
+      "p75": 180,
+      "p95": 312,
+      "p99": 430,
+      "max": 890,
+      "mean": 125,
+      "stddev": 58
+    }
+  ]
+}
+----
+
+`status` is `PASS` when all assertions are OK, `FAIL` when any assertion fails.
+
+=== `run-summary.md`
+
+Written alongside `run-summary.json`. Suitable for posting directly as a pull-request comment.
+
+Example output without baseline:
+
+----
+## Load test summary — PASS
+
+### Assertions
+| Assertion | Result | Actual |
+|---|---|---|
+| Global p95 < 500 ms | ✅ OK | 312 ms |
+| Error rate < 1 % | ✅ OK | 0.05 % |
+
+### Per-request stats
+| Request | Total | OK | KO | KO% | RPS | P50 | P95 | P99 | Max |
+|---|---|---|---|---|---|---|---|---|---|
+| GraphQL /orders | 12000 | 11994 | 6 | 0.05 | 40.0 | 110 | 312 | 430 | 890 |
+----
+
+When a baseline is supplied, the Markdown gains `ΔP95` and `ΔP99` columns. A green indicator (🟢) is shown when the delta is within acceptable bounds; red (🔴) when it exceeds the threshold.
+
+NOTE: Small deltas (within measurement noise) are suppressed and shown as `—` rather than a misleading indicator.
+
+=== `load-test-pr.yml` workflow
+
+The workflow at `.github/workflows/load-test-pr.yml` automates the full quality-gate loop on every pull request to `main`.
+
+Steps:
+
+. Check out the repository with Java 21.
+. Download the previous `main` baseline `run-summary.json` from the most recent successful main-branch run (best-effort; skipped if no artifact exists yet).
+. Run `gatlingRun` against the PR branch.
+. Run `summariseRun` with the downloaded baseline (when available).
+. Post the generated `run-summary.md` as a PR comment via `gh pr comment`.
+. When the workflow runs on `main` (after merge), upload the new `run-summary.json` as a named artifact so future PRs can download it as their baseline.
+. Fail the build if `summariseRun` exits non-zero (i.e. any assertion is FAIL or a regression exceeds the threshold).
+
+[source,yaml]
+----
+name: Load test PR gate
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Download baseline (best-effort)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: rampage-baseline
+          path: baseline/
+      - name: Run load test
+        run: ./gradlew --no-daemon gatlingRun
+      - name: Summarise results
+        run: |
+          BASELINE_ARG=""
+          if [ -f baseline/run-summary.json ]; then
+            BASELINE_ARG="-Drampage.baseline.json=baseline/run-summary.json"
+          fi
+          ./gradlew --no-daemon summariseRun $BASELINE_ARG
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file "$(find build/reports/gatling -name run-summary.md | head -1)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload new baseline (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rampage-baseline
+          path: |
+            build/reports/gatling/**/run-summary.json
+          if-no-files-found: warn
+----
+
+TIP: The workflow uses Java 21 rather than Java 25 for broad runner compatibility. The Gatling simulation itself is compiled at runtime, so the Java version only needs to satisfy the Gradle and Gatling plugin requirements.
+
 == See also
 
 * xref:getting-started.adoc[Getting started] — where to find the HTML report after a local run.
 * xref:security.adoc[Security and secrets] — how secrets are redacted.
 * xref:troubleshooting.adoc[Troubleshooting] — common CI failure patterns.
+* xref:scaffolding.adoc[Scenario scaffolding] — generate scenario YAML from a HAR capture or OpenAPI spec.

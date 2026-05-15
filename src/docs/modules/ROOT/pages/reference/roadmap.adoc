@@ -8,7 +8,7 @@ Date: 2026-05-14 +
 Source PRD: `docs/prd/initial-prd.md` +
 Source Review: `docs/review/code-review.md`, `docs/review/requirements-traceability.md`
 
-NOTE: This is a reference snapshot of `docs/roadmap/roadmap.md`. It is not updated automatically. Last updated: 2026-05-15 — REST/HTTP support, multi-step scenarios, response extraction, inter-step pauses, and rich checks (regex, header, responseTime, bodyContains) shipped.
+NOTE: This is a reference snapshot of `docs/roadmap/roadmap.md`. It is not updated automatically. Last updated: 2026-05-15 — REST/HTTP support, multi-step scenarios, response extraction, inter-step pauses, and rich checks (regex, header, responseTime, bodyContains) shipped. CI quality gate (`summariseRun`, `load-test-pr.yml`), HAR importer (`importHar`), and OpenAPI importer (`importOpenApi`) also shipped.
 
 == Vision
 
@@ -134,14 +134,20 @@ Features:
 
 * F-029 Sanitised config snapshot writer
 * F-030 Effective workload + scenario summary in run metadata
-* F-031 GitHub Actions workflow + artifact upload
-* F-032 Antora docs site scaffold under `src/docs/`
-* F-033 Antora content migration (review + roadmap + features as `.adoc`)
-* F-034 Scenario scaffolding Gradle task (`newScenario`)
+* *F-031 GitHub Actions workflow + artifact upload — DONE* (`load-test-pr.yml` quality-gate loop ships with `summariseRun`)
+* *F-032 Antora docs site scaffold under `src/docs/` — DONE*
+* *F-033 Antora content migration (review + roadmap + features as `.adoc`) — DONE*
+* *F-034 Scenario scaffolding Gradle task — DONE* (`importHar` and `importOpenApi` ship; `newScenario` ships separately)
 * F-035 Auto-generated YAML schema docs from model classes
 * F-036 Body redaction layer (SEC-008)
 * F-037 Gatling plugin upgrade to current stable
 * F-038 RampageSimulation integration test against WireMock
+
+Additionally shipped (not in original feature list):
+
+* `summariseRun` Gradle task — parses Gatling reports, writes `run-summary.json` and `run-summary.md`, compares against a baseline, and exits non-zero on regression.
+* `importHar` Gradle task — generates scenario YAML from a `.har` capture.
+* `importOpenApi` Gradle task — generates one scenario YAML per operation from an OpenAPI 3.x spec.
 
 Exit criteria:
 

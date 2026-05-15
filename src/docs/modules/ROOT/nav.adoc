@@ -4,6 +4,7 @@
 * xref:scenario-authoring.adoc[Scenario authoring]
 * xref:workloads.adoc[Workload profiles]
 * xref:security.adoc[Security and secrets]
+* xref:scaffolding.adoc[Scenario scaffolding]
 * xref:reporting.adoc[Reporting and CI]
 * xref:troubleshooting.adoc[Troubleshooting]
 * xref:reference/code-review.adoc[Code review snapshot]

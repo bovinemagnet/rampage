@@ -21,6 +21,9 @@ dependencies {
     // SLF4J + Logback
     implementation(libs.bundles.logging)
 
+    // OpenAPI parser (used by the importOpenApi scaffolding task)
+    implementation(libs.swagger.parser)
+
     // H2 for SQL feeder (test DB)
     implementation(libs.h2)
 
@@ -63,6 +66,43 @@ tasks.register("validateLoadTest", JavaExec::class) {
     @Suppress("UNCHECKED_CAST")
     systemProperties(System.getProperties()
         .filter { (key, _) -> key.toString().startsWith("loadtest.") }
+        .mapKeys { it.key.toString() } as Map<String, Any>)
+}
+
+tasks.register("importHar", JavaExec::class) {
+    group = "scaffolding"
+    description = "Generates a Rampage scenario YAML from a HAR file. " +
+        "Usage: gradle importHar -Drampage.har.file=path/to/x.har -Drampage.scenario.id=foo " +
+        "[-Drampage.har.host=api.example.com] [-Drampage.har.methods=GET,POST]"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.rampage.scaffold.HarImporter")
+    @Suppress("UNCHECKED_CAST")
+    systemProperties(System.getProperties()
+        .filter { (key, _) -> key.toString().startsWith("rampage.") }
+        .mapKeys { it.key.toString() } as Map<String, Any>)
+}
+
+tasks.register("importOpenApi", JavaExec::class) {
+    group = "scaffolding"
+    description = "Generates Rampage scenario YAMLs from an OpenAPI 3.x spec. " +
+        "Usage: gradle importOpenApi -Drampage.openapi.file=path/to/openapi.yaml " +
+        "[-Drampage.scenario.prefix=foo-]"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.rampage.scaffold.OpenApiImporter")
+    @Suppress("UNCHECKED_CAST")
+    systemProperties(System.getProperties()
+        .filter { (key, _) -> key.toString().startsWith("rampage.") }
+        .mapKeys { it.key.toString() } as Map<String, Any>)
+}
+
+tasks.register("summariseRun", JavaExec::class) {
+    group = "verification"
+    description = "Parses the latest Gatling report and writes run-summary.json + run-summary.md."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.rampage.reporting.RunSummaryMain")
+    @Suppress("UNCHECKED_CAST")
+    systemProperties(System.getProperties()
+        .filter { (key, _) -> key.toString().startsWith("rampage.") }
         .mapKeys { it.key.toString() } as Map<String, Any>)
 }
 

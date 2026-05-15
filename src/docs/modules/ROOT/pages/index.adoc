@@ -11,6 +11,8 @@ Rampage is a configuration-driven Gatling load testing framework. YAML files des
 * Open and closed workload models, including smoke, baseline, ramp-and-hold, soak, spike, and stress profiles.
 * Secret-aware validation that fails fast when required credentials are missing.
 * Run metadata, dry-run summaries, and sanitised configuration snapshots written alongside the Gatling HTML report.
+* CI quality gate: `summariseRun` parses Gatling reports, emits structured JSON and Markdown summaries, and compares against a stored baseline to detect performance regressions on every pull request.
+* Scenario scaffolding from browser captures (`importHar`) and OpenAPI 3.x specifications (`importOpenApi`), reducing the time to instrument a new service.
 
 == Where to start
 

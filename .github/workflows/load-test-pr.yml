@@ -1,0 +1,115 @@
+name: Load test (PR quality gate)
+
+# Runs the smoke load test on every PR, summarises the result, compares against
+# the most recent baseline produced by main, and posts the comparison as a PR
+# comment. Fails the build on regression.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment YAML path'
+        required: false
+        default: 'config/environments/local.yaml'
+      run:
+        description: 'Run YAML path'
+        required: false
+        default: 'config/runs/smoke.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: load-test-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    env:
+      LOADTEST_ENV: ${{ inputs.env || 'config/environments/local.yaml' }}
+      LOADTEST_RUN: ${{ inputs.run || 'config/runs/smoke.yaml' }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Download main baseline (best effort)
+        id: baseline
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: load-test-pr.yml
+          branch: main
+          name: rampage-baseline
+          path: baseline
+
+      - name: Validate config
+        run: ./gradlew --no-daemon validateLoadTest -Dloadtest.env="$LOADTEST_ENV" -Dloadtest.run="$LOADTEST_RUN"
+
+      - name: Run Gatling
+        id: gatling
+        continue-on-error: true
+        run: ./gradlew --no-daemon gatlingRun -Dloadtest.env="$LOADTEST_ENV" -Dloadtest.run="$LOADTEST_RUN"
+
+      - name: Summarise run
+        id: summarise
+        continue-on-error: true
+        run: |
+          if [ -f baseline/run-summary.json ]; then
+            BASELINE_ARG="-Drampage.baseline.json=$(pwd)/baseline/run-summary.json"
+          else
+            BASELINE_ARG=""
+          fi
+          ./gradlew --no-daemon summariseRun \
+            -Drampage.report.dir=build/reports/gatling \
+            $BASELINE_ARG
+
+      - name: Upload Gatling HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatling-report
+          path: build/reports/gatling/
+          if-no-files-found: warn
+
+      - name: Upload baseline for next run
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rampage-baseline
+          path: build/reports/gatling/run-summary.json
+          if-no-files-found: warn
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -f build/reports/gatling/run-summary.md ]; then
+            gh pr comment "$PR_NUMBER" --body-file build/reports/gatling/run-summary.md
+          else
+            gh pr comment "$PR_NUMBER" --body ":warning: Rampage load test produced no summary artifact. See workflow logs."
+          fi
+
+      - name: Fail the build on regression
+        if: steps.gatling.outcome != 'success' || steps.summarise.outcome != 'success'
+        env:
+          GATLING_OUTCOME: ${{ steps.gatling.outcome }}
+          SUMMARISE_OUTCOME: ${{ steps.summarise.outcome }}
+        run: |
+          echo "::error::Load test or summariser failed (gatling=$GATLING_OUTCOME, summarise=$SUMMARISE_OUTCOME)."
+          exit 1
