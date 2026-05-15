@@ -325,11 +325,11 @@ Status legend:
 | Gradle Wrapper
 | Done (`gradlew`, `gradlew.bat`)
 
-| Java 25 toolchain
-| Done
+| Java 21 toolchain
+| Done — pinned to Java 21 in `build.gradle.kts` and matched by all GitHub Actions workflows.
 
 | Gatling plugin
-| Done (3.13.5 — older than PRD-recommended 3.15.0.2)
+| Done (3.15.0)
 
 | Jackson YAML
 | Done
@@ -341,7 +341,10 @@ Status legend:
 | Done
 
 | CI-friendly reports
-| Missing
+| Done — `summariseRun` task emits `run-summary.json` and `run-summary.md`; `.github/workflows/load-test-pr.yml` posts the Markdown as a PR comment with baseline-comparison deltas.
+
+| Scenario scaffolding from real traffic
+| Done — `importHar` Gradle task (HAR captures) and `importOpenApi` task (OpenAPI 3.x specs) generate scenario YAML one step / operation at a time.
 |===
 
 == Validation rules (PRD §18)
@@ -426,7 +429,7 @@ Status legend:
 | # | Criterion | Status
 
 | 1
-| Smoke test from Gradle on Java 25
+| Smoke test from Gradle on Java 21
 | Done
 
 | 2

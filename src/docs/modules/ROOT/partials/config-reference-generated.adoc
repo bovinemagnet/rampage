@@ -1,20 +1,1224 @@
 // =============================================================================
 // AUTO-GENERATED FILE — DO NOT EDIT BY HAND
 //
-// This file is overwritten by:
+// Regenerate from the io.rampage.config.model POJOs with:
 //
 //   gradle21w generateSchemaDocs
+//   cp build/schema/reference.adoc \
+//      src/docs/modules/ROOT/partials/config-reference-generated.adoc
 //
-// The task is implemented in SchemaDocsGenerator.java and writes its output to
-// build/schema/reference.adoc, which is then copied here as part of the build.
-//
-// To regenerate after changing a model class:
-//
-//   gradle21w generateSchemaDocs
-//
-// Then commit the updated partial alongside the model change.
+// (Strip the leading title + attribute block before committing — this partial is
+//  included with leveloffset, so its top-level headings should start at == and
+//  reach === for nested types.)
 // =============================================================================
 
-NOTE: The auto-generated field reference has not yet been produced. Run `gradle21w generateSchemaDocs` to generate `build/schema/reference.adoc` and copy it into this file. The `generateSchemaDocs` task reads Jackson annotations on the config model classes and produces a field-by-field table for each YAML file type (environment, run, scenario).
+== EnvironmentConfig
 
-Until the generated content is available, refer to xref:configuration-reference.adoc[the configuration reference page] for annotated YAML examples and field descriptions.
+YAML root for `environment.yaml`.
+
+=== CredentialConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`source`
+|string
+|no
+|
+
+|`envVar`
+|string
+|no
+|
+
+|`secretPath`
+|string
+|no
+|
+
+|`value`
+|string
+|no
+|
+
+|`required`
+|boolean
+|no
+|default: `true`
+
+|===
+
+=== DatabaseConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`driverClassName`
+|string
+|no
+|
+
+|`jdbcUrl`
+|string
+|no
+|
+
+|`username`
+|<<CredentialConfig>>
+|no
+|
+
+|`password`
+|<<CredentialConfig>>
+|no
+|
+
+|`pool`
+|<<PoolConfig>>
+|no
+|
+
+|===
+
+=== EnvironmentConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`id`
+|string
+|no
+|
+
+|`name`
+|string
+|no
+|
+
+|`baseUrls`
+|map of String → String
+|no
+|
+
+|`http`
+|<<HttpConfig>>
+|no
+|
+
+|`security`
+|<<SecurityConfig>>
+|no
+|
+
+|`databases`
+|map of String → DatabaseConfig
+|no
+|
+
+|`observability`
+|<<ObservabilityConfig>>
+|no
+|
+
+|`safety`
+|<<SafetyConfig>>
+|no
+|
+
+|===
+
+=== HttpConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`connectTimeoutMillis`
+|long
+|no
+|default: `5000`
+
+|`requestTimeoutMillis`
+|long
+|no
+|default: `30000`
+
+|`followRedirects`
+|boolean
+|no
+|default: `false`
+
+|`acceptHeader`
+|string
+|no
+|
+
+|`contentTypeHeader`
+|string
+|no
+|
+
+|===
+
+=== ObservabilityConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`correlationIdHeader`
+|string
+|no
+|
+
+|`includeRunMetadataHeaders`
+|boolean
+|no
+|default: `false`
+
+|===
+
+=== PoolConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`maximumPoolSize`
+|int
+|no
+|default: `5`
+
+|`connectionTimeoutMillis`
+|long
+|no
+|default: `5000`
+
+|`idleTimeoutMillis`
+|long
+|no
+|default: `600000`
+
+|===
+
+=== SafetyConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`allowProduction`
+|boolean
+|no
+|default: `false`
+
+|`requireApprovalForMutatingRequests`
+|boolean
+|no
+|default: `false`
+
+|`isProduction`
+|boolean
+|no
+|default: `false`
+
+|===
+
+=== SecurityConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`mode`
+|string
+|no
+|
+
+|`token`
+|<<TokenConfig>>
+|no
+|
+
+|`headers`
+|map of String → String
+|no
+|
+
+|`tokenUrl`
+|string
+|no
+|
+
+|`clientId`
+|<<CredentialConfig>>
+|no
+|
+
+|`clientSecret`
+|<<CredentialConfig>>
+|no
+|
+
+|`scope`
+|string
+|no
+|
+
+|`audience`
+|string
+|no
+|
+
+|`refreshIntervalSeconds`
+|long
+|no
+|
+
+|`onRefreshFailure`
+|string
+|no
+|default: `continue`
+
+|===
+
+=== TokenConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`source`
+|string
+|no
+|
+
+|`envVar`
+|string
+|no
+|
+
+|`secretPath`
+|string
+|no
+|
+
+|`required`
+|boolean
+|no
+|default: `true`
+
+|===
+
+== RunConfig
+
+YAML root for `run.yaml`.
+
+=== AssertionsConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`global`
+|<<GlobalAssertionConfig>>
+|no
+|
+
+|`scenarios`
+|map of String → ScenarioAssertionConfig
+|no
+|
+
+|===
+
+=== ExecutionConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`mode`
+|string
+|no
+|
+
+|`workload`
+|<<WorkloadConfig>>
+|no
+|
+
+|===
+
+=== GlobalAssertionConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`maxResponseTimeP95Millis`
+|long
+|no
+|default: `0`
+
+|`maxResponseTimeP99Millis`
+|long
+|no
+|default: `0`
+
+|`maxErrorPercentage`
+|double
+|no
+|default: `0.0`
+
+|===
+
+=== MetadataConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`owner`
+|string
+|no
+|
+
+|`application`
+|string
+|no
+|
+
+|`service`
+|string
+|no
+|
+
+|`changeReference`
+|string
+|no
+|
+
+|`description`
+|string
+|no
+|
+
+|===
+
+=== RateConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`unit`
+|string
+|no
+|
+
+|`from`
+|double
+|no
+|default: `0.0`
+
+|`to`
+|double
+|no
+|default: `0.0`
+
+|===
+
+=== ReportingConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`outputDirectory`
+|string
+|no
+|
+
+|`writeRunMetadata`
+|boolean
+|no
+|default: `false`
+
+|`redactSecrets`
+|boolean
+|no
+|default: `true`
+
+|`includeConfigSnapshot`
+|boolean
+|no
+|default: `false`
+
+|===
+
+=== RunConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`id`
+|string
+|no
+|
+
+|`name`
+|string
+|no
+|
+
+|`version`
+|int
+|no
+|default: `1`
+
+|`environment`
+|string
+|no
+|
+
+|`metadata`
+|<<MetadataConfig>>
+|no
+|
+
+|`scenarios`
+|list of ScenarioRef
+|no
+|
+
+|`execution`
+|<<ExecutionConfig>>
+|no
+|
+
+|`assertions`
+|<<AssertionsConfig>>
+|no
+|
+
+|`reporting`
+|<<ReportingConfig>>
+|no
+|
+
+|`safety`
+|<<RunSafetyConfig>>
+|no
+|
+
+|`headers`
+|map of String → String
+|no
+|
+
+|===
+
+=== RunSafetyConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`dryRun`
+|boolean
+|no
+|default: `false`
+
+|`requireConfirmation`
+|boolean
+|no
+|default: `false`
+
+|`failIfEnvironmentAllowsProduction`
+|boolean
+|no
+|default: `false`
+
+|`approveMutatingRequests`
+|boolean
+|no
+|default: `false`
+
+|===
+
+=== ScenarioAssertionConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`maxResponseTimeP95Millis`
+|long
+|no
+|default: `0`
+
+|`maxErrorPercentage`
+|double
+|no
+|default: `0.0`
+
+|===
+
+=== ScenarioRef
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`id`
+|string
+|no
+|
+
+|`file`
+|string
+|no
+|
+
+|`enabled`
+|boolean
+|no
+|default: `true`
+
+|`weight`
+|int
+|no
+|default: `100`
+
+|===
+
+=== WorkloadConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`type`
+|string
+|no
+|
+
+|`rampUp`
+|string
+|no
+|
+
+|`holdFor`
+|string
+|no
+|
+
+|`duration`
+|string
+|no
+|
+
+|`rate`
+|<<RateConfig>>
+|no
+|
+
+|`users`
+|int
+|no
+|default: `1`
+
+|`baselineRate`
+|double
+|no
+|
+
+|`spikeDuration`
+|string
+|no
+|
+
+|`stepRate`
+|double
+|no
+|
+
+|`stepDuration`
+|string
+|no
+|
+
+|`maxRate`
+|double
+|no
+|
+
+|===
+
+== ScenarioConfig
+
+YAML root for `scenarios/<id>.yaml`.
+
+=== AfterRequestPause
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`strategy`
+|string
+|no
+|
+
+|`minMillis`
+|long
+|no
+|default: `0`
+
+|`maxMillis`
+|long
+|no
+|default: `0`
+
+|===
+
+=== ChecksConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`httpStatus`
+|int
+|no
+|
+
+|`jsonPath`
+|list of JsonPathCheck
+|no
+|
+
+|`regex`
+|list of RegexCheck
+|no
+|
+
+|`header`
+|list of HeaderCheck
+|no
+|
+
+|`responseTimeMillis`
+|long
+|no
+|
+
+|`bodyContains`
+|list of String
+|no
+|
+
+|===
+
+=== ColumnConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`type`
+|string
+|no
+|
+
+|`required`
+|boolean
+|no
+|default: `false`
+
+|`sessionKey`
+|string
+|no
+|
+
+|`sensitive`
+|boolean
+|no
+|default: `false`
+
+|===
+
+=== ExtractConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`type`
+|string
+|no
+|
+
+|`path`
+|string
+|no
+|
+
+|`sessionKey`
+|string
+|no
+|
+
+|`defaultValue`
+|string
+|no
+|
+
+|===
+
+=== FeederConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`type`
+|string
+|no
+|
+
+|`databaseRef`
+|string
+|no
+|
+
+|`sqlFile`
+|string
+|no
+|
+
+|`strategy`
+|string
+|no
+|default: `circular`
+
+|`preload`
+|boolean
+|no
+|default: `true`
+
+|`failIfEmpty`
+|boolean
+|no
+|default: `false`
+
+|`maxRows`
+|int
+|no
+|default: `10000`
+
+|`failIfOverLimit`
+|boolean
+|no
+|default: `false`
+
+|`onExhaustion`
+|string
+|no
+|default: `stop`
+
+|`onMissingRequired`
+|string
+|no
+|default: `fail`
+
+|`columns`
+|map of String → ColumnConfig
+|no
+|
+
+|===
+
+=== HeaderCheck
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`name`
+|string
+|no
+|
+
+|`expectation`
+|string
+|no
+|
+
+|`value`
+|string
+|no
+|
+
+|`sessionKey`
+|string
+|no
+|
+
+|===
+
+=== JsonPathCheck
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`path`
+|string
+|no
+|
+
+|`expectation`
+|string
+|no
+|
+
+|`sessionKey`
+|string
+|no
+|
+
+|`equalsValue`
+|string
+|no
+|
+
+|`saveAs`
+|string
+|no
+|
+
+|===
+
+=== PausesConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`beforeRequestMillis`
+|long
+|no
+|default: `0`
+
+|`afterRequest`
+|<<AfterRequestPause>>
+|no
+|
+
+|===
+
+=== RateConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`unit`
+|string
+|no
+|
+
+|`from`
+|double
+|no
+|default: `0.0`
+
+|`to`
+|double
+|no
+|default: `0.0`
+
+|===
+
+=== RegexCheck
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`pattern`
+|string
+|no
+|
+
+|`expectation`
+|string
+|no
+|
+
+|`sessionKey`
+|string
+|no
+|
+
+|===
+
+=== RequestConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`method`
+|string
+|no
+|
+
+|`path`
+|string
+|no
+|
+
+|`bodyType`
+|string
+|no
+|
+
+|`body`
+|string
+|no
+|
+
+|`bodyFile`
+|string
+|no
+|
+
+|`queryParams`
+|map of String → String
+|no
+|
+
+|`formParams`
+|map of String → String
+|no
+|
+
+|`graphqlQueryFile`
+|string
+|no
+|
+
+|`variables`
+|map of String → Object
+|no
+|
+
+|`bodyTemplate`
+|string
+|no
+|
+
+|===
+
+=== ScenarioConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`id`
+|string
+|no
+|
+
+|`name`
+|string
+|no
+|
+
+|`protocol`
+|string
+|no
+|
+
+|`endpointRef`
+|string
+|no
+|
+
+|`operationName`
+|string
+|no
+|
+
+|`description`
+|string
+|no
+|
+
+|`headers`
+|map of String → String
+|no
+|
+
+|`request`
+|<<RequestConfig>>
+|no
+|
+
+|`feeder`
+|<<FeederConfig>>
+|no
+|
+
+|`checks`
+|<<ChecksConfig>>
+|no
+|
+
+|`steps`
+|list of StepConfig
+|no
+|
+
+|`workload`
+|<<ScenarioWorkloadConfig>>
+|no
+|
+
+|`pauses`
+|<<PausesConfig>>
+|no
+|
+
+|`tags`
+|list of String
+|no
+|
+
+|`safety`
+|<<ScenarioSafetyConfig>>
+|no
+|
+
+|`security`
+|<<ScenarioSecurityConfig>>
+|no
+|
+
+|===
+
+=== ScenarioSafetyConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`mutating`
+|boolean
+|no
+|default: `false`
+
+|`idempotent`
+|boolean
+|no
+|default: `true`
+
+|===
+
+=== ScenarioSecurityConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`allowAuthOverride`
+|boolean
+|no
+|default: `false`
+
+|`sensitiveFields`
+|list of String
+|no
+|
+
+|===
+
+=== ScenarioWorkloadConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`inheritFromRun`
+|boolean
+|no
+|default: `true`
+
+|`type`
+|string
+|no
+|
+
+|`rate`
+|<<RateConfig>>
+|no
+|
+
+|`rampUp`
+|string
+|no
+|
+
+|`holdFor`
+|string
+|no
+|
+
+|===
+
+=== StepConfig
+
+[cols="2,2,1,4",options="header"]
+|===
+|Field |Type |Required |Notes
+
+|`name`
+|string
+|no
+|
+
+|`endpointRef`
+|string
+|no
+|
+
+|`request`
+|<<RequestConfig>>
+|no
+|
+
+|`checks`
+|<<ChecksConfig>>
+|no
+|
+
+|`extract`
+|list of ExtractConfig
+|no
+|
+
+|`pauseAfter`
+|<<AfterRequestPause>>
+|no
+|
+
+|===
+

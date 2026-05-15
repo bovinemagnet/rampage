@@ -7,7 +7,25 @@ Version: 0.0.0 +
 Date: 2026-05-14 +
 Scope: Full repository review against `docs/prd/initial-prd.md`.
 
-NOTE: This is a reference snapshot of the code review document at `docs/review/code-review.md`. It is not updated automatically.
+NOTE: This is a reference snapshot of the code review document at `docs/review/code-review.md`. It is not updated automatically. The observations below describe the state on 2026-05-14; many gaps have since been closed (see "Changes since this snapshot" below).
+
+[IMPORTANT]
+.Changes since this snapshot
+====
+The following findings from the snapshot have been addressed in the code on `main`. Treat the snapshot as a historical record, not a description of current behaviour.
+
+* **Java toolchain** — dropped from Java 25 to Java 21 to match the Gradle daemon and the Gatling Gradle plugin runtime. `build.gradle.kts` and all GitHub Actions workflows are now pinned to Java 21.
+* **Gatling plugin** — upgraded from 3.13.5 to 3.15.0 (matches the PRD recommendation).
+* **Reporting wired** — `RampageSimulation.before()` now calls `RunMetadataWriter.write()` and `ConfigSnapshotWriter.write()`. The `summariseRun` Gradle task plus `.github/workflows/load-test-pr.yml` close the CI quality-gate loop with PR-comment regression reporting (xref:reporting.adoc#ci-quality-gate[CI quality gate]).
+* **Validation deepened** — `ConfigValidator` now checks file existence (GraphQL, SQL, body files), referential integrity (`databaseRef`, scenario IDs), HTTP method and body-type enums, step-name uniqueness within a scenario, and dangling `+${session:foo}+` references that no earlier step extracts.
+* **Secret handling stricter** — required env-var sources now fail-fast via `SecretResolutionException` rather than silently returning empty strings.
+* **JSON body construction safe** — `ScenarioFactory` / `RequestBuilder` now serialise the GraphQL envelope through Jackson, so quoting, Unicode, and non-string variables round-trip cleanly.
+* **`PausesConfig` and scenario `tags`** — both wired. Pauses apply at scenario or per-step level; tags appear in `run-metadata.json` and `dry-run-summary.json`.
+* **`HikariCP`** — used by `DataSourceRegistry`; no longer dead code.
+* **`ScenarioFactory` test coverage** — covered by `ScenarioFactoryTest`, `ConfigValidatorStepsTest`, `PlaceholderRewriterTest`, `RequestBuilderTest` (via integration), plus the multi-step REST flow in the integration test. Total suite has grown from 42 to 223 tests.
+* **REST + multi-step + rich checks shipped** — see xref:scenario-authoring.adoc[Scenario authoring].
+* **Scenario scaffolding from real traffic** — `importHar` and `importOpenApi` Gradle tasks (xref:scaffolding.adoc[Scenario scaffolding]).
+====
 
 == 1. Executive summary
 

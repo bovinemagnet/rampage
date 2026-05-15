@@ -12,8 +12,8 @@ Before running any Gradle tasks, ensure the following are available on your mach
 |===
 | Requirement | Detail
 
-| Java 25
-| The build is configured with a Java 25 toolchain (Adoptium Temurin). Install via https://adoptium.net[Adoptium] or `sdk install java 25-tem` with SDKMAN.
+| Java 21
+| The build is configured with a Java 21 toolchain (Adoptium Temurin). Install via https://adoptium.net[Adoptium] or `sdk install java 21-tem` with SDKMAN.
 
 | `gradle21w` on `PATH`
 | The project uses `gradle21w` as the local Gradle wrapper alias. Confirm it resolves: `which gradle21w`.
@@ -28,7 +28,7 @@ NOTE: Production databases require you to add the appropriate JDBC driver to the
 
 [source,bash]
 ----
-java -version     # expect 25.x.x
+java -version     # expect 21.x.x
 gradle21w --version
 ----
 

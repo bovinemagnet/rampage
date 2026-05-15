@@ -143,11 +143,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Java 25
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
           cache: gradle
       - name: Build and test
         run: ./gradlew --no-daemon build test
@@ -190,11 +190,11 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Java 25
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
           cache: gradle
       - name: Validate config
         run: ./gradlew --no-daemon validateLoadTest
@@ -265,13 +265,13 @@ Written next to the Gatling report directory. Contains structured per-request st
 [source,json]
 ----
 {
-  "status": "PASS",
-  "assertions": [
-    { "name": "Global p95 < 500 ms", "result": "OK", "actualValue": 312 }
-  ],
+  "generatedAt": "2026-05-15T00:17:20.931302667Z",
+  "simulationDir": "rampagesimulation-20260515000946259",
+  "simulationPath": "/abs/path/to/build/reports/gatling/rampagesimulation-...",
   "requests": [
     {
-      "name": "GraphQL /orders",
+      "id": "ROOT",
+      "name": "All Requests",
       "total": 12000,
       "ok": 11994,
       "ko": 6,
@@ -286,11 +286,15 @@ Written next to the Gatling report directory. Contains structured per-request st
       "mean": 125,
       "stddev": 58
     }
-  ]
+  ],
+  "assertions": [
+    { "description": "Global: 95th percentile of response time is less than 500.0", "result": "OK" }
+  ],
+  "status": "PASS"
 }
 ----
 
-`status` is `PASS` when all assertions are OK, `FAIL` when any assertion fails.
+`status` is `PASS` when every parsed assertion is `OK`, `FAIL` when any assertion is `KO`. The first row in `requests` (`id: ROOT`) is the global aggregate Gatling reports as "All Requests"; subsequent rows are per-named-request stats.
 
 === `run-summary.md`
 
@@ -299,23 +303,30 @@ Written alongside `run-summary.json`. Suitable for posting directly as a pull-re
 Example output without baseline:
 
 ----
-## Load test summary — PASS
+## Rampage load test ✅ PASS
+
+Simulation: `rampagesimulation-20260515000946259`
+Generated: `2026-05-15T00:17:20.931302667Z`
+Baseline: _(none — first run on this branch)_
 
 ### Assertions
-| Assertion | Result | Actual |
-|---|---|---|
-| Global p95 < 500 ms | ✅ OK | 312 ms |
-| Error rate < 1 % | ✅ OK | 0.05 % |
 
-### Per-request stats
-| Request | Total | OK | KO | KO% | RPS | P50 | P95 | P99 | Max |
-|---|---|---|---|---|---|---|---|---|---|
-| GraphQL /orders | 12000 | 11994 | 6 | 0.05 | 40.0 | 110 | 312 | 430 | 890 |
+| Result | Assertion |
+|---|---|
+| ✅ | Global: 95th percentile of response time is less than 500.0 |
+| ✅ | Global: percentage of failed events is less than 5.0 |
+
+### Request stats
+
+| Request | Count | Errors | RPS | P50 | P95 (Δ) | P99 (Δ) | Mean |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| All Requests | 12000 | 6 (0.05%) | 40.0 | 110 | 312 | 430 | 125 |
+| GraphQL /orders | 12000 | 6 (0.05%) | 40.0 | 110 | 312 | 430 | 125 |
 ----
 
-When a baseline is supplied, the Markdown gains `ΔP95` and `ΔP99` columns. A green indicator (🟢) is shown when the delta is within acceptable bounds; red (🔴) when it exceeds the threshold.
+When a baseline is supplied, the `P95 (Δ)` and `P99 (Δ)` columns gain the per-request delta vs. the baseline value. A green indicator (🟢) marks an improvement (current is faster); red (🔴) marks a regression (current is slower).
 
-NOTE: Small deltas (within measurement noise) are suppressed and shown as `—` rather than a misleading indicator.
+NOTE: Tiny deltas (less than 0.5 ms) are suppressed entirely so the column shows the raw value with no indicator. This keeps the comment readable when baseline and current runs are effectively identical.
 
 === `load-test-pr.yml` workflow
 
@@ -353,7 +364,7 @@ jobs:
           cache: gradle
       - name: Download baseline (best-effort)
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: rampage-baseline
           path: baseline/
@@ -383,7 +394,7 @@ jobs:
           if-no-files-found: warn
 ----
 
-TIP: The workflow uses Java 21 rather than Java 25 for broad runner compatibility. The Gatling simulation itself is compiled at runtime, so the Java version only needs to satisfy the Gradle and Gatling plugin requirements.
+TIP: The workflow pins Java 21 to match the project toolchain (`build.gradle.kts`). The Gradle daemon and the Gatling plugin both run in this JVM; class files compiled by the toolchain must be readable by the daemon, so the two versions are kept in lockstep.
 
 == See also
 

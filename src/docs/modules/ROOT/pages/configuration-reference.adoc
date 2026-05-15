@@ -424,4 +424,4 @@ safety:
 
 The following section is generated from the model classes by `gradle21w generateSchemaDocs`. Re-run that task after model changes to update it.
 
-include::partial$config-reference-generated.adoc[]
+include::partial$config-reference-generated.adoc[leveloffset=+1]
