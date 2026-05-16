@@ -32,6 +32,8 @@ public class HistoryResource {
         public static native TemplateInstance rows(List<StoredRun> runs);
 
         public static native TemplateInstance tagCell(StoredRun run);
+
+        public static native TemplateInstance detail(StoredRun run);
     }
 
     @Inject
@@ -103,6 +105,13 @@ public class HistoryResource {
         StoredRun run = require(id);
         run.notes = notes;
         return "<span class=\"validation-ok\">Notes saved.</span>";
+    }
+
+    @GET
+    @Path("/{id}")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance detail(@PathParam("id") String id) {
+        return Templates.detail(require(id));
     }
 
     private StoredRun require(String id) {
