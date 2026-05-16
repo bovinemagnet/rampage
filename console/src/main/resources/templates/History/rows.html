@@ -1,0 +1,25 @@
+{#if runs.isEmpty}
+    <tr><td colspan="8" class="muted">No runs match. Launch one from the dashboard,
+        or rescan the reports directory.</td></tr>
+{#else}
+    {#for r in runs}
+        <tr class="status-{r.status}">
+            <td><a href="/history/{r.id}">{r.name ?: r.id}</a></td>
+            <td>{r.environmentId ?: '—'}</td>
+            <td><span class="status-badge">{r.status}</span></td>
+            <td>{r.startedAt ?: '—'}</td>
+            <td>{fmt:ms(r.worstP95)}</td>
+            <td>{fmt:pct(r.worstErrorPercent)}</td>
+            <td>
+                {#for t in r.tags}<span class="tag-chip">{t}</span>{/for}
+            </td>
+            <td>
+                {#if r.simulationDir}
+                    <a href="/reports/{r.simulationDir}/index.html">Open</a>
+                {#else}
+                    <span class="muted">—</span>
+                {/if}
+            </td>
+        </tr>
+    {/for}
+{/if}

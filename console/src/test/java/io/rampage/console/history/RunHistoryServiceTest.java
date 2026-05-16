@@ -43,48 +43,10 @@ class RunHistoryServiceTest {
     }
 
     @Test
-    void listsOnlyDirectoriesWithIndexHtml() {
-        List<RunHistoryEntry> entries = service.listRecent(10);
-        assertThat(entries).extracting(RunHistoryEntry::simulationDir)
-                .containsExactlyInAnyOrder(
-                        "rampagesimulation-20260515000724458",
-                        "rampagesimulation-20260515000946259");
-    }
-
-    @Test
-    void newestFirst() {
-        List<RunHistoryEntry> entries = service.listRecent(10);
-        assertThat(entries.get(0).simulationDir()).isEqualTo("rampagesimulation-20260515000946259");
-    }
-
-    @Test
-    void hasMetadataReflectsFilePresence() {
-        List<RunHistoryEntry> entries = service.listRecent(10);
-        RunHistoryEntry withMeta = entries.stream()
-                .filter(e -> e.simulationDir().endsWith("946259")).findFirst().orElseThrow();
-        RunHistoryEntry withoutMeta = entries.stream()
-                .filter(e -> e.simulationDir().endsWith("724458")).findFirst().orElseThrow();
-        assertThat(withMeta.hasMetadata()).isTrue();
-        assertThat(withoutMeta.hasMetadata()).isFalse();
-    }
-
-    @Test
-    void reportPathPointsAtIndexHtml() {
-        RunHistoryEntry entry = service.listRecent(10).get(0);
-        assertThat(entry.reportPath()).endsWith("/index.html").contains("/reports/");
-    }
-
-    @Test
-    void limitIsRespected() {
-        List<RunHistoryEntry> entries = service.listRecent(1);
-        assertThat(entries).hasSize(1);
-    }
-
-    @Test
     void missingReportsDirReturnsEmpty() {
         RunHistoryService empty = new RunHistoryService();
         empty.setReportsDir(reportsRoot.resolve("does-not-exist").toString());
-        assertThat(empty.listRecent(10)).isEmpty();
+        assertThat(empty.scanSimulationDirs()).isEmpty();
     }
 
     @Test

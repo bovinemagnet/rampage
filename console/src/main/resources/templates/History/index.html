@@ -4,52 +4,89 @@
     <meta charset="UTF-8">
     <title>Rampage Console — History</title>
     <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
 </head>
 <body>
 <header>
     <div>
         <h1>Run history</h1>
-        <p class="subtitle">Past Gatling runs found under <code>build/reports/gatling/</code>.</p>
+        <p class="subtitle">Every persisted Gatling run — console-launched and imported.</p>
     </div>
     <nav>
         <a href="/">Dashboard</a>
         <a href="/configs">Configs</a>
         <a href="/history">History</a>
+        <a href="/history/compare">Compare</a>
+        <a href="/history/trends">Trends</a>
     </nav>
 </header>
 
 <main>
     <section>
-        {#if entries.isEmpty}
-            <p class="muted">No runs found yet. Launch one from the dashboard.</p>
-        {#else}
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th>Simulation</th>
-                        <th>Finished</th>
-                        <th>Metadata</th>
-                        <th>Report</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#for e in entries}
-                        <tr>
-                            <td><code>{e.simulationDir}</code></td>
-                            <td>{e.finishedAt}</td>
+        <form class="filter-bar" hx-get="/history/rows" hx-target="#run-rows"
+              hx-trigger="submit, change, keyup delay:300ms from:input[name='q']">
+            <input type="text" name="q" placeholder="Search name, environment, commit…"
+                   value="{query ?: ''}">
+            <select name="tag">
+                <option value="">All tags</option>
+                {#for t in allTags}
+                    <option value="{t}" {#if t == tag}selected{/if}>{t}</option>
+                {/for}
+            </select>
+            <select name="status">
+                <option value="">All statuses</option>
+                <option value="COMPLETED" {#if status == 'COMPLETED'}selected{/if}>Completed</option>
+                <option value="FAILED" {#if status == 'FAILED'}selected{/if}>Failed</option>
+                <option value="KILLED" {#if status == 'KILLED'}selected{/if}>Killed</option>
+            </select>
+            <button type="submit">Filter</button>
+        </form>
+
+        <form hx-post="/history/rescan" hx-target="#run-rows" class="rescan-form">
+            <button type="submit" class="verify-btn">Rescan reports directory</button>
+        </form>
+
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Run</th>
+                    <th>Environment</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                    <th>P95</th>
+                    <th>Error %</th>
+                    <th>Tags</th>
+                    <th>Report</th>
+                </tr>
+            </thead>
+            <tbody id="run-rows">
+                {#if runs.isEmpty}
+                    <tr><td colspan="8" class="muted">No runs match. Launch one from the dashboard,
+                        or rescan the reports directory.</td></tr>
+                {#else}
+                    {#for r in runs}
+                        <tr class="status-{r.status}">
+                            <td><a href="/history/{r.id}">{r.name ?: r.id}</a></td>
+                            <td>{r.environmentId ?: '—'}</td>
+                            <td><span class="status-badge">{r.status}</span></td>
+                            <td>{r.startedAt ?: '—'}</td>
+                            <td>{fmt:ms(r.worstP95)}</td>
+                            <td>{fmt:pct(r.worstErrorPercent)}</td>
                             <td>
-                                {#if e.hasMetadata}
-                                    <a href="/reports/{e.simulationDir}/run-metadata.json">JSON</a>
+                                {#for t in r.tags}<span class="tag-chip">{t}</span>{/for}
+                            </td>
+                            <td>
+                                {#if r.simulationDir}
+                                    <a href="/reports/{r.simulationDir}/index.html">Open</a>
                                 {#else}
                                     <span class="muted">—</span>
                                 {/if}
                             </td>
-                            <td><a href="{e.reportPath}">Open</a></td>
                         </tr>
                     {/for}
-                </tbody>
-            </table>
-        {/if}
+                {/if}
+            </tbody>
+        </table>
     </section>
 </main>
 </body>

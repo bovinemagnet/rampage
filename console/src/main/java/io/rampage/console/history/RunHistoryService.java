@@ -44,24 +44,6 @@ public class RunHistoryService {
                 });
     }
 
-    public List<RunHistoryEntry> listRecent(int limit) {
-        Path root = Paths.get(reportsDir).toAbsolutePath().normalize();
-        if (!Files.isDirectory(root)) {
-            return List.of();
-        }
-        try (Stream<Path> stream = Files.list(root)) {
-            return stream
-                    .filter(Files::isDirectory)
-                    .filter(p -> Files.isRegularFile(p.resolve("index.html")))
-                    .map(p -> toEntry(root, p))
-                    .sorted(Comparator.comparing(RunHistoryEntry::finishedAt).reversed())
-                    .limit(limit)
-                    .toList();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to scan " + reportsDir, e);
-        }
-    }
-
     /**
      * Every Gatling simulation directory under the reports root — a directory is
      * a finished run if it contains an {@code index.html}. Sorted newest first by
@@ -120,19 +102,4 @@ public class RunHistoryService {
         this.reportsDir = dir;
     }
 
-    private static RunHistoryEntry toEntry(Path root, Path dir) {
-        Instant mtime;
-        try {
-            mtime = Files.getLastModifiedTime(dir).toInstant();
-        } catch (IOException e) {
-            mtime = Instant.EPOCH;
-        }
-        boolean hasMeta = Files.isRegularFile(dir.resolve("run-metadata.json"));
-        String relative = root.relativize(dir).toString();
-        return new RunHistoryEntry(
-                dir.getFileName().toString(),
-                mtime,
-                "/reports/" + relative + "/index.html",
-                hasMeta);
-    }
 }
