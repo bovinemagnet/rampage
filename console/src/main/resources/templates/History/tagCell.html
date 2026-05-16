@@ -1,0 +1,9 @@
+{#for t in run.tags}
+    <span class="tag-chip">{t}<button
+        hx-delete="/history/{run.id}/tags/{t}"
+        hx-target="closest .tag-cell" hx-swap="innerHTML">×</button></span>
+{/for}
+<form hx-post="/history/{run.id}/tags" hx-target="closest .tag-cell" hx-swap="innerHTML"
+      class="tag-add">
+    <input type="text" name="tag" placeholder="add tag…" required>
+</form>
