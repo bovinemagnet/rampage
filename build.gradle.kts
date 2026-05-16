@@ -42,6 +42,7 @@ dependencies {
     gatlingImplementation(libs.bundles.jackson)
     gatlingImplementation(libs.bundles.logging)
     gatlingImplementation(libs.h2)
+    gatlingImplementation(libs.postgresql)
     gatlingImplementation(libs.hikaricp)
 
     // Test dependencies

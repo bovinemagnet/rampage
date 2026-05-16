@@ -1,0 +1,58 @@
+id: students-page
+name: Students Pagination GraphQL
+protocol: graphql
+endpointRef: graphql
+operationName: Students
+
+description: >
+  Issues a Students(pageNumber, pageSize) GraphQL query. pageNumber is
+  driven from the monash_prd_even.allocated table via the JDBC feeder;
+  pageSize is fixed at 100 to match the GraphQL default and the page
+  arithmetic in students-pages.sql.
+
+headers:
+  X-Scenario-Id: students-page
+  X-Business-Process: students-pagination
+
+request:
+  graphqlQueryFile: config/graphql/students.graphql
+  variables:
+    pageNumber: ${feeder:pageNumber}
+    pageSize: 100
+
+feeder:
+  type: jdbc
+  databaseRef: monash
+  sqlFile: config/queries/students-pages.sql
+  # `random` picks a row at random for each virtual user, so the load is
+  # spread across pages instead of always hammering page 0. Switch to
+  # `circular` if you want each row used in order.
+  strategy: random
+  preload: true
+  failIfEmpty: true
+  columns:
+    pageNumber:
+      type: integer
+      required: true
+      sessionKey: pageNumber
+
+checks:
+  httpStatus: 200
+  jsonPath:
+    - path: $.errors
+      expectation: absentOrEmpty
+    - path: $.data.students
+      expectation: exists
+
+workload:
+  inheritFromRun: true
+
+tags:
+  - graphql
+  - aql
+  - students
+  - read-only
+
+safety:
+  mutating: false
+  idempotent: true

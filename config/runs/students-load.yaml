@@ -1,0 +1,45 @@
+id: students-load
+name: AQL Students Pagination Load
+version: 1
+environment: aql-local
+
+metadata:
+  owner: aql-team
+  application: aql
+  service: aql-graphql
+  description: >
+    Paginates through students via the AQL GraphQL endpoint, driving
+    pageNumber values from the local monash_prd_even.allocated table.
+
+scenarios:
+  - id: students-page
+    file: config/scenarios/students-page.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
+  workload:
+    # Hold a steady 5 req/s for 30s — modest enough to validate end-to-end
+    # without hammering local Postgres or the AQL server. Crank rate.from /
+    # rate.to up (or switch to ramp-and-hold) once the smoke passes.
+    type: constant
+    duration: 30s
+    rate:
+      unit: per-second
+      from: 5
+      to: 5
+
+assertions:
+  global:
+    maxErrorPercentage: 0.5
+    maxResponseTimeP95Millis: 1500
+    maxResponseTimeP99Millis: 3000
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false

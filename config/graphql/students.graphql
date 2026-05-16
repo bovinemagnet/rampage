@@ -1,0 +1,10 @@
+query Students($pageNumber: Int! = 0, $pageSize: Int! = 100) {
+  students(pageNumber: $pageNumber, pageSize: $pageSize) {
+    studentCode
+    firstName
+    lastName
+    studentTimetable {
+      studentCode
+    }
+  }
+}
