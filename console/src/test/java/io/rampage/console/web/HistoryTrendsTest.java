@@ -59,6 +59,13 @@ class HistoryTrendsTest {
     }
 
     @Test
+    void trendsPageRendersEmptyStateWhenNoConfigSelected() {
+        given().when().get("/history/trends")
+                .then().statusCode(200)
+                .body(containsString("Trends need at least one"));
+    }
+
+    @Test
     void trendsPageRendersChartForAConfigKey() {
         seed("trend-a", Instant.parse("2026-05-09T10:00:00Z"), 110.0);
         seed("trend-b", Instant.parse("2026-05-11T10:00:00Z"), 140.0);
