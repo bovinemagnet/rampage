@@ -1,6 +1,7 @@
 package io.rampage.console.web;
 
 import io.quarkus.qute.CheckedTemplate;
+import io.quarkus.qute.RawString;
 import io.quarkus.qute.TemplateInstance;
 import io.rampage.console.results.RunComparison;
 import io.rampage.console.results.RunComparisonService;
@@ -39,6 +40,9 @@ public class HistoryResource {
 
         public static native TemplateInstance compare(List<StoredRun> allRuns,
                 String idA, String idB, RunComparison comparison);
+
+        public static native TemplateInstance trends(List<String> configKeys,
+                String selectedKey, RawString chartJson, boolean hasData);
     }
 
     @Inject
@@ -131,6 +135,18 @@ public class HistoryResource {
             }
         }
         return Templates.compare(repository.listNewestFirst(), idA, idB, comparison);
+    }
+
+    @GET
+    @Path("/trends")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance trends(@QueryParam("runConfigKey") String runConfigKey) {
+        List<StoredRun> series = (runConfigKey != null && !runConfigKey.isBlank())
+                ? repository.byRunConfigKey(runConfigKey)
+                : List.of();
+        RawString chartJson = new RawString(TrendData.toJson(series));
+        return Templates.trends(repository.distinctRunConfigKeys(), runConfigKey,
+                chartJson, !series.isEmpty());
     }
 
     @GET
