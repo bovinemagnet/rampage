@@ -1,0 +1,12 @@
+{#if result.ok}
+  <p class="validation-ok">Saved.</p>
+{#else}
+  <div class="validation-errors">
+    <strong>Validation failed:</strong>
+    <ul>
+      {#for err in result.errors}
+        <li>{err}</li>
+      {/for}
+    </ul>
+  </div>
+{/if}

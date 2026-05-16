@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rampage Console — Compare runs</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+    <div>
+        <h1>Compare runs</h1>
+        <p class="subtitle">Side-by-side scenario metrics for two runs.</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/history">History</a>
+        <a href="/history/trends">Trends</a>
+    </nav>
+</header>
+
+<main>
+    <section>
+        <form method="get" action="/history/compare" class="filter-bar">
+            <select name="a">
+                <option value="">Run A…</option>
+                {#for r in allRuns}
+                    <option value="{r.id}" {#if r.id == idA}selected{/if}>{r.name ?: r.id}</option>
+                {/for}
+            </select>
+            <select name="b">
+                <option value="">Run B…</option>
+                {#for r in allRuns}
+                    <option value="{r.id}" {#if r.id == idB}selected{/if}>{r.name ?: r.id}</option>
+                {/for}
+            </select>
+            <button type="submit">Compare</button>
+        </form>
+
+        {#if comparison}
+            {#if comparison.hasRegression}
+                <div class="regression-banner bad">Regression detected — one or more
+                    metrics worsened by more than the threshold.</div>
+            {#else}
+                <div class="regression-banner ok">No regression — run B holds up against run A.</div>
+            {/if}
+
+            {#for sc in comparison.scenarios}
+                <h3>{sc.scenarioName}
+                    {#if sc.presence.name == 'ONLY_A'}<span class="muted">(only in A)</span>{/if}
+                    {#if sc.presence.name == 'ONLY_B'}<span class="muted">(only in B)</span>{/if}
+                </h3>
+                <table class="history-table">
+                    <thead>
+                        <tr><th>Metric</th><th>Run A</th><th>Run B</th><th>Δ</th><th>Change</th></tr>
+                    </thead>
+                    <tbody>
+                        {#for m in sc.metrics}
+                            <tr>
+                                <td>{m.label}</td>
+                                <td>{fmt:num(m.valueA)}</td>
+                                <td>{fmt:num(m.valueB)}</td>
+                                <td class="{#if m.regressed}delta-bad{#else}delta-flat{/if}">{fmt:signed(m.delta)}</td>
+                                <td class="{#if m.regressed}delta-bad{#else}delta-good{/if}">{fmt:signedPct(m.pctChange)}</td>
+                            </tr>
+                        {/for}
+                    </tbody>
+                </table>
+            {/for}
+        {#else}
+            <p class="muted">Pick two runs above to see the comparison.</p>
+        {/if}
+    </section>
+</main>
+</body>
+</html>

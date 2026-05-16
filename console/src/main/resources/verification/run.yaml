@@ -1,0 +1,38 @@
+id: console-verify
+name: Console Self-Verification Run
+version: 1
+environment: console-verification
+
+metadata:
+  owner: rampage-console
+  application: rampage
+  service: console
+  description: Smoke run that proves the console + Gatling pipeline end-to-end against the bundled GraphQL endpoint.
+
+scenarios:
+  - id: echo-graphql
+    # __VERIFICATION_DIR__ is rewritten to the absolute extracted path by
+    # VerificationConfig at console startup so Rampage's ConfigLoader can find
+    # the scenario file regardless of where the spawned JVM runs from.
+    file: __VERIFICATION_DIR__/scenarios/echo.yaml
+    enabled: true
+    weight: 100
+
+execution:
+  mode: open
+  workload:
+    type: smoke
+    users: 1
+    duration: 5s
+
+assertions:
+  global:
+    maxErrorPercentage: 0.0
+
+reporting:
+  outputDirectory: build/reports/gatling
+  writeRunMetadata: true
+  redactSecrets: true
+
+safety:
+  dryRun: false

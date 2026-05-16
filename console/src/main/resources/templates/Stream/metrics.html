@@ -1,0 +1,26 @@
+<div class="metrics-grid">
+  <div class="metric">
+    <span class="metric-label">Active users</span>
+    <span class="metric-value">{snapshot.activeUsers}</span>
+  </div>
+  <div class="metric">
+    <span class="metric-label">Req / tick</span>
+    <span class="metric-value">{snapshot.requestsPerTick}</span>
+  </div>
+  <div class="metric metric-error">
+    <span class="metric-label">Errors / tick</span>
+    <span class="metric-value">{snapshot.errorsPerTick}</span>
+  </div>
+  <div class="metric">
+    <span class="metric-label">p50 (ms)</span>
+    <span class="metric-value">{snapshot.p50ResponseMs}</span>
+  </div>
+  <div class="metric">
+    <span class="metric-label">p95 (ms)</span>
+    <span class="metric-value">{snapshot.p95ResponseMs}</span>
+  </div>
+  <div class="metric metric-tick">
+    <span class="metric-label">Tick</span>
+    <span class="metric-value">{snapshot.tick}</span>
+  </div>
+</div>

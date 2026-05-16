@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rampage Console — Trends</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/uplot@1.6.31/dist/uPlot.min.css">
+    <script src="https://unpkg.com/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Trends</h1>
+        <p class="subtitle">P95, throughput and error rate over time for one run configuration.</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/configs">Configs</a>
+        <a href="/history">History</a>
+        <a href="/history/compare">Compare</a>
+        <a href="/history/trends">Trends</a>
+    </nav>
+</header>
+
+<main>
+    <section>
+        <form method="get" action="/history/trends" class="filter-bar">
+            <select name="runConfigKey">
+                <option value="">Choose a run configuration…</option>
+                {#for key in configKeys}
+                    <option value="{key}" {#if key == selectedKey}selected{/if}>{key}</option>
+                {/for}
+            </select>
+            <button type="submit">Show trend</button>
+        </form>
+
+        {#if hasData}
+            <div id="trend-chart"></div>
+            <script type="application/json" id="trend-data">{chartJson}</script>
+            <script>
+                (function () {
+                    var el = document.getElementById('trend-data');
+                    var d = JSON.parse(el.textContent);
+                    if (!d.x || !d.x.length) { return; }
+                    var opts = {
+                        title: 'P95 (ms) · RPS · Error %',
+                        width: Math.min(900, window.innerWidth - 80),
+                        height: 340,
+                        scales: { x: { time: true } },
+                        series: [
+                            {},
+                            { label: 'P95 ms', stroke: '#58a6ff' },
+                            { label: 'RPS', stroke: '#3fb950' },
+                            { label: 'Error %', stroke: '#f85149' }
+                        ]
+                    };
+                    new uPlot(opts, [d.x, d.p95, d.rps, d.err],
+                        document.getElementById('trend-chart'));
+                })();
+            </script>
+        {#else}
+            <p class="muted">Pick a run configuration above. Trends need at least one
+                stored run for that configuration.</p>
+        {/if}
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rampage Console — Configs</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Configs</h1>
+        <p class="subtitle">Browse and edit YAML under <code>config/</code>.</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/configs">Configs</a>
+        <a href="/history">History</a>
+    </nav>
+</header>
+
+<main class="configs-grid">
+    <section>
+        <h2>Environments</h2>
+        <ul class="config-list">
+            {#for e in environments}
+                <li><a href="/configs/edit?path={e.relativePath}">{e.name}</a></li>
+            {#else}
+                <li class="muted">No env YAMLs found.</li>
+            {/for}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Runs</h2>
+        <ul class="config-list">
+            {#for r in runs}
+                <li><a href="/configs/edit?path={r.relativePath}">{r.name}</a></li>
+            {#else}
+                <li class="muted">No run YAMLs found.</li>
+            {/for}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Scenarios</h2>
+        <ul class="config-list">
+            {#for s in scenarios}
+                <li><a href="/configs/edit?path={s.relativePath}">{s.name}</a></li>
+            {#else}
+                <li class="muted">No scenario YAMLs found.</li>
+            {/for}
+        </ul>
+    </section>
+</main>
+</body>
+</html>

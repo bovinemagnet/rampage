@@ -1,0 +1,30 @@
+id: echo-graphql
+name: GraphQL Echo
+protocol: graphql
+endpointRef: graphql
+operationName: Echo
+
+description: >
+  Issues a small GraphQL echo query against the console's bundled endpoint.
+  Used by the "Verify console" button to prove the full Rampage pipeline
+  (config load -> validation -> Gatling spawn -> HTTP request -> assertions)
+  without depending on any external system.
+
+request:
+  graphqlQueryFile: __VERIFICATION_DIR__/graphql/echo.graphql
+  variables:
+    msg: ping
+
+checks:
+  httpStatus: 200
+
+workload:
+  inheritFromRun: true
+
+tags:
+  - verification
+  - graphql
+
+safety:
+  mutating: false
+  idempotent: true

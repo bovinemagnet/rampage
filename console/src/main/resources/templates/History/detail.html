@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rampage Console — {run.name ?: run.id}</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+</head>
+<body>
+<header>
+    <div>
+        <h1>{run.name ?: run.id}</h1>
+        <p class="subtitle">Run detail</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/history">History</a>
+        <a href="/history/trends?runConfigKey={run.runConfigKey ?: ''}">Trends for this config</a>
+    </nav>
+</header>
+
+<main>
+    <section>
+        <h2>Summary</h2>
+        <dl class="detail-grid">
+            <dt>Status</dt><dd><span class="status-{run.status} status-badge">{run.status}</span></dd>
+            <dt>Environment</dt><dd>{run.environmentId ?: '—'}</dd>
+            <dt>Started</dt><dd>{run.startedAt ?: '—'}</dd>
+            <dt>Finished</dt><dd>{run.finishedAt ?: '—'}</dd>
+            <dt>Git</dt><dd>{run.gitBranch ?: '—'} @ {run.gitCommit ?: '—'}</dd>
+            <dt>Source</dt><dd>{run.source}</dd>
+            <dt>Assertions</dt><dd>{#if run.assertionsOk == true}Passed{#else if run.assertionsOk == false}Failed{#else}—{/if}</dd>
+            <dt>Report</dt><dd>{#if run.simulationDir}<a href="/reports/{run.simulationDir}/index.html">Open Gatling report</a>{#else}—{/if}</dd>
+        </dl>
+    </section>
+
+    <section>
+        <h2>Tags</h2>
+        <div class="tag-cell" id="tag-cell-{run.id}">
+            {#for t in run.tags}
+                <span class="tag-chip">{t}<button
+                    hx-delete="/history/{run.id}/tags/{t}"
+                    hx-target="closest .tag-cell" hx-swap="innerHTML">×</button></span>
+            {/for}
+            <form hx-post="/history/{run.id}/tags" hx-target="closest .tag-cell" hx-swap="innerHTML"
+                  class="tag-add">
+                <input type="text" name="tag" placeholder="add tag…" required
+                       pattern="[A-Za-z0-9._-]+" maxlength="100"
+                       title="Letters, digits, dot, underscore and hyphen only">
+            </form>
+        </div>
+    </section>
+
+    <section>
+        <h2>Notes</h2>
+        <form hx-post="/history/{run.id}/notes" hx-target="#notes-feedback" hx-swap="innerHTML">
+            <textarea name="notes" rows="3">{run.notes ?: ''}</textarea>
+            <button type="submit">Save notes</button>
+        </form>
+        <div id="notes-feedback"></div>
+    </section>
+
+    <section>
+        <h2>Scenario metrics</h2>
+        {#if run.scenarioStats.isEmpty}
+            <p class="muted">No metrics were parsed for this run.</p>
+        {#else}
+            <table class="history-table">
+                <thead>
+                    <tr><th>Scenario</th><th>Requests</th><th>Errors</th><th>RPS</th>
+                        <th>Mean</th><th>P50</th><th>P95</th><th>P99</th></tr>
+                </thead>
+                <tbody>
+                    {#for s in run.scenarioStats}
+                        <tr>
+                            <td>{s.scenarioName}</td>
+                            <td>{fmt:num(s.requestCount)}</td>
+                            <td>{fmt:pct(s.errorPercent)}</td>
+                            <td>{fmt:num(s.requestsPerSecond)}</td>
+                            <td>{fmt:ms(s.meanMs)}</td>
+                            <td>{fmt:ms(s.p50Ms)}</td>
+                            <td>{fmt:ms(s.p95Ms)}</td>
+                            <td>{fmt:ms(s.p99Ms)}</td>
+                        </tr>
+                    {/for}
+                </tbody>
+            </table>
+        {/if}
+    </section>
+</main>
+</body>
+</html>

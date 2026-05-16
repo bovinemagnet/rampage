@@ -1,0 +1,8 @@
+<div class="status-row status-{event.status}">
+  <span class="status-badge">{event.status}</span>
+  <span class="run-id">{event.runId}</span>
+  <span class="run-paths">{event.envPath} &rarr; {event.runPath}</span>
+  {#if event.exitCode != null}
+    <span class="exit-code">exit {event.exitCode}</span>
+  {/if}
+</div>

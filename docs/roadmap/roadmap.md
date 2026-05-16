@@ -131,6 +131,80 @@ Exit criteria:
 - Antora docs build cleanly via `gradle21w antora`.
 - A new engineer can run `gradle21w newScenario -PscenarioId=foo` to bootstrap a YAML + GraphQL + SQL trio.
 
+## Platform evolution
+
+The milestones above close the known gaps in the current engine and tooling. This section looks further ahead: the evolution of Rampage from a configuration-driven Gatling wrapper with a thin live console into a LoadRunner-class load-testing *platform* — one that stores history, detects regressions automatically, provides a real-time operations dashboard, and integrates cleanly with the wider engineering toolchain.
+
+Each theme below is presented with a goal, concrete capabilities, and an indicative effort/impact rating. The ratings reflect implementation complexity relative to the current codebase, not calendar time.
+
+### Theme 1 — Results store, history and trends *(in progress)*
+
+**Goal:** Give the console a memory.
+
+A design specification exists and an implementation plan is being prepared.
+
+- Persist every run — whether launched from the live console or executed as a headless CLI invocation — to an embedded H2 database via Quarkus Hibernate ORM Panache.
+- Replace the filesystem-scan history page with a queryable, searchable, taggable history backed by the database.
+- Side-by-side run-to-run comparison view with per-scenario metric deltas.
+- Trend charts (P95, throughput, error rate over time) for a given run configuration.
+
+**Impact:** High. **Effort:** Medium.
+This theme is the data foundation on which every other platform theme builds.
+
+### Theme 2 — Trend and regression analytics
+
+**Goal:** Surface regression detection in the UI.
+
+- Bring the CLI baseline-comparison logic (`RunSummaryComparator`) into the console as a first-class view.
+- Automatic baseline selection per run configuration; flag P95 and error-rate regressions against it.
+- Pass/fail regression badges on the history list.
+
+**Impact:** High. **Effort:** Medium.
+
+### Theme 3 — Live-dashboard depth
+
+**Goal:** A real-time operations dashboard, not a snapshot.
+
+- Replace the fixed six-cell metric grid with time-series charts covering throughput, latency percentiles, errors, and virtual users over time.
+- Per-scenario and per-request live drill-down.
+- Live SLA thresholds shown against assertions, with optional early-abort on breach.
+
+**Impact:** High. **Effort:** Large.
+
+### Theme 4 — Test management
+
+**Goal:** Manage tests, not just launch them.
+
+- Cron-scheduled runs with a schedule history.
+- Parameterised launch — override workload and run parameters from the UI without editing YAML.
+- Optional concurrent and distributed injector orchestration (today the console is single-slot FIFO).
+
+**Impact:** Medium. **Effort:** Large.
+
+### Theme 5 — Integration surface
+
+**Goal:** Connect Rampage to the wider toolchain.
+
+- Slack, email, and webhook notifications on run completion or threshold breach.
+- A Prometheus/Grafana metrics exporter built on the console's existing Carbon receiver.
+
+**Impact:** Medium. **Effort:** Small.
+
+### Theme 6 — Engine-level gaps
+
+**Goal:** Close known gaps in the load engine itself.
+
+- Real secret-manager integration (Vault, AWS Secrets Manager, Azure Key Vault) — currently stubbed with `***REDACTED***`.
+- Protocols beyond HTTP/GraphQL — gRPC and WebSocket.
+- Finer assertion granularity — throughput SLOs, more percentiles, and per-step assertions.
+- Wire the modelled-but-unused `includeRunMetadataHeaders` observability flag.
+
+**Impact:** Medium. **Effort:** Medium.
+
+### Sequencing note
+
+Theme 1 is being implemented first because the results store is the data foundation that every other platform theme depends on. Without persisted run history there is no baseline to compare against, no trend to chart, and no schedule history to display. The design specification is at `docs/superpowers/specs/2026-05-16-results-store-design.md`.
+
 ## Cross-cutting threads
 
 The following are not standalone milestones but should be tracked across every PR:

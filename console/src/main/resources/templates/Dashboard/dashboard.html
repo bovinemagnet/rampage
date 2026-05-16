@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rampage Console</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2" defer></script>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Rampage Console</h1>
+        <p class="subtitle">Interactive driver for the Gatling load-testing engine.</p>
+    </div>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/configs">Configs</a>
+        <a href="/history">History</a>
+    </nav>
+</header>
+
+<main>
+    <section class="launcher">
+        <h2>Launch a run</h2>
+        <form hx-post="/runs" hx-swap="innerHTML" hx-target="#launch-feedback">
+            <label>
+                Environment
+                <select name="envPath" required>
+                    {#for env in environments}
+                        <option value="{env.relativePath}">{env.name}</option>
+                    {#else}
+                        <option disabled>No YAMLs in config/environments</option>
+                    {/for}
+                </select>
+            </label>
+            <label>
+                Run
+                <select name="runPath" required>
+                    {#for run in runs}
+                        <option value="{run.relativePath}">{run.name}</option>
+                    {#else}
+                        <option disabled>No YAMLs in config/runs</option>
+                    {/for}
+                </select>
+            </label>
+            <button type="submit">Run</button>
+        </form>
+
+        <form hx-post="/runs/verify" hx-swap="innerHTML" hx-target="#launch-feedback" class="verify-form">
+            <button type="submit" class="verify-btn">Verify console</button>
+            <span class="muted verify-help">Runs a 5s GraphQL smoke against the console's bundled endpoint &mdash; no config required.</span>
+        </form>
+
+        <div id="launch-feedback" class="feedback"></div>
+    </section>
+
+    <section class="queue" hx-ext="sse" sse-connect="/stream/queue">
+        <h2>Queue</h2>
+        <div id="queue-feed" sse-swap="message" hx-swap="innerHTML">
+            <p class="muted">Waiting for the first run&hellip;</p>
+        </div>
+    </section>
+
+    <section class="metrics" hx-ext="sse" sse-connect="/stream/metrics">
+        <h2>Live metrics</h2>
+        <div id="metrics-feed" sse-swap="message" hx-swap="innerHTML">
+            <p class="muted">Metrics will appear once a run is in flight.</p>
+        </div>
+    </section>
+
+    <section class="status" hx-ext="sse" sse-connect="/stream/status">
+        <h2>Status feed</h2>
+        <div id="status-feed" sse-swap="message" hx-swap="afterbegin">
+            <p class="muted">Waiting for a run to start&hellip;</p>
+        </div>
+    </section>
+
+    <section class="logs" hx-ext="sse" sse-connect="/stream/logs">
+        <h2>Live log</h2>
+        <pre id="log-feed" sse-swap="message" hx-swap="beforeend"></pre>
+    </section>
+</main>
+</body>
+</html>

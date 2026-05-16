@@ -1,0 +1,26 @@
+id: console-verification
+name: Console Self-Verification Environment
+
+# Targets the console's own GraphQL endpoint. Staged by VerificationConfig at
+# console startup; not intended for editing in place.
+
+baseUrls:
+  # ScenarioFactory appends "/<endpointRef>" to the base URL, so for the
+  # endpoint at http://localhost:8090/verification/graphql with endpointRef
+  # "graphql", the base URL is the parent path.
+  graphql: http://localhost:8090/verification
+  rest: http://localhost:8090/verification
+
+http:
+  connectTimeoutMillis: 2000
+  requestTimeoutMillis: 5000
+  followRedirects: false
+  acceptHeader: application/json
+  contentTypeHeader: application/json
+
+security:
+  mode: none
+
+safety:
+  allowProduction: false
+  requireApprovalForMutatingRequests: false
