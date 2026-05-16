@@ -32,13 +32,19 @@ import java.util.Optional;
 public class RunResultIngestor {
 
     private static final Logger log = LoggerFactory.getLogger(RunResultIngestor.class);
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper(); // ObjectMapper is thread-safe once configured.
 
     @Inject
     StoredRunRepository repository;
 
     @Inject
     RunHistoryService history;
+
+    /** Self-reference: the per-directory @Transactional importOne must be called
+     *  through the CDI proxy for its interceptor to apply (self-invocation via
+     *  {@code this} is not intercepted). */
+    @Inject
+    RunResultIngestor self;
 
     /** Backfill pre-existing reports when the console starts. */
     void onStartup(@Observes StartupEvent event) {
@@ -76,40 +82,66 @@ public class RunResultIngestor {
             log.info("Ingested console run {} ({} scenario stats)",
                 run.id, run.scenarioStats.size());
         } catch (Exception e) {
-            log.warn("Failed to ingest run {}: {}", record.id(), e.getMessage());
+            log.warn("Failed to ingest run {}: {}", record.id(), e.getMessage(), e);
         }
     }
 
-    /** Scan build/reports/gatling/ and store any simulation directory not yet known. */
-    @Transactional
+    /**
+     * Scan build/reports/gatling/ and store any simulation directory not yet
+     * known. Each directory is imported in its own transaction (via
+     * {@link #importOne(Path)}) so a failure on one report cannot abort the rest.
+     */
     public void importFromFilesystem() {
+        List<Path> dirs;
+        try {
+            dirs = history.scanSimulationDirs();
+        } catch (Exception e) {
+            log.warn("Cannot scan reports directory, skipping backfill: {}", e.getMessage());
+            return;
+        }
         int imported = 0;
-        for (Path simDir : history.scanSimulationDirs()) {
-            String dirName = simDir.getFileName().toString();
-            if (repository.existsBySimulationDir(dirName)) {
-                continue;
-            }
-            try {
-                StoredRun run = new StoredRun();
-                run.id = "imported-" + dirName;
-                run.source = RunSource.IMPORTED;
-                run.status = RunStatus.COMPLETED;
-                run.name = dirName;
-                Instant mtime = Files.getLastModifiedTime(simDir).toInstant();
-                run.startedAt = mtime;
-                run.finishedAt = mtime;
-                populateFromReport(run, simDir);
-                if (run.runConfigKey == null) {
-                    run.runConfigKey = "imported::" + dirName;
-                }
-                repository.persist(run);
+        for (Path simDir : dirs) {
+            if (self.importOne(simDir)) {
                 imported++;
-            } catch (Exception e) {
-                log.warn("Failed to import report {}: {}", dirName, e.getMessage());
             }
         }
         if (imported > 0) {
             log.info("Backfill imported {} run(s) from build/reports/gatling/", imported);
+        }
+    }
+
+    /**
+     * Import one simulation directory as its own unit of work. Public and
+     * {@code @Transactional} so it is called through the CDI proxy ({@code self})
+     * and each directory gets an independent transaction. Returns true when a new
+     * run was stored.
+     */
+    @Transactional
+    public boolean importOne(Path simDir) {
+        String dirName = simDir.getFileName().toString();
+        if (repository.existsBySimulationDir(dirName)) {
+            return false;
+        }
+        try {
+            StoredRun run = new StoredRun();
+            run.id = "imported-" + dirName;
+            run.source = RunSource.IMPORTED;
+            run.status = RunStatus.COMPLETED;
+            run.name = dirName;
+            // Pre-existing reports carry no real timing; the directory mtime is
+            // the best approximation, used for both startedAt and finishedAt.
+            Instant mtime = Files.getLastModifiedTime(simDir).toInstant();
+            run.startedAt = mtime;
+            run.finishedAt = mtime;
+            populateFromReport(run, simDir);
+            if (run.runConfigKey == null) {
+                run.runConfigKey = "imported::" + dirName;
+            }
+            repository.persist(run);
+            return true;
+        } catch (Exception e) {
+            log.warn("Failed to import report {}: {}", dirName, e.getMessage(), e);
+            return false;
         }
     }
 

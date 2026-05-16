@@ -102,6 +102,10 @@ class RunResultIngestorTest {
         assertThat(run.status).isEqualTo(RunStatus.COMPLETED);
         assertThat(run.simulationDir).isEqualTo("rampagesimulation-20260515000946259");
         assertThat(run.scenarioStats).isNotEmpty();
+
+        // Ingesting the same record again is a no-op (idempotent).
+        ingestor.ingestCompleted(record);
+        assertThat(repository.count()).isEqualTo(1);
     }
 
     @Test
