@@ -3,6 +3,7 @@ package io.rampage.console.orchestrator;
 import io.rampage.console.config.PathResolver;
 import io.rampage.console.logs.LogBroadcaster;
 import io.rampage.console.logs.LogLine;
+import io.rampage.console.results.RunResultIngestor;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -52,6 +53,9 @@ public class RunOrchestrator {
 
     @Inject
     RunStatusBroadcaster statusBroadcaster;
+
+    @Inject
+    RunResultIngestor resultIngestor;
 
     @ConfigProperty(name = "rampage.console.repo-root")
     java.util.Optional<String> repoRootRaw;
@@ -142,6 +146,11 @@ public class RunOrchestrator {
     /** Test seam — replace the launcher used to spawn Gatling. */
     public void setProcessLauncher(ProcessLauncher launcher) {
         this.processLauncher = launcher;
+    }
+
+    /** Test seam — replace the ingestor that receives finished runs. */
+    public void setResultIngestor(RunResultIngestor ingestor) {
+        this.resultIngestor = ingestor;
     }
 
     public RunRecord enqueue(String envPath, String runPath) {
@@ -274,9 +283,23 @@ public class RunOrchestrator {
         logBroadcaster.publish(LogLine.of(record.id(),
                 "[exit=" + exit + " status=" + terminal + "]"));
         statusBroadcaster.publish(RunStatusEvent.of(record));
+        ingest(record);
 
         current.set(null);
         scheduleNextIfIdle();
+    }
+
+    /** Hand a finished run to the results store. Never lets ingestion break the queue. */
+    private void ingest(RunRecord record) {
+        RunResultIngestor ingestor = this.resultIngestor;
+        if (ingestor == null) {
+            return;
+        }
+        try {
+            ingestor.ingestCompleted(record);
+        } catch (Exception e) {
+            log.warn("Result ingestion failed for run {}: {}", record.id(), e.getMessage());
+        }
     }
 
     private void pumpStdout(RunRecord record, Process process) {

@@ -192,4 +192,24 @@ class RunOrchestratorTest {
             return false;
         }
     }
+
+    @Test
+    void completedRunIsHandedToTheIngestor() throws Exception {
+        java.util.concurrent.atomic.AtomicReference<String> ingestedId =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.CountDownLatch ingested = new java.util.concurrent.CountDownLatch(1);
+        orchestrator.setResultIngestor(new io.rampage.console.results.RunResultIngestor() {
+            @Override
+            public void ingestCompleted(RunRecord record) {
+                ingestedId.set(record.id());
+                ingested.countDown();
+            }
+        });
+        orchestrator.setProcessLauncher((cmd, dir) -> stubProcess(0, "done"));
+
+        RunRecord rec = orchestrator.enqueue("envA.yaml", "runA.yaml");
+
+        assertThat(ingested.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(ingestedId.get()).isEqualTo(rec.id());
+    }
 }
