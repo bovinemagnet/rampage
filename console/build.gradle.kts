@@ -27,6 +27,8 @@ dependencies {
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-vertx")
     implementation("io.quarkus:quarkus-mutiny")
+    implementation("io.quarkus:quarkus-hibernate-orm-panache")
+    implementation("io.quarkus:quarkus-jdbc-h2")
 
     // Re-use the engine's YAML config loader / validator / model classes.
     // Root project's main jar deliberately does not bundle Gatling (compileOnly),
