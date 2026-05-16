@@ -49,6 +49,13 @@ class HistoryCompareTest {
     }
 
     @Test
+    void comparePageReturns200ForUnknownRunIds() {
+        given().queryParam("a", "no-such-a").queryParam("b", "no-such-b")
+                .when().get("/history/compare")
+                .then().statusCode(200);
+    }
+
+    @Test
     void comparePageRendersDiffAndRegressionVerdict() {
         seed("cmp-a", 100.0);
         seed("cmp-b", 150.0);

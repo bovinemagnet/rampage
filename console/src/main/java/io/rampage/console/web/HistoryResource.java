@@ -121,7 +121,14 @@ public class HistoryResource {
     public TemplateInstance compare(@QueryParam("a") String idA, @QueryParam("b") String idB) {
         RunComparison comparison = null;
         if (idA != null && !idA.isBlank() && idB != null && !idB.isBlank()) {
-            comparison = comparisonService.compare(idA, idB);
+            try {
+                comparison = comparisonService.compare(idA, idB);
+            } catch (IllegalArgumentException unknownId) {
+                // One or both ids are unknown (e.g. a stale bookmarked URL):
+                // fall through with a null comparison so the page renders its
+                // empty state instead of returning HTTP 500.
+                comparison = null;
+            }
         }
         return Templates.compare(repository.listNewestFirst(), idA, idB, comparison);
     }
