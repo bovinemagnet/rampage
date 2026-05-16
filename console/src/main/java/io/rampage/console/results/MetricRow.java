@@ -26,6 +26,11 @@ public record MetricRow(
             regressed = lowerIsBetter
                     ? pct > regressionThresholdPct
                     : pct < -regressionThresholdPct;
+        } else if (a != null && b != null && a == 0.0 && b != 0.0) {
+            // Zero baseline: percentage change is undefined, but a move away
+            // from zero is still a regression for lower-is-better metrics
+            // (e.g. error rate 0% -> 5%).
+            regressed = lowerIsBetter ? b > 0.0 : b < 0.0;
         }
         return new MetricRow(label, a, b, delta, pct, regressed);
     }

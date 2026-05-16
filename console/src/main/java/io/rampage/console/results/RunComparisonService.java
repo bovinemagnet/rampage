@@ -21,7 +21,8 @@ public class RunComparisonService {
         StoredRun a = repository.findById(idA);
         StoredRun b = repository.findById(idB);
         if (a == null || b == null) {
-            throw new IllegalArgumentException("Unknown run id in comparison");
+            throw new IllegalArgumentException(
+                "Unknown run id in comparison: idA=" + idA + " idB=" + idB);
         }
         return compare(a, b);
     }

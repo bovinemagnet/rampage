@@ -42,6 +42,8 @@ class RunComparisonServiceTest {
         assertThat(p95.delta()).isEqualTo(30.0);
         assertThat(p95.pctChange()).isEqualTo(30.0);
         assertThat(p95.regressed()).isTrue();
+        assertThat(comparison.scenarios().get(0).presence())
+                .isEqualTo(ScenarioComparison.Presence.BOTH);
     }
 
     @Test
@@ -65,5 +67,18 @@ class RunComparisonServiceTest {
                 .containsExactlyInAnyOrder(
                         ScenarioComparison.Presence.ONLY_A,
                         ScenarioComparison.Presence.ONLY_B);
+    }
+
+    @Test
+    void flagsRegressionWhenErrorRateRisesFromZeroBaseline() {
+        StoredRun a = runWith("a", stat("Quick GET", 100.0, 0.0));
+        StoredRun b = runWith("b", stat("Quick GET", 100.0, 5.0));
+
+        RunComparison comparison = service.compare(a, b);
+
+        assertThat(comparison.hasRegression()).isTrue();
+        MetricRow error = comparison.scenarios().get(0).metrics().stream()
+                .filter(m -> m.label().equals("Error %")).findFirst().orElseThrow();
+        assertThat(error.regressed()).isTrue();
     }
 }
