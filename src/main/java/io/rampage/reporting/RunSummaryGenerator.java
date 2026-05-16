@@ -68,16 +68,14 @@ public final class RunSummaryGenerator {
     private RunSummaryGenerator() {}
 
     /**
-     * Generate a {@code run-summary.json} from the most recent Gatling report directory
-     * inside {@code reportRoot} and write it to {@code outputFile}.
-     *
-     * @return the parsed summary as a Map, for callers that want to inspect or post-process it
+     * Parse a single Gatling simulation directory's {@code index.html} into a
+     * structured summary map — request stats, assertion outcomes and an overall
+     * PASS/FAIL status — without writing any file.
      */
-    public static Map<String, Object> generate(Path reportRoot, Path outputFile) throws IOException {
-        File simDir = findLatestSimulationDir(reportRoot.toFile());
-        if (simDir == null) {
-            throw new IOException("No Gatling simulation directory found under " + reportRoot
-                + " (expected a 'rampagesimulation-*' subdirectory)");
+    public static Map<String, Object> summarise(Path simulationDir) throws IOException {
+        File simDir = simulationDir.toFile();
+        if (!simDir.isDirectory()) {
+            throw new IOException("Not a simulation directory: " + simulationDir);
         }
         File index = new File(simDir, "index.html");
         if (!index.isFile()) {
@@ -96,7 +94,22 @@ public final class RunSummaryGenerator {
             .map(a -> ((Map<?, ?>) a).get("result"))
             .allMatch(r -> "OK".equals(r));
         summary.put("status", allAssertionsPassed ? "PASS" : "FAIL");
+        return summary;
+    }
 
+    /**
+     * Generate a {@code run-summary.json} from the most recent Gatling report directory
+     * inside {@code reportRoot} and write it to {@code outputFile}.
+     *
+     * @return the parsed summary as a Map, for callers that want to inspect or post-process it
+     */
+    public static Map<String, Object> generate(Path reportRoot, Path outputFile) throws IOException {
+        File simDir = findLatestSimulationDir(reportRoot.toFile());
+        if (simDir == null) {
+            throw new IOException("No Gatling simulation directory found under " + reportRoot
+                + " (expected a 'rampagesimulation-*' subdirectory)");
+        }
+        Map<String, Object> summary = summarise(simDir.toPath());
         Files.createDirectories(outputFile.getParent());
         JSON.writeValue(outputFile.toFile(), summary);
         log.info("Wrote run summary to {} (status={}, requestRows={}, assertions={})",

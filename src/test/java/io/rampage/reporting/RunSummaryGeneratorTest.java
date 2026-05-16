@@ -94,6 +94,28 @@ class RunSummaryGeneratorTest {
     }
 
     @Test
+    void summarise_parsesNamedSimulationDirectoryWithoutWritingJson(@TempDir Path tmp) throws Exception {
+        Path simDir = tmp.resolve("rampagesimulation-20260515000946259");
+        Files.createDirectories(simDir);
+        Files.writeString(simDir.resolve("index.html"), loadFixture());
+
+        Map<String, Object> summary = RunSummaryGenerator.summarise(simDir);
+
+        assertEquals("PASS", summary.get("status"));
+        assertEquals("rampagesimulation-20260515000946259", summary.get("simulationDir"));
+        assertFalse(((List<?>) summary.get("requests")).isEmpty());
+        assertEquals(2, ((List<?>) summary.get("assertions")).size());
+    }
+
+    @Test
+    void summarise_throwsWhenIndexHtmlMissing(@TempDir Path tmp) throws Exception {
+        Path simDir = tmp.resolve("rampagesimulation-empty");
+        Files.createDirectories(simDir);
+        IOException ex = assertThrows(IOException.class, () -> RunSummaryGenerator.summarise(simDir));
+        assertTrue(ex.getMessage().contains("index.html"));
+    }
+
+    @Test
     void findLatestSimulationDir_picksMostRecentByName() throws Exception {
         Path tmp = Files.createTempDirectory("sim");
         try {
