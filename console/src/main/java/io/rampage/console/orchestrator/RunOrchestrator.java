@@ -254,6 +254,9 @@ public class RunOrchestrator {
             record.markFinished(-1);
             record.transitionTo(RunStatus.FAILED);
             statusBroadcaster.publish(RunStatusEvent.of(record));
+            // Launch failures are intentionally not ingested into the results
+            // store: the run never started, produced no Gatling report, and
+            // startedAt is null — there is no result data to record.
             current.set(null);
             scheduleNextIfIdle();
             return;
@@ -298,7 +301,7 @@ public class RunOrchestrator {
         try {
             ingestor.ingestCompleted(record);
         } catch (Exception e) {
-            log.warn("Result ingestion failed for run {}: {}", record.id(), e.getMessage());
+            log.warn("Result ingestion failed for run {}: {}", record.id(), e.getMessage(), e);
         }
     }
 

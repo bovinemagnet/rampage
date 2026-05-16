@@ -2,6 +2,7 @@ package io.rampage.console.orchestrator;
 
 import io.rampage.console.logs.LogBroadcaster;
 import io.rampage.console.logs.LogLine;
+import io.rampage.console.results.RunResultIngestor;
 import io.smallrye.mutiny.subscription.Cancellable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -195,10 +197,9 @@ class RunOrchestratorTest {
 
     @Test
     void completedRunIsHandedToTheIngestor() throws Exception {
-        java.util.concurrent.atomic.AtomicReference<String> ingestedId =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        java.util.concurrent.CountDownLatch ingested = new java.util.concurrent.CountDownLatch(1);
-        orchestrator.setResultIngestor(new io.rampage.console.results.RunResultIngestor() {
+        AtomicReference<String> ingestedId = new AtomicReference<>();
+        CountDownLatch ingested = new CountDownLatch(1);
+        orchestrator.setResultIngestor(new RunResultIngestor() {
             @Override
             public void ingestCompleted(RunRecord record) {
                 ingestedId.set(record.id());
