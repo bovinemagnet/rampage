@@ -78,6 +78,17 @@ class StoredRunRepositoryTest {
 
     @Test
     @TestTransaction
+    void searchIgnoresAnUnknownStatusValue() {
+        repository.deleteAll();
+        repository.persist(newRun("x", "Smoke", "local", "local::smoke",
+            RunStatus.COMPLETED, Instant.now()));
+
+        // An unrecognised status value must be ignored, not throw.
+        assertThat(repository.search(null, null, "NOT_A_STATUS")).hasSize(1);
+    }
+
+    @Test
+    @TestTransaction
     void existsBySimulationDirDetectsAlreadyStoredRuns() {
         repository.deleteAll();
         StoredRun run = newRun("s", "Smoke", "local", "local::smoke",

@@ -36,11 +36,23 @@ public class StoredRunRepository implements PanacheRepositoryBase<StoredRun, Str
             params.put("tag", tag);
         }
         if (status != null && !status.isBlank()) {
-            jpql.append(" AND r.status = :status");
-            params.put("status", RunStatus.valueOf(status));
+            RunStatus parsedStatus = parseStatus(status);
+            if (parsedStatus != null) {
+                jpql.append(" AND r.status = :status");
+                params.put("status", parsedStatus);
+            }
         }
         jpql.append(" ORDER BY r.startedAt DESC");
         return find(jpql.toString(), params).list();
+    }
+
+    /** Parse a status name to a {@link RunStatus}, or null when it is not a known value. */
+    private static RunStatus parseStatus(String status) {
+        try {
+            return RunStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /** All runs for one configuration, oldest first — the series for a trend chart. */
