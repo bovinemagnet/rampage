@@ -1,0 +1,58 @@
+id: aql-local
+name: AQL Local Environment
+
+# Targets the local AQL GraphQL endpoint and reads feeder data from a local
+# PostgreSQL `monash_prd_even` database.
+#
+# Required environment variables before running:
+#   export AQL_BEARER_TOKEN=BEEF-CAKE
+#   export PGUSER=<your-postgres-user>     # if not the default 'postgres'
+#   export PGPASSWORD=<your-postgres-password>
+#
+# Note: ScenarioFactory appends "/<endpointRef>" to the base URL, so
+# `baseUrls.graphql` is the parent of /graphql — the simulation will POST to
+# http://127.0.0.1:9080/aql/graphql.
+
+baseUrls:
+  graphql: http://127.0.0.1:9080/aql
+  rest: http://127.0.0.1:9080/aql
+
+http:
+  connectTimeoutMillis: 5000
+  requestTimeoutMillis: 30000
+  followRedirects: false
+  acceptHeader: application/json
+  contentTypeHeader: application/json
+
+security:
+  mode: bearer-token
+  token:
+    source: env
+    envVar: AQL_BEARER_TOKEN
+    required: true
+  headers:
+    X-Correlation-Source: gatling
+
+databases:
+  monash:
+    driverClassName: org.postgresql.Driver
+    jdbcUrl: jdbc:postgresql://localhost:5432/monash_prd_even
+    username:
+      source: env
+      envVar: PGUSER
+      required: false
+    password:
+      source: env
+      envVar: PGPASSWORD
+      required: false
+    pool:
+      maximumPoolSize: 5
+      connectionTimeoutMillis: 5000
+
+observability:
+  correlationIdHeader: X-Correlation-Id
+  includeRunMetadataHeaders: true
+
+safety:
+  allowProduction: false
+  requireApprovalForMutatingRequests: true

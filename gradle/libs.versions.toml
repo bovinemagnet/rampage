@@ -10,6 +10,7 @@ swagger-parser = "2.1.25"
 slf4j = "2.0.17"
 logback = "1.5.32"
 h2 = "2.4.240"
+postgresql = "42.7.8"
 hikari = "7.0.2"
 gatling = "3.15.0"
 
@@ -33,6 +34,7 @@ swagger-parser = { module = "io.swagger.parser.v3:swagger-parser", version.ref =
 
 # Database / connection pool (SQL feeder)
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
 # Gatling (compileOnly for factories, gatling source set, and tests)
