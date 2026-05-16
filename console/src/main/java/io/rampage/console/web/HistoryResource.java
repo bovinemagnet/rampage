@@ -2,6 +2,8 @@ package io.rampage.console.web;
 
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
+import io.rampage.console.results.RunComparison;
+import io.rampage.console.results.RunComparisonService;
 import io.rampage.console.results.RunResultIngestor;
 import io.rampage.console.results.StoredRun;
 import io.rampage.console.results.StoredRunRepository;
@@ -34,6 +36,9 @@ public class HistoryResource {
         public static native TemplateInstance tagCell(StoredRun run);
 
         public static native TemplateInstance detail(StoredRun run);
+
+        public static native TemplateInstance compare(List<StoredRun> allRuns,
+                String idA, String idB, RunComparison comparison);
     }
 
     @Inject
@@ -41,6 +46,9 @@ public class HistoryResource {
 
     @Inject
     RunResultIngestor ingestor;
+
+    @Inject
+    RunComparisonService comparisonService;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -105,6 +113,17 @@ public class HistoryResource {
         StoredRun run = require(id);
         run.notes = notes;
         return "<span class=\"validation-ok\">Notes saved.</span>";
+    }
+
+    @GET
+    @Path("/compare")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance compare(@QueryParam("a") String idA, @QueryParam("b") String idB) {
+        RunComparison comparison = null;
+        if (idA != null && !idA.isBlank() && idB != null && !idB.isBlank()) {
+            comparison = comparisonService.compare(idA, idB);
+        }
+        return Templates.compare(repository.listNewestFirst(), idA, idB, comparison);
     }
 
     @GET
