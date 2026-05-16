@@ -59,6 +59,18 @@ class HistoryTrendsTest {
     }
 
     @Test
+    void trendDataEmitsNullRpsForRunWithNoScenarioStats() {
+        StoredRun a = new StoredRun();
+        a.startedAt = Instant.parse("2026-05-10T10:00:00Z");
+        // No scenario stats at all — a run that produced no report.
+
+        String json = TrendData.toJson(List.of(a));
+
+        assertThat(json).contains("\"rps\":[null]");
+        assertThat(json).contains("\"p95\":[null]");
+    }
+
+    @Test
     void trendsPageRendersEmptyStateWhenNoConfigSelected() {
         given().when().get("/history/trends")
                 .then().statusCode(200)

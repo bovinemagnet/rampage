@@ -46,7 +46,17 @@ public final class TrendData {
         }
     }
 
+    /**
+     * Total throughput across a run's scenarios. Returns {@code null} (not 0.0)
+     * when the run has no scenario stats, so a run with no data shows as a chart
+     * gap rather than a misleading zero — consistent with worstP95/worstErrorPercent.
+     */
     private static Double totalRps(StoredRun run) {
+        boolean hasData = run.scenarioStats.stream()
+                .anyMatch(s -> s.requestsPerSecond != null);
+        if (!hasData) {
+            return null;
+        }
         return run.scenarioStats.stream()
                 .map(s -> s.requestsPerSecond)
                 .filter(v -> v != null)
