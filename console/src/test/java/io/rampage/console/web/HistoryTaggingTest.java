@@ -14,6 +14,7 @@ import java.time.Instant;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 @QuarkusTest
 class HistoryTaggingTest {
@@ -59,6 +60,24 @@ class HistoryTaggingTest {
                 .then().statusCode(200);
 
         assertThat(reload("note-run-1").notes).isEqualTo("Investigated the P95 spike");
+    }
+
+    @Test
+    void unknownRunReturns404() {
+        given().formParam("tag", "x")
+                .when().post("/history/no-such-run/tags")
+                .then().statusCode(404);
+    }
+
+    @Test
+    void rejectsTagContainingASlash() {
+        seed("tag-run-2");
+
+        given().formParam("tag", "ci/cd")
+                .when().post("/history/tag-run-2/tags")
+                .then().statusCode(200).body(not(containsString("ci/cd")));
+
+        assertThat(reload("tag-run-2").tags).doesNotContain("ci/cd");
     }
 
     StoredRun reload(String id) {

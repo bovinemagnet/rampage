@@ -72,8 +72,15 @@ public class HistoryResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance addTag(@PathParam("id") String id, @FormParam("tag") String tag) {
         StoredRun run = require(id);
-        if (tag != null && !tag.isBlank()) {
-            run.tags.add(tag.trim());
+        if (tag != null) {
+            String trimmed = tag.trim();
+            // Tags must be URL-path-safe single segments — the delete route is
+            // /history/{id}/tags/{tag}, so a slash (or other special char) would
+            // make the tag impossible to remove. Restrict to a safe character set.
+            if (!trimmed.isEmpty() && trimmed.length() <= 100
+                    && trimmed.matches("[A-Za-z0-9._-]+")) {
+                run.tags.add(trimmed);
+            }
         }
         return Templates.tagCell(run);
     }
