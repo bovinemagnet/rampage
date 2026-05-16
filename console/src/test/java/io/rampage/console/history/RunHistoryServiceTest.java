@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,5 +92,25 @@ class RunHistoryServiceTest {
         assertThatThrownBy(() -> service.resolveReport("../escape"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("escapes reports root");
+    }
+
+    @Test
+    void scanSimulationDirsReturnsOnlyDirsWithIndexHtmlNewestFirst() {
+        List<Path> dirs = service.scanSimulationDirs();
+        assertThat(dirs).extracting(p -> p.getFileName().toString())
+                .containsExactly(
+                        "rampagesimulation-20260515000946259",
+                        "rampagesimulation-20260515000724458");
+    }
+
+    @Test
+    void latestSimulationDirSinceFiltersByModificationTime() {
+        Instant future = Instant.now().plusSeconds(3600);
+        assertThat(service.latestSimulationDirSince(future)).isEmpty();
+
+        Instant past = Instant.now().minusSeconds(3600);
+        assertThat(service.latestSimulationDirSince(past)).isPresent();
+        assertThat(service.latestSimulationDirSince(past).get().getFileName().toString())
+                .startsWith("rampagesimulation-");
     }
 }

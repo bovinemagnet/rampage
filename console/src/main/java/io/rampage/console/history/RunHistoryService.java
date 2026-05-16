@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -58,6 +59,50 @@ public class RunHistoryService {
                     .toList();
         } catch (IOException e) {
             throw new RuntimeException("Failed to scan " + reportsDir, e);
+        }
+    }
+
+    /**
+     * Every Gatling simulation directory under the reports root — a directory is
+     * a finished run if it contains an {@code index.html}. Sorted newest first by
+     * directory name (the name embeds a fixed-width timestamp).
+     */
+    public List<Path> scanSimulationDirs() {
+        Path root = Paths.get(reportsDir).toAbsolutePath().normalize();
+        if (!Files.isDirectory(root)) {
+            return List.of();
+        }
+        try (Stream<Path> stream = Files.list(root)) {
+            return stream
+                    .filter(Files::isDirectory)
+                    .filter(p -> Files.isRegularFile(p.resolve("index.html")))
+                    .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed())
+                    .toList();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to scan " + reportsDir, e);
+        }
+    }
+
+    /**
+     * The newest simulation directory modified at or after {@code since} (with a
+     * five-second slack for clock/mtime granularity). Used to attribute a report
+     * directory to the console run that just finished. Empty when a run produced
+     * no report (e.g. a kill before Gatling rendered output).
+     */
+    public Optional<Path> latestSimulationDirSince(Instant since) {
+        return scanSimulationDirs().stream()
+                .filter(p -> modifiedAtOrAfter(p, since))
+                .findFirst();
+    }
+
+    private static boolean modifiedAtOrAfter(Path dir, Instant since) {
+        if (since == null) {
+            return true;
+        }
+        try {
+            return !Files.getLastModifiedTime(dir).toInstant().isBefore(since.minusSeconds(5));
+        } catch (IOException e) {
+            return false;
         }
     }
 
