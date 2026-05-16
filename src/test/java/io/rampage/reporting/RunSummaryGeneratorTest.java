@@ -105,6 +105,15 @@ class RunSummaryGeneratorTest {
         assertEquals("rampagesimulation-20260515000946259", summary.get("simulationDir"));
         assertFalse(((List<?>) summary.get("requests")).isEmpty());
         assertEquals(2, ((List<?>) summary.get("assertions")).size());
+        assertNotNull(summary.get("simulationPath"));
+        assertNotNull(summary.get("generatedAt"));
+    }
+
+    @Test
+    void summarise_throwsWhenPathIsNotADirectory(@TempDir Path tmp) throws Exception {
+        Path notADir = Files.createFile(tmp.resolve("notadir.html"));
+        IOException ex = assertThrows(IOException.class, () -> RunSummaryGenerator.summarise(notADir));
+        assertTrue(ex.getMessage().contains("Not a simulation directory"));
     }
 
     @Test

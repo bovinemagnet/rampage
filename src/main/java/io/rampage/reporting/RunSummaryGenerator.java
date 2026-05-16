@@ -101,7 +101,10 @@ public final class RunSummaryGenerator {
      * Generate a {@code run-summary.json} from the most recent Gatling report directory
      * inside {@code reportRoot} and write it to {@code outputFile}.
      *
+     * <p>Delegates the actual report parsing to {@link #summarise(Path)}.
+     *
      * @return the parsed summary as a Map, for callers that want to inspect or post-process it
+     * @see #summarise(Path)
      */
     public static Map<String, Object> generate(Path reportRoot, Path outputFile) throws IOException {
         File simDir = findLatestSimulationDir(reportRoot.toFile());
