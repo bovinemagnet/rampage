@@ -164,6 +164,8 @@ public class ConfigValidator {
         if (sc == null) return;
         String scPath = "scenario." + (sc.getId() != null ? sc.getId() : "?");
 
+        validateEndpointRef(env, sc.getEndpointRef(), scPath + ".endpointRef", errors);
+
         if (sc.getRequest() != null && sc.getRequest().getGraphqlQueryFile() != null) {
             String queryFile = sc.getRequest().getGraphqlQueryFile();
             if (!resourceExists(queryFile)) {
@@ -175,7 +177,7 @@ public class ConfigValidator {
             validateRequest(sc.getRequest(), scPath + ".request", errors);
         }
 
-        validateSteps(sc, scPath, errors);
+        validateSteps(env, sc, scPath, errors);
 
         FeederConfig feeder = sc.getFeeder();
         if (feeder != null) {
@@ -196,7 +198,16 @@ public class ConfigValidator {
         }
     }
 
-    private void validateSteps(ScenarioConfig sc, String scPath, List<String> errors) {
+    private void validateEndpointRef(EnvironmentConfig env, String endpointRef, String path, List<String> errors) {
+        if (endpointRef == null || endpointRef.isBlank()) return;
+        Map<String, String> baseUrls = env != null ? env.getBaseUrls() : null;
+        if (baseUrls == null || !baseUrls.containsKey(endpointRef)) {
+            String available = baseUrls == null || baseUrls.isEmpty() ? "(none)" : baseUrls.keySet().toString();
+            errors.add(path + " '" + endpointRef + "' is not a key in environment.baseUrls " + available);
+        }
+    }
+
+    private void validateSteps(EnvironmentConfig env, ScenarioConfig sc, String scPath, List<String> errors) {
         if (sc.getSteps() == null || sc.getSteps().isEmpty()) return;
         Set<String> namesSeen = new java.util.LinkedHashSet<>();
         Set<String> sessionKeysAvailable = new java.util.LinkedHashSet<>();
@@ -219,6 +230,7 @@ public class ConfigValidator {
             } else if (!namesSeen.add(step.getName())) {
                 errors.add(stepPath + ".name '" + step.getName() + "' is duplicated within scenario");
             }
+            validateEndpointRef(env, step.getEndpointRef(), stepPath + ".endpointRef", errors);
             if (step.getRequest() != null) {
                 validateRequest(step.getRequest(), stepPath + ".request", errors);
                 validateSessionReferences(step.getRequest(), sessionKeysAvailable, stepPath, errors);

@@ -157,7 +157,7 @@ This opt-in is intentionally verbose to prevent accidental credential bypass.
 
 == Placeholder expansion
 
-String values in environment, run, and scenario YAML files may contain placeholders. These are expanded after YAML parsing and before validation.
+String values in specific fields across environment, run, and scenario YAML files may contain placeholders. These are expanded after YAML parsing and before validation.
 
 [cols="2,3",options="header"]
 |===
@@ -176,7 +176,45 @@ String values in environment, run, and scenario YAML files may contain placehold
 | JVM system property `NAME` (set via `-D<NAME>=<value>` on the Gradle command line).
 |===
 
-Example header using a run-level placeholder:
+=== Fields where placeholders are expanded
+
+Expansion is performed in the following locations:
+
+.Environment YAML
+* `baseUrls` map values
+* `databases.<name>.jdbcUrl`
+* `databases.<name>.driverClassName`
+* Header values (all `headers` maps)
+
+.Run YAML
+* `metadata.owner`, `metadata.application`, `metadata.service`, `metadata.changeReference`, `metadata.description`
+* Header values
+
+.Scenario YAML
+* `description`
+* `request.path`, `request.body`, `request.bodyFile`, `request.bodyTemplate`, `request.graphqlQueryFile`
+* `request.queryParams` and `request.formParams` map values
+* `feeder.sqlFile`
+* Header values
+* All `steps[].request.*` fields listed above and their `queryParams`/`formParams` values
+
+Any field not in the list above is passed through as-is; placeholders in those fields are not substituted.
+
+NOTE: Placeholders are not expanded inside GraphQL query files — those use Gatling's `#{sessionAttribute}` EL syntax.
+
+=== Escaped placeholders
+
+To include a literal `${...}` string in a value without triggering expansion, prefix the opening brace with a backslash:
+
+[source,yaml]
+----
+headers:
+  X-Literal: \${not-a-placeholder}
+----
+
+The leading backslash is stripped and the value is passed through as `pass:[${not-a-placeholder}]`.
+
+=== Example
 
 [source,yaml]
 ----
@@ -186,8 +224,6 @@ security:
 ----
 
 Unresolved placeholders cause a validation failure consistent with the fail-fast secret resolution in `ConfigValidator`.
-
-NOTE: Placeholders are not expanded inside GraphQL query files — those use Gatling's `#{sessionAttribute}` EL syntax.
 
 == Fail-fast preflight
 

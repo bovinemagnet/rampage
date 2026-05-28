@@ -101,14 +101,16 @@ public class RampageSimulation extends Simulation {
                             streamingFeeder = sf;
                             feederRowCounts.put(scenarioCfg.getId(), "streaming");
                         }
-                    } catch (Exception e) {
-                        log.warn("Failed to load feeder data: {}", e.getMessage());
+                    } catch (RuntimeException e) {
+                        throw new RuntimeException(
+                            "Failed to load feeder data for scenario '" + scenarioCfg.getId() + "': "
+                                + e.getMessage(), e);
                     }
                 }
             }
 
             Map<String, String> effectiveHeaders = HeaderResolver.resolveScenarioHeaders(envConfig, runConfig, scenarioCfg);
-            ScenarioBuilder scenarioBuilder = scenarioFactory.build(scenarioCfg, graphqlQuery, envConfig.getHttp(), effectiveHeaders);
+            ScenarioBuilder scenarioBuilder = scenarioFactory.build(scenarioCfg, graphqlQuery, envConfig.getHttp(), effectiveHeaders, envConfig);
 
             if (streamingFeeder != null) {
                 scenarioBuilder = scenarioBuilder.feed(streamingFeeder);
@@ -125,10 +127,10 @@ public class RampageSimulation extends Simulation {
                 scenarioBuilder = scenarioBuilder.feed(feeder);
             }
 
-            String endpointRef = scenarioCfg.getEndpointRef() != null
-                ? scenarioCfg.getEndpointRef() : "default";
-            HttpProtocolBuilder scenarioProtocol = protocolsByRef.computeIfAbsent(endpointRef,
-                ref -> httpProtocolFactory.build(envConfig, secretResolver, ref));
+            String endpointRef = scenarioCfg.getEndpointRef();
+            String protocolKey = endpointRef != null && !endpointRef.isBlank() ? endpointRef : "";
+            HttpProtocolBuilder scenarioProtocol = protocolsByRef.computeIfAbsent(protocolKey,
+                key -> httpProtocolFactory.build(envConfig, secretResolver, endpointRef));
 
             WorkloadConfig workload = WorkloadFactory.effectiveWorkload(runConfig, scenarioCfg);
             if (inheritsFromRun(scenarioCfg) && totalInheritedWeight > 0) {

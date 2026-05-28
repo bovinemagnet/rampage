@@ -356,6 +356,45 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void validate_failsWhenScenarioEndpointRefNotInBaseUrls() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        sc.setEndpointRef("unknown-service");
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("endpointRef") && e.contains("unknown-service")),
+            "Expected unknown endpointRef error: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_passesWhenScenarioEndpointRefMatchesBaseUrls() {
+        EnvironmentConfig env = validEnv();
+        env.setBaseUrls(Map.of("rest", "http://localhost:8080", "graphql", "http://localhost:9090"));
+        ScenarioConfig sc = validScenario("test-scenario");
+        sc.setEndpointRef("graphql");
+
+        assertDoesNotThrow(() -> validator.validate(env, validRun(), List.of(sc)));
+    }
+
+    @Test
+    void validate_failsWhenStepEndpointRefNotInBaseUrls() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        StepConfig step = new StepConfig();
+        step.setName("call-other-service");
+        step.setEndpointRef("unknown-service");
+        sc.setSteps(List.of(step));
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("endpointRef") && e.contains("unknown-service")),
+            "Expected unknown step endpointRef error: " + ex.getErrors());
+    }
+
+    @Test
     void validate_reportsUnresolvedDatabaseCredentials() {
         EnvironmentConfig env = validEnv();
         DatabaseConfig db = new DatabaseConfig();

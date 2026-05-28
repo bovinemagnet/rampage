@@ -5,6 +5,7 @@ import io.gatling.javaapi.core.CheckBuilder;
 import io.gatling.javaapi.core.CoreDsl;
 import io.gatling.javaapi.core.ScenarioBuilder;
 import io.rampage.config.model.ChecksConfig;
+import io.rampage.config.model.EnvironmentConfig;
 import io.rampage.config.model.HttpConfig;
 import io.rampage.config.model.RequestConfig;
 import io.rampage.config.model.ScenarioConfig;
@@ -47,15 +48,21 @@ public class ScenarioFactory {
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
-        return build(scenarioCfg, graphqlQuery, null, null);
+        return build(scenarioCfg, graphqlQuery, null, null, null);
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery, HttpConfig httpConfig) {
-        return build(scenarioCfg, graphqlQuery, httpConfig, null);
+        return build(scenarioCfg, graphqlQuery, httpConfig, null, null);
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders) {
+        return build(scenarioCfg, graphqlQuery, httpConfig, effectiveHeaders, null);
+    }
+
+    public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
+                                 HttpConfig httpConfig, Map<String, String> effectiveHeaders,
+                                 EnvironmentConfig env) {
         log.info("Building scenario: {}", scenarioCfg.getName());
 
         List<StepConfig> steps = resolveSteps(scenarioCfg);
@@ -69,12 +76,32 @@ public class ScenarioFactory {
         });
 
         ChainBuilder body = sessionPrep;
+        java.util.Map<String, String> queryCache = new java.util.HashMap<>();
         for (StepConfig step : steps) {
             String inlineBody = loadStepBody(step);
-            body = body.exec(StepBuilder.build(scenarioCfg, step, graphqlQuery, inlineBody,
-                httpConfig, effectiveHeaders));
+            String stepQuery = resolveStepGraphqlQuery(step, graphqlQuery, queryCache);
+            body = body.exec(StepBuilder.build(scenarioCfg, step, stepQuery, inlineBody,
+                httpConfig, effectiveHeaders, env));
         }
         return CoreDsl.scenario(scenarioCfg.getName()).exec(body);
+    }
+
+    private String resolveStepGraphqlQuery(StepConfig step, String scenarioQuery,
+                                           java.util.Map<String, String> cache) {
+        RequestConfig req = step.getRequest();
+        if (req == null || req.getGraphqlQueryFile() == null || req.getGraphqlQueryFile().isBlank()) {
+            return scenarioQuery;
+        }
+        String file = req.getGraphqlQueryFile();
+        return cache.computeIfAbsent(file, path -> {
+            try {
+                return resourceLoader.apply(path);
+            } catch (Exception e) {
+                log.warn("Failed to load graphqlQueryFile '{}' for step '{}': {}",
+                    path, step.getName(), e.getMessage());
+                return scenarioQuery;
+            }
+        });
     }
 
     private List<StepConfig> resolveSteps(ScenarioConfig scenarioCfg) {

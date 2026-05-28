@@ -16,21 +16,35 @@ public class HttpProtocolFactory {
         return build(env, secretResolver, null);
     }
 
-    public HttpProtocolBuilder build(EnvironmentConfig env, SecretResolver secretResolver, String endpointRef) {
-        String baseUrl = null;
-        if (env.getBaseUrls() != null && !env.getBaseUrls().isEmpty()) {
-            if (endpointRef != null && env.getBaseUrls().containsKey(endpointRef)) {
-                baseUrl = env.getBaseUrls().get(endpointRef);
-            } else if (env.getBaseUrls().containsKey("rest")) {
-                baseUrl = env.getBaseUrls().get("rest");
-            } else {
-                baseUrl = env.getBaseUrls().values().iterator().next();
+    /**
+     * Resolves the base URL for the given endpointRef.
+     * Throws IllegalArgumentException when endpointRef is non-blank but missing from env.baseUrls.
+     * Null/blank endpointRef triggers the fallback chain: "rest" → first configured URL → localhost:8080.
+     */
+    public String resolveBaseUrl(EnvironmentConfig env, String endpointRef) {
+        Map<String, String> baseUrls = env != null ? env.getBaseUrls() : null;
+        boolean refIsExplicit = endpointRef != null && !endpointRef.isBlank();
+
+        if (refIsExplicit) {
+            if (baseUrls == null || !baseUrls.containsKey(endpointRef)) {
+                String available = baseUrls == null ? "(none)" : baseUrls.keySet().toString();
+                throw new IllegalArgumentException(
+                    "Unknown endpointRef '" + endpointRef + "' — must be one of " + available);
             }
-        }
-        if (baseUrl == null) {
-            baseUrl = "http://localhost:8080";
+            return baseUrls.get(endpointRef);
         }
 
+        if (baseUrls != null && !baseUrls.isEmpty()) {
+            if (baseUrls.containsKey("rest")) {
+                return baseUrls.get("rest");
+            }
+            return baseUrls.values().iterator().next();
+        }
+        return "http://localhost:8080";
+    }
+
+    public HttpProtocolBuilder build(EnvironmentConfig env, SecretResolver secretResolver, String endpointRef) {
+        String baseUrl = resolveBaseUrl(env, endpointRef);
         log.info("Building HTTP protocol for base URL: {}", baseUrl);
         HttpProtocolBuilder builder = http.baseUrl(baseUrl);
 

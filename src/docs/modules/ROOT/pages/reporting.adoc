@@ -14,7 +14,21 @@ reporting:
   outputDirectory: build/reports/gatling
 ----
 
-When `outputDirectory` is not set, Gatling uses its own default (`build/reports/gatling`). Gatling creates a timestamped sub-directory per run inside this path.
+When `outputDirectory` is not set, Gatling uses its own default (`build/reports/gatling`). Gatling creates a timestamped sub-directory per run inside this path (e.g. `rampagesimulation-20260515000946259`).
+
+=== Run metadata location
+
+`run-metadata.json` and `config-snapshot.yaml` are initially written to the root of the output directory during the run, then promoted by the `promoteRunMetadata` Gradle task (which runs automatically as a `finalizedBy` hook on `gatlingRun`) into the freshly-created `rampagesimulation-*` sub-directory. After the run completes, both files reside alongside `index.html` inside the per-run directory:
+
+----
+build/reports/gatling/
+└── rampagesimulation-20260515000946259/
+    ├── index.html
+    ├── run-metadata.json
+    └── config-snapshot.yaml
+----
+
+This placement means each run's metadata is self-contained and cannot be overwritten by a subsequent run. The `summariseRun` task and the CI console import read from inside the simulation directory.
 
 == Files produced
 

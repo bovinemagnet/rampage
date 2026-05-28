@@ -178,7 +178,7 @@ feeder:
   sqlFile: config/queries/get-user-data.sql
   strategy: circular
   preload: true
-  failIfEmpty: false
+  failIfEmpty: true              # abort if no rows
   columns:
     userId:
       type: string
@@ -208,7 +208,7 @@ safety:
 
 Key points:
 
-* `endpointRef` must match a key in the environment's `baseUrls`.
+* `endpointRef` must match a key in the environment's `baseUrls`; the validator rejects any unknown value at startup.
 * `request.variables` values using `${feeder:columnName}` are rewritten to Gatling session references at build time.
 * `feeder.columns.<name>.sessionKey` renames a SQL column into the Gatling session under a different key.
 * `workload.inheritFromRun: false` activates a scenario-level workload override; see xref:scenario-authoring.adoc#workload-override[Workload override].
@@ -234,7 +234,7 @@ feeder:
   sqlFile: config/queries/get-user-data.sql
   strategy: circular
   preload: true
-  failIfEmpty: false
+  failIfEmpty: true              # abort if no rows
   columns:
     userId:
       type: string
@@ -275,7 +275,7 @@ feeder:
   sqlFile: config/queries/get-user-data.sql
   strategy: circular
   preload: true
-  failIfEmpty: false
+  failIfEmpty: true              # abort if no rows
   columns:
     userId:
       type: string
