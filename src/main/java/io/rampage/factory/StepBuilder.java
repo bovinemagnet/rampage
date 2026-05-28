@@ -6,6 +6,7 @@ import io.gatling.javaapi.core.CoreDsl;
 import io.gatling.javaapi.core.PauseType;
 import io.gatling.javaapi.http.HttpRequestActionBuilder;
 import io.rampage.config.model.AfterRequestPause;
+import io.rampage.config.model.EnvironmentConfig;
 import io.rampage.config.model.HttpConfig;
 import io.rampage.config.model.PausesConfig;
 import io.rampage.config.model.ScenarioConfig;
@@ -35,10 +36,11 @@ public final class StepBuilder {
                                       String graphqlQuery,
                                       String inlineBodyFromFile,
                                       HttpConfig httpConfig,
-                                      Map<String, String> effectiveHeaders) {
+                                      Map<String, String> effectiveHeaders,
+                                      EnvironmentConfig env) {
         List<CheckBuilder> checks = CheckFactory.build(step.getChecks(), step.getExtract());
         HttpRequestActionBuilder request = RequestBuilder.build(
-            scenarioCfg, step, graphqlQuery, inlineBodyFromFile, httpConfig, effectiveHeaders, checks);
+            scenarioCfg, step, graphqlQuery, inlineBodyFromFile, httpConfig, effectiveHeaders, checks, env);
 
         ChainBuilder before = beforePause(scenarioCfg);
         ChainBuilder chain = before != null ? before.exec(request) : CoreDsl.exec(request);

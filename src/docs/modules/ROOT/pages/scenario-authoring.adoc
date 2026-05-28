@@ -172,7 +172,7 @@ feeder:
   sqlFile: config/queries/get-order-data.sql
   strategy: circular             # <2>
   preload: true                  # <3>
-  failIfEmpty: false             # <4>
+  failIfEmpty: true              # <4>
   maxRows: 10000                 # <5>
   columns:
     order_id:                    # <6>
@@ -183,8 +183,8 @@ feeder:
 <1> Must match a key in the environment's `databases` map.
 <2> Strategy: `circular`, `queue`, `shuffle`, or `random`. See xref:scenario-authoring.adoc#feeder-strategies[Feeder strategies].
 <3> `preload: true` loads all rows into memory at startup. Set to `false` for streaming.
-<4> `failIfEmpty: false` allows the run to continue with an empty result set (a warning is logged). Set to `true` to abort.
-<5> Optional row cap. If the SQL returns more than `maxRows` the excess is silently truncated unless `failIfOverLimit: true` is also set.
+<4> `failIfEmpty: true` aborts `gatlingRun` when the SQL query returns no rows. Set to `false` to log a warning and continue instead.
+<5> Optional row cap. If the SQL returns more than `maxRows` rows and `failIfOverLimit: true` is also set, `gatlingRun` aborts. Without `failIfOverLimit`, the excess is silently truncated.
 <6> Column name as returned by the SQL query.
 <7> `sessionKey` renames the column in the Gatling session. Use this when the SQL column name and the GraphQL variable name differ.
 
@@ -413,13 +413,18 @@ steps:
 
 When `steps` is absent the top-level `request`, `checks`, and `pauseAfter` fields are used as a single synthesised step. All existing single-step scenarios continue to work unchanged.
 
-Each step may also carry an `endpointRef` to route that step to a different `baseUrls` entry — useful when a flow spans multiple services:
+[[step-endpoint-ref]]
+=== Per-step base URL routing
+
+Each step may carry its own `endpointRef` to route that step to a different `baseUrls` entry. When a step's `endpointRef` differs from the scenario's, the engine constructs an absolute URL using `environment.baseUrls[stepEndpointRef]` rather than appending to the scenario's `HttpProtocol` base URL. Steps that omit `endpointRef`, or set it to the same value as the scenario, keep using a relative path against the scenario's base URL.
+
+Both the scenario-level and step-level `endpointRef` values must be keys in `environment.baseUrls`; the validator rejects any unknown value at startup.
 
 [source,yaml]
 ----
 steps:
   - name: auth
-    endpointRef: auth-service
+    endpointRef: auth-service    # <1>
     request:
       method: POST
       path: /token
@@ -429,12 +434,40 @@ steps:
         password: ${feeder:pass}
 
   - name: fetch-profile
-    endpointRef: api
+    endpointRef: api             # <2>
     request:
       method: GET
       path: /me
       bodyType: none
 ----
+<1> This step sends a request to `environment.baseUrls.auth-service` — an absolute URL independent of the scenario's `HttpProtocol`.
+<2> A different key routes this step to a different service in the same flow.
+
+[[step-graphql]]
+=== Per-step GraphQL query and variables
+
+A step can supply its own `request.graphqlQueryFile` and/or `request.variables`, overriding the scenario-level values for that step only. There is no merging — when a step sets `variables`, its map is used in full and the scenario-level map is ignored for that step.
+
+[source,yaml]
+----
+steps:
+  - name: lookup-user
+    request:
+      graphqlQueryFile: config/graphql/get-user.graphql   # <1>
+      variables:
+        userId: ${feeder:userId}                           # <2>
+
+  - name: lookup-order
+    request:
+      graphqlQueryFile: config/graphql/get-order.graphql  # <3>
+      variables:
+        orderId: ${feeder:orderId}
+----
+<1> Overrides the scenario-level `graphqlQueryFile` for this step. The file is loaded once per simulation start and cached.
+<2> Overrides the scenario-level `variables` map for this step only.
+<3> Each step may reference a different GraphQL file.
+
+If a step does not set `graphqlQueryFile`, the scenario-level query is used. If a step does not set `variables`, the scenario-level variables map is used.
 
 [[response-extraction]]
 === Response extraction

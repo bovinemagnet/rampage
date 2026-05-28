@@ -74,6 +74,17 @@ gatling {
     systemProperties = forwarded.toMutableMap()
 }
 
+tasks.register("promoteRunMetadata", JavaExec::class) {
+    description = "Moves run-metadata.json and config-snapshot.json from the reports root into the simulation directory just created by gatlingRun."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.rampage.reporting.RunMetadataPromoter")
+    args(layout.buildDirectory.dir("reports/gatling").get().asFile.absolutePath)
+}
+
+tasks.named("gatlingRun") {
+    finalizedBy("promoteRunMetadata")
+}
+
 tasks.register("validateLoadTest", JavaExec::class) {
     group = "verification"
     description = "Validates load test YAML configuration and feeder availability."

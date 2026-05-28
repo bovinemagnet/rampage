@@ -68,6 +68,29 @@ class FeederFactoryTest {
     }
 
     @Test
+    void loadFromSql_throwsWhenEmptyAndFailIfEmpty(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setSqlFile(writeSql(tempDir, "SELECT id FROM load_test_users WHERE 1 = 0").toString());
+        feeder.setFailIfEmpty(true);
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+            () -> feederFactory.loadFromSql(testDb(), feeder, secretResolver));
+        assertTrue(ex.getMessage().contains("no rows"));
+    }
+
+    @Test
+    void loadFromSql_throwsOnSqlError(@TempDir Path tempDir) throws IOException {
+        FeederConfig feeder = new FeederConfig();
+        feeder.setType("jdbc");
+        feeder.setSqlFile(writeSql(tempDir, "SELECT * FROM table_that_does_not_exist").toString());
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+            () -> feederFactory.loadFromSql(testDb(), feeder, secretResolver));
+        assertTrue(ex.getMessage().toLowerCase().contains("failed to load feeder data"));
+    }
+
+    @Test
     void createFeeder_circular() {
         List<Map<String, Object>> data = List.of(
             Map.of("userId", "1"),

@@ -54,13 +54,43 @@ CAUTION: Setting `required: false` means a missing token is silently treated as 
 
 === Cause
 
-A string value in an environment, run, or scenario YAML contains a `${...}` placeholder that could not be resolved. The four supported forms are `${run:<key>}`, `${env:<NAME>}`, `${secret:<path>}`, and `${sys:<NAME>}`.
+A string value in a supported field contains a `${...}` placeholder that could not be resolved. Placeholder expansion is applied to specific fields across all three YAML files — including `baseUrls` values, `databases.<name>.jdbcUrl`, `run.metadata.*` fields, `scenario.request.path`/`body`/`bodyFile`/`graphqlQueryFile`, `feeder.sqlFile`, step request fields, query and form parameter values, and all header maps. The four supported forms are `${run:<key>}`, `${env:<NAME>}`, `${secret:<path>}`, and `${sys:<NAME>}`.
 
 === Remedy
 
 * Check the spelling of the placeholder name matches an actual environment variable or run key.
 * Run `printenv | grep PERF_REGION` to confirm the variable exists in the shell session.
 * If the value is intentionally a literal `${...}` string (not a placeholder), escape it with a backslash: `\${env:PERF_REGION}`.
+* Refer to xref:security.adoc#_placeholder_expansion[Placeholder expansion] for the full list of fields where expansion is applied.
+
+== Unknown `endpointRef`
+
+=== Symptom
+
+[source]
+----
+[ERROR] scenario.get-order: endpointRef 'payments' is not defined in environment.baseUrls.
+[ERROR] Validation failed with 1 error(s). Correct the above before running.
+----
+
+=== Cause
+
+A scenario's top-level `endpointRef` field, or a step's `endpointRef` field, names a key that does not exist in the environment YAML `baseUrls` map. The validator enforces this at startup so there is no risk of a silent misconfiguration at request time.
+
+=== Remedy
+
+. Open the environment YAML and check the keys defined under `baseUrls`:
++
+[source,yaml]
+----
+baseUrls:
+  graphql: http://localhost:8080/graphql
+  rest: http://localhost:8080
+----
+
+. Either add the missing key to `baseUrls` or correct the `endpointRef` in the scenario or step.
+
+. If the scenario intentionally targets the default endpoint, omit `endpointRef` entirely — the engine falls back through `rest`, then the first `baseUrls` entry, then `http://localhost:8080`.
 
 == Aggregated validation errors
 

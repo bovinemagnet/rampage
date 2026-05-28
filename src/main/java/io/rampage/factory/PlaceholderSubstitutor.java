@@ -1,8 +1,13 @@
 package io.rampage.factory;
 
+import io.rampage.config.model.DatabaseConfig;
 import io.rampage.config.model.EnvironmentConfig;
+import io.rampage.config.model.FeederConfig;
+import io.rampage.config.model.MetadataConfig;
+import io.rampage.config.model.RequestConfig;
 import io.rampage.config.model.RunConfig;
 import io.rampage.config.model.ScenarioConfig;
+import io.rampage.config.model.StepConfig;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -75,20 +80,80 @@ public final class PlaceholderSubstitutor {
     public static List<String> expandInPlace(EnvironmentConfig env, RunConfig run,
                                              List<ScenarioConfig> scenarios, SecretResolver secretResolver) {
         List<String> errors = new ArrayList<>();
-        if (env != null && env.getSecurity() != null) {
-            env.getSecurity().setHeaders(expandAll(env.getSecurity().getHeaders(), env, run, secretResolver, errors));
+        if (env != null) {
+            expandEnvironment(env, run, secretResolver, errors);
         }
         if (run != null) {
-            run.setHeaders(expandAll(run.getHeaders(), env, run, secretResolver, errors));
+            expandRun(run, env, secretResolver, errors);
         }
         if (scenarios != null) {
             for (ScenarioConfig sc : scenarios) {
                 if (sc == null) continue;
-                sc.setHeaders(expandAll(sc.getHeaders(), env, run, secretResolver, errors));
-                sc.setDescription(expand(sc.getDescription(), env, run, secretResolver, errors));
+                expandScenario(sc, env, run, secretResolver, errors);
             }
         }
         return errors;
+    }
+
+    private static void expandEnvironment(EnvironmentConfig env, RunConfig run,
+                                          SecretResolver secretResolver, List<String> errors) {
+        env.setBaseUrls(expandAll(env.getBaseUrls(), env, run, secretResolver, errors));
+        if (env.getSecurity() != null) {
+            env.getSecurity().setHeaders(
+                expandAll(env.getSecurity().getHeaders(), env, run, secretResolver, errors));
+        }
+        if (env.getDatabases() != null) {
+            for (DatabaseConfig db : env.getDatabases().values()) {
+                if (db == null) continue;
+                db.setJdbcUrl(expand(db.getJdbcUrl(), env, run, secretResolver, errors));
+                db.setDriverClassName(expand(db.getDriverClassName(), env, run, secretResolver, errors));
+            }
+        }
+    }
+
+    private static void expandRun(RunConfig run, EnvironmentConfig env,
+                                  SecretResolver secretResolver, List<String> errors) {
+        run.setHeaders(expandAll(run.getHeaders(), env, run, secretResolver, errors));
+        MetadataConfig md = run.getMetadata();
+        if (md != null) {
+            md.setOwner(expand(md.getOwner(), env, run, secretResolver, errors));
+            md.setApplication(expand(md.getApplication(), env, run, secretResolver, errors));
+            md.setService(expand(md.getService(), env, run, secretResolver, errors));
+            md.setChangeReference(expand(md.getChangeReference(), env, run, secretResolver, errors));
+            md.setDescription(expand(md.getDescription(), env, run, secretResolver, errors));
+        }
+    }
+
+    private static void expandScenario(ScenarioConfig sc, EnvironmentConfig env, RunConfig run,
+                                       SecretResolver secretResolver, List<String> errors) {
+        sc.setHeaders(expandAll(sc.getHeaders(), env, run, secretResolver, errors));
+        sc.setDescription(expand(sc.getDescription(), env, run, secretResolver, errors));
+        expandRequest(sc.getRequest(), env, run, secretResolver, errors);
+        expandFeeder(sc.getFeeder(), env, run, secretResolver, errors);
+        if (sc.getSteps() != null) {
+            for (StepConfig step : sc.getSteps()) {
+                if (step == null) continue;
+                expandRequest(step.getRequest(), env, run, secretResolver, errors);
+            }
+        }
+    }
+
+    private static void expandRequest(RequestConfig req, EnvironmentConfig env, RunConfig run,
+                                       SecretResolver secretResolver, List<String> errors) {
+        if (req == null) return;
+        req.setPath(expand(req.getPath(), env, run, secretResolver, errors));
+        req.setBody(expand(req.getBody(), env, run, secretResolver, errors));
+        req.setBodyFile(expand(req.getBodyFile(), env, run, secretResolver, errors));
+        req.setBodyTemplate(expand(req.getBodyTemplate(), env, run, secretResolver, errors));
+        req.setGraphqlQueryFile(expand(req.getGraphqlQueryFile(), env, run, secretResolver, errors));
+        req.setQueryParams(expandAll(req.getQueryParams(), env, run, secretResolver, errors));
+        req.setFormParams(expandAll(req.getFormParams(), env, run, secretResolver, errors));
+    }
+
+    private static void expandFeeder(FeederConfig feeder, EnvironmentConfig env, RunConfig run,
+                                      SecretResolver secretResolver, List<String> errors) {
+        if (feeder == null) return;
+        feeder.setSqlFile(expand(feeder.getSqlFile(), env, run, secretResolver, errors));
     }
 
     private static String resolve(String kind, String key, EnvironmentConfig env, RunConfig run,

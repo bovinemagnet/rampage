@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.gatling.javaapi.core.CheckBuilder;
 import io.gatling.javaapi.http.HttpRequestActionBuilder;
+import io.rampage.config.model.EnvironmentConfig;
 import io.rampage.config.model.HttpConfig;
 import io.rampage.config.model.RequestConfig;
 import io.rampage.config.model.ScenarioConfig;
@@ -49,10 +50,11 @@ public final class RequestBuilder {
                                                   String inlineBodyFromFile,
                                                   HttpConfig httpConfig,
                                                   Map<String, String> effectiveHeaders,
-                                                  List<CheckBuilder> checks) {
+                                                  List<CheckBuilder> checks,
+                                                  EnvironmentConfig env) {
         RequestConfig request = step.getRequest();
         String method = resolveMethod(request);
-        String path = resolvePath(scenarioCfg, step, request);
+        String path = resolvePath(scenarioCfg, step, request, env);
 
         HttpRequestActionBuilder rb = createRequest(method, path, requestName(scenarioCfg, step));
 
@@ -104,7 +106,17 @@ public final class RequestBuilder {
         return "POST";
     }
 
-    private static String resolvePath(ScenarioConfig scenarioCfg, StepConfig step, RequestConfig request) {
+    /**
+     * Resolves the final request path for a step.
+     *
+     * <p>When the step declares an {@code endpointRef} that differs from the scenario's,
+     * the returned path is an absolute URL prefixed with that endpoint's base URL — Gatling
+     * treats absolute URLs as targets independent of the scenario's HttpProtocol baseUrl.
+     * In all other cases the path is relative and resolves against the scenario protocol.
+     * Paths that already start with {@code http://} or {@code https://} are returned untouched.
+     */
+    static String resolvePath(ScenarioConfig scenarioCfg, StepConfig step, RequestConfig request,
+                              EnvironmentConfig env) {
         String raw;
         if (request != null && request.getPath() != null && !request.getPath().isBlank()) {
             raw = request.getPath();
@@ -113,7 +125,30 @@ public final class RequestBuilder {
                 : (scenarioCfg.getEndpointRef() != null ? scenarioCfg.getEndpointRef() : "graphql");
             raw = "/" + endpointRef;
         }
-        return PlaceholderRewriter.rewriteString(raw);
+
+        String resolved = PlaceholderRewriter.rewriteString(raw);
+        if (resolved.startsWith("http://") || resolved.startsWith("https://")) {
+            return resolved;
+        }
+
+        String stepRef = step.getEndpointRef();
+        String scenarioRef = scenarioCfg.getEndpointRef();
+        boolean stepOverridesEndpoint = stepRef != null && !stepRef.isBlank()
+            && !stepRef.equals(scenarioRef);
+        if (!stepOverridesEndpoint) return resolved;
+
+        Map<String, String> baseUrls = env != null ? env.getBaseUrls() : null;
+        if (baseUrls == null || !baseUrls.containsKey(stepRef)) return resolved;
+
+        String baseUrl = baseUrls.get(stepRef);
+        if (baseUrl == null || baseUrl.isBlank()) return resolved;
+        if (baseUrl.endsWith("/") && resolved.startsWith("/")) {
+            return baseUrl.substring(0, baseUrl.length() - 1) + resolved;
+        }
+        if (!baseUrl.endsWith("/") && !resolved.startsWith("/")) {
+            return baseUrl + "/" + resolved;
+        }
+        return baseUrl + resolved;
     }
 
     private static HttpRequestActionBuilder createRequest(String method, String path, String name) {
@@ -143,7 +178,7 @@ public final class RequestBuilder {
                 String raw = pickRawBody(request, inlineBodyFromFile);
                 yield BodyDecision.text(PlaceholderRewriter.rewriteString(raw));
             }
-            default -> BodyDecision.json(buildGraphqlBody(scenarioCfg, graphqlQuery));
+            default -> BodyDecision.json(buildGraphqlBody(scenarioCfg, request, graphqlQuery));
         };
     }
 
@@ -166,10 +201,25 @@ public final class RequestBuilder {
     }
 
     static String buildGraphqlBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
+        return buildGraphqlBody(scenarioCfg, null, graphqlQuery);
+    }
+
+    /**
+     * Builds the JSON envelope for a GraphQL request. When {@code stepRequest} is non-null and
+     * declares its own {@code variables}, those take precedence over the scenario-level request
+     * variables; otherwise the scenario-level variables are used as a fallback.
+     */
+    static String buildGraphqlBody(ScenarioConfig scenarioCfg, RequestConfig stepRequest, String graphqlQuery) {
+        Map<String, Object> variables = null;
+        if (stepRequest != null && stepRequest.getVariables() != null) {
+            variables = stepRequest.getVariables();
+        } else if (scenarioCfg.getRequest() != null) {
+            variables = scenarioCfg.getRequest().getVariables();
+        }
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("query", graphqlQuery != null ? graphqlQuery : "");
-        body.put("variables", PlaceholderRewriter.rewriteVariableMap(
-            scenarioCfg.getRequest() != null ? scenarioCfg.getRequest().getVariables() : null));
+        body.put("variables", PlaceholderRewriter.rewriteVariableMap(variables));
         if (scenarioCfg.getOperationName() != null && !scenarioCfg.getOperationName().isBlank()) {
             body.put("operationName", scenarioCfg.getOperationName());
         }
