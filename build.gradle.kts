@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     java
     alias(libs.plugins.gatling)
@@ -51,12 +53,37 @@ dependencies {
     testImplementation(libs.assertj.core)
     testImplementation(libs.h2)
     testImplementation(libs.gatling.charts.highcharts)
+    testImplementation(libs.wiremock.standalone)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {
-    useJUnitPlatform()
+    // Keep the default suite fast: the Gatling-driven integration test is tagged "integration"
+    // and run separately via the integrationTest task.
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
     jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+}
+
+// Runs the RampageSimulation integration test (F-038) against a WireMock stub by driving Gatling
+// in-process. RampageSimulation lives in the `gatling` source set, which the default `test` source
+// set cannot see, so its output and runtime classpath are added explicitly here.
+tasks.register<Test>("integrationTest") {
+    group = "verification"
+    description = "Runs the RampageSimulation integration test against WireMock (in-process Gatling)."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath +
+        sourceSets["gatling"].output +
+        sourceSets["gatling"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+    shouldRunAfter(tasks.test)
+    timeout.set(Duration.ofMinutes(2))
+    // Always re-run: a green simulation wiring check is cheap and worth re-verifying.
+    outputs.upToDateWhen { false }
 }
 
 // Forward selected -D system properties from the Gradle invocation through to
