@@ -94,6 +94,20 @@ class ConfigLoaderTest {
     }
 
     @Test
+    void loadEnvironment_shippedDefault_marksCredentialsRequired() {
+        // The shipped classpath default (src/gatling/resources/environment.yaml) must fail fast on
+        // missing secrets in real runs, so its token and database credentials are marked required.
+        EnvironmentConfig config =
+            configLoader.loadEnvironmentFromFilesystem("src/gatling/resources/environment.yaml");
+        assertTrue(config.getSecurity().getToken().isRequired(),
+            "Shipped dev token should be required");
+        assertTrue(config.getDatabases().get("sourceData").getUsername().isRequired(),
+            "Shipped dev DB username should be required");
+        assertTrue(config.getDatabases().get("sourceData").getPassword().isRequired(),
+            "Shipped dev DB password should be required");
+    }
+
+    @Test
     void loadEnvironment_throwsOnMissingFile() {
         RuntimeException ex = assertThrows(RuntimeException.class,
             () -> configLoader.loadEnvironment("nonexistent.yaml"));

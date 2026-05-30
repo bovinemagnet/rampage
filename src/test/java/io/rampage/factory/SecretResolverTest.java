@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class SecretResolverTest {
     private SecretResolver secretResolver;
@@ -33,9 +34,20 @@ class SecretResolverTest {
     }
 
     @Test
-    void resolve_envPrefixReturnsEmpty_whenEnvVarNotSet() {
-        // Assume TEST_NONEXISTENT_VAR_12345 is not set
-        assertEquals("", secretResolver.resolve("ENV:TEST_NONEXISTENT_VAR_12345"));
+    void resolve_envPrefixThrows_whenEnvVarNotSet() {
+        // Assume TEST_NONEXISTENT_VAR_12345 is not set; a missing inline ENV: reference must fail fast.
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolve("ENV:TEST_NONEXISTENT_VAR_12345"));
+        assertTrue(ex.getMessage().contains("TEST_NONEXISTENT_VAR_12345"));
+    }
+
+    @Test
+    void resolve_envPrefixReturnsValue_whenEnvVarSet() {
+        // Env vars cannot be set portably in-process, so assert against one that is already present.
+        assumeTrue(System.getenv("PATH") != null, "PATH must be set for this test");
+        String resolved = secretResolver.resolve("ENV:PATH");
+        assertNotNull(resolved);
+        assertFalse(resolved.isBlank());
     }
 
     @Test

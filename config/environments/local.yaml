@@ -12,6 +12,8 @@ http:
   acceptHeader: application/json
   contentTypeHeader: application/json
 
+# required:false throughout for unauthenticated local dev against localhost; real environments
+# must set required:true so a missing secret fails fast before any traffic is generated.
 security:
   mode: bearer-token
   token:
