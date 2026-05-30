@@ -37,8 +37,12 @@ public class SecretResolver {
             String varName = ref.substring(ENV_PREFIX.length());
             String value = System.getenv(varName);
             if (value == null) {
-                log.warn("Environment variable '{}' not set", varName);
-                return "";
+                // Fail fast rather than silently returning "" — a missing inline ENV: reference would
+                // otherwise produce a malformed value (e.g. "Authorization: Bearer "). Genuinely optional
+                // values should be declared via CredentialConfig/TokenConfig with required:false, not as
+                // raw ENV: strings. resolveHeaders() is currently the only caller of this branch.
+                throw new SecretResolutionException(
+                    "Environment variable '" + varName + "' (inline 'ENV:' reference) is not set");
             }
             return trackSensitive(value);
         }

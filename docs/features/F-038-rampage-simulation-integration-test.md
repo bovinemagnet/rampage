@@ -9,14 +9,27 @@ The factories are well-tested in isolation but `RampageSimulation` itself has no
 
 ## Acceptance Criteria
 
-- [ ] A new test (or a separate Gradle task `integrationTest`) starts a WireMock server, configures it to respond to the GraphQL POST, runs `RampageSimulation` against it with a smoke workload, and asserts:
-  - The HTTP report directory exists.
-  - `run-metadata.json` is produced (depends on F-001).
-  - WireMock received at least N requests.
-  - The request body parses as valid JSON with the expected `query` and `variables`.
-- [ ] The test does not require network access.
-- [ ] Runs in under 30 seconds.
-- [ ] Wired into CI (F-031).
+- [x] A new test (or a separate Gradle task `integrationTest`) starts a WireMock server, configures it to respond to the GraphQL POST, runs `RampageSimulation` against it with a smoke workload, and asserts:
+  - [x] The HTTP report directory exists.
+  - [x] `run-metadata.json` is produced (depends on F-001).
+  - [x] WireMock received at least N requests.
+  - [x] The request body parses as valid JSON with the expected `query` and `variables`.
+- [x] The test does not require network access.
+- [x] Runs in under 30 seconds.
+- [x] Wired into CI (F-031).
+
+## Status
+
+Complete. `src/test/java/io/rampage/integration/RampageSimulationWireMockIntegrationTest.java`
+(tagged `integration`) drives Gatling in-process via `io.gatling.app.Gatling.fromArgs`, which runs
+synchronously and returns a status code without calling `System.exit`. The test writes temporary
+environment / run / scenario YAML into a `@TempDir`, points `baseUrls.graphql` at WireMock's dynamic
+port through `-Dloadtest.env` / `-Dloadtest.run`, and uses a feeder-less smoke scenario so no database
+is required.
+
+It is excluded from the fast `test` suite and run by the dedicated `integrationTest` Gradle task,
+which adds the `gatling` source set (where `RampageSimulation` lives) to the test classpath. CI runs
+it as a separate step after `build test`.
 
 ## Implementation Notes
 
