@@ -38,6 +38,18 @@ gradle21w gatlingRun \
 
 Both properties accept filesystem paths or classpath resource names. See xref:getting-started.adoc[Getting started] for the full CLI reference.
 
+== Runtime pipeline
+
+The `RampageSimulation` initialiser loads each file, expands placeholders, validates all three layers, then builds protocols, scenarios, feeders, and injection profiles. A placeholder or validation error halts the run before any traffic is generated.
+
+.Configuration-to-simulation pipeline
+image::simulation-wiring.svg[Configuration-to-simulation pipeline]
+
+The engine classes that collaborate to build the simulation are shown below. `RampageSimulation` itself is generic — all behaviour comes from the resolved configuration.
+
+.Engine classes and their collaborators
+image::class-collaborators.svg[Engine classes and their collaborators]
+
 == Environment YAML — `config/environments/local.yaml`
 
 [source,yaml]

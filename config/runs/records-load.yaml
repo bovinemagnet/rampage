@@ -1,19 +1,19 @@
-id: students-load
-name: AQL Students Pagination Load
+id: records-load
+name: App Records Pagination Load
 version: 1
-environment: aql-local
+environment: app-local
 
 metadata:
-  owner: aql-team
-  application: aql
-  service: aql-graphql
+  owner: example-team
+  application: example
+  service: example-graphql
   description: >
-    Paginates through students via the AQL GraphQL endpoint, driving
-    pageNumber values from the local monash_prd_even.allocated table.
+    Paginates through records via the App GraphQL endpoint, driving
+    pageNumber values from the local app_local.items table.
 
 scenarios:
-  - id: students-page
-    file: config/scenarios/students-page.yaml
+  - id: records-page
+    file: config/scenarios/records-page.yaml
     enabled: true
     weight: 100
 
@@ -21,7 +21,7 @@ execution:
   mode: open
   workload:
     # Hold a steady 5 req/s for 30s — modest enough to validate end-to-end
-    # without hammering local Postgres or the AQL server. Crank rate.from /
+    # without hammering local Postgres or the App server. Crank rate.from /
     # rate.to up (or switch to ramp-and-hold) once the smoke passes.
     type: constant
     duration: 30s

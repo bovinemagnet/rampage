@@ -57,12 +57,25 @@ public class ScenarioFactory {
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders) {
-        return build(scenarioCfg, graphqlQuery, httpConfig, effectiveHeaders, null);
+        return build(scenarioCfg, graphqlQuery, httpConfig, effectiveHeaders, null, null);
     }
 
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders,
                                  EnvironmentConfig env) {
+        return build(scenarioCfg, graphqlQuery, httpConfig, effectiveHeaders, env, null);
+    }
+
+    /**
+     * Builds the scenario, attaching {@code feeder} (a Gatling {@code FeederBuilder} or a
+     * record {@code Iterator}) <em>before</em> the request steps. The feed must precede the
+     * request: otherwise the request body's {@code #{...}} Gatling EL placeholders are
+     * resolved before any feeder row is polled, and Gatling fails the request build with
+     * "No attribute named 'X' is defined". A {@code null} feeder leaves the chain unfed.
+     */
+    public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
+                                 HttpConfig httpConfig, Map<String, String> effectiveHeaders,
+                                 EnvironmentConfig env, Object feeder) {
         log.info("Building scenario: {}", scenarioCfg.getName());
 
         List<StepConfig> steps = resolveSteps(scenarioCfg);
@@ -75,7 +88,7 @@ public class ScenarioFactory {
             return token != null ? s.set("authToken", token) : s.set("authToken", "");
         });
 
-        ChainBuilder body = sessionPrep;
+        ChainBuilder body = applyFeeder(sessionPrep, feeder);
         java.util.Map<String, String> queryCache = new java.util.HashMap<>();
         for (StepConfig step : steps) {
             String inlineBody = loadStepBody(step);
@@ -84,6 +97,21 @@ public class ScenarioFactory {
                 httpConfig, effectiveHeaders, env));
         }
         return CoreDsl.scenario(scenarioCfg.getName()).exec(body);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ChainBuilder applyFeeder(ChainBuilder body, Object feeder) {
+        if (feeder == null) {
+            return body;
+        }
+        if (feeder instanceof io.gatling.javaapi.core.FeederBuilder<?> feederBuilder) {
+            return body.feed(feederBuilder);
+        }
+        if (feeder instanceof java.util.Iterator) {
+            return body.feed((java.util.Iterator<Map<String, Object>>) feeder);
+        }
+        log.warn("Ignoring unsupported feeder type: {}", feeder.getClass().getName());
+        return body;
     }
 
     private String resolveStepGraphqlQuery(StepConfig step, String scenarioQuery,

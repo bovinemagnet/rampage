@@ -30,6 +30,11 @@ execution:
 
 Workload types that support closed mode: `smoke`, `baseline`, `constant`, `soak`, `ramp-and-hold`. The `spike` and `stress` profiles are open-model only.
 
+The diagram below maps each workload type to the Gatling injection steps it produces, for both the open and closed models.
+
+.Workload type resolution for open and closed models
+image::workload-profiles.svg[Workload type resolution for open and closed models]
+
 == Workload types
 
 === smoke

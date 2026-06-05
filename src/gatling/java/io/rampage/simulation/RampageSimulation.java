@@ -110,22 +110,27 @@ public class RampageSimulation extends Simulation {
             }
 
             Map<String, String> effectiveHeaders = HeaderResolver.resolveScenarioHeaders(envConfig, runConfig, scenarioCfg);
-            ScenarioBuilder scenarioBuilder = scenarioFactory.build(scenarioCfg, graphqlQuery, envConfig.getHttp(), effectiveHeaders, envConfig);
 
+            // Resolve the feeder first so it can be attached BEFORE the request in the
+            // scenario chain. Attaching it afterwards would resolve the request body's
+            // #{...} placeholders before any row is polled (Gatling: "No attribute named X").
+            Object scenarioFeeder = null;
             if (streamingFeeder != null) {
-                scenarioBuilder = scenarioBuilder.feed(streamingFeeder);
+                scenarioFeeder = streamingFeeder;
             } else if (!feederData.isEmpty()) {
                 String strategy = scenarioCfg.getFeeder() != null
                     ? scenarioCfg.getFeeder().getStrategy() : "circular";
                 io.gatling.javaapi.core.FeederBuilder<Object> base = listFeeder(feederData);
-                io.gatling.javaapi.core.FeederBuilder<?> feeder = switch (strategy == null ? "circular" : strategy.toLowerCase(java.util.Locale.ROOT)) {
+                scenarioFeeder = switch (strategy == null ? "circular" : strategy.toLowerCase(java.util.Locale.ROOT)) {
                     case "queue" -> base.queue();
                     case "shuffle" -> base.shuffle();
                     case "random" -> base.random();
                     default -> base.circular();
                 };
-                scenarioBuilder = scenarioBuilder.feed(feeder);
             }
+
+            ScenarioBuilder scenarioBuilder = scenarioFactory.build(
+                scenarioCfg, graphqlQuery, envConfig.getHttp(), effectiveHeaders, envConfig, scenarioFeeder);
 
             String endpointRef = scenarioCfg.getEndpointRef();
             String protocolKey = endpointRef != null && !endpointRef.isBlank() ? endpointRef : "";

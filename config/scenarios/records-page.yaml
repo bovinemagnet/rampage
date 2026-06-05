@@ -1,29 +1,29 @@
-id: students-page
-name: Students Pagination GraphQL
+id: records-page
+name: Records Pagination GraphQL
 protocol: graphql
 endpointRef: graphql
-operationName: Students
+operationName: Records
 
 description: >
-  Issues a Students(pageNumber, pageSize) GraphQL query. pageNumber is
-  driven from the monash_prd_even.allocated table via the JDBC feeder;
+  Issues a Records(pageNumber, pageSize) GraphQL query. pageNumber is
+  driven from the app_local.items table via the JDBC feeder;
   pageSize is fixed at 100 to match the GraphQL default and the page
-  arithmetic in students-pages.sql.
+  arithmetic in records-pages.sql.
 
 headers:
-  X-Scenario-Id: students-page
-  X-Business-Process: students-pagination
+  X-Scenario-Id: records-page
+  X-Business-Process: records-pagination
 
 request:
-  graphqlQueryFile: config/graphql/students.graphql
+  graphqlQueryFile: config/graphql/records.graphql
   variables:
     pageNumber: ${feeder:pageNumber}
     pageSize: 100
 
 feeder:
   type: jdbc
-  databaseRef: monash
-  sqlFile: config/queries/students-pages.sql
+  databaseRef: app
+  sqlFile: config/queries/records-pages.sql
   # `random` picks a row at random for each virtual user, so the load is
   # spread across pages instead of always hammering page 0. Switch to
   # `circular` if you want each row used in order.
@@ -41,7 +41,7 @@ checks:
   jsonPath:
     - path: $.errors
       expectation: absentOrEmpty
-    - path: $.data.students
+    - path: $.data.records
       expectation: exists
 
 workload:
@@ -49,8 +49,8 @@ workload:
 
 tags:
   - graphql
-  - aql
-  - students
+  - app
+  - records
   - read-only
 
 safety:

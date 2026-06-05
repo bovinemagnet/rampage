@@ -1,0 +1,121 @@
+%% All behaviour is configuration-driven; RampageSimulation itself is generic.
+classDiagram
+    direction TB
+
+    %% ── Central simulation ──────────────────────────────────────────────────
+    class RampageSimulation {
+        +setUp() PopulationBuilder[]
+    }
+
+    %% ── Engine collaborators ────────────────────────────────────────────────
+    class ConfigLoader {
+        +load(envPath, runPath) configs
+    }
+    class PlaceholderSubstitutor {
+        +substitute(model) void
+    }
+    class ConfigValidator {
+        +validate(env, run, scenarios) void
+    }
+    class SecretResolver {
+        +resolve(ref) String
+        +failFastOnMissing() void
+    }
+    class HttpProtocolFactory {
+        +build() HttpProtocolBuilder
+    }
+    class ScenarioFactory {
+        +build() ScenarioBuilder
+    }
+    class FeederFactory {
+        +loadFromSql() feeder rows
+        +streamFromSql() feeder rows
+    }
+    class DataSourceRegistry {
+        +getOrCreate(cfg) DataSource
+    }
+    class WorkloadFactory {
+        +buildInjection() InjectionStep[]
+        +buildClosedInjection() InjectionStep[]
+    }
+    class AssertionFactory {
+        +buildAll() Assertion[]
+    }
+
+    %% ── GraphQL POST chain ──────────────────────────────────────────────────
+    class StepBuilder {
+        +build() ChainBuilder
+    }
+    class RequestBuilder {
+        +buildGraphQL() HttpRequestBuilder
+    }
+    class CheckFactory {
+        +build() CheckBuilder[]
+    }
+
+    %% ── Auth hierarchy ──────────────────────────────────────────────────────
+    class TokenProvider {
+        <<interface>>
+        +currentToken() String
+        +fromEnvironment()$ TokenProvider
+    }
+    class StaticTokenProvider {
+        +currentToken() String
+    }
+    class OAuthClientCredentialsTokenProvider {
+        +currentToken() String
+        +refresh() void
+    }
+    class TokenRefresher {
+        +start() void
+    }
+
+    %% ── Config models ───────────────────────────────────────────────────────
+    class EnvironmentConfig {
+        +baseUrls Map
+    }
+    class RunConfig {
+        +scenarios List~ScenarioRef~
+    }
+    class ScenarioConfig {
+        +id String
+    }
+    class ScenarioRef {
+        +id String
+    }
+
+    %% ── RampageSimulation uses all engine collaborators ─────────────────────
+    RampageSimulation --> ConfigLoader : uses
+    RampageSimulation --> PlaceholderSubstitutor : uses
+    RampageSimulation --> ConfigValidator : uses
+    RampageSimulation --> HttpProtocolFactory : uses
+    RampageSimulation --> ScenarioFactory : uses
+    RampageSimulation --> FeederFactory : uses
+    RampageSimulation --> WorkloadFactory : uses
+    RampageSimulation --> AssertionFactory : uses
+    RampageSimulation --> TokenProvider : uses
+
+    %% ── Collaborator cross-dependencies ─────────────────────────────────────
+    ConfigValidator --> SecretResolver : uses
+    FeederFactory --> SecretResolver : tracks sensitive values
+    FeederFactory --> DataSourceRegistry : gets DataSource
+    DataSourceRegistry --> SecretResolver : resolves DB credentials
+
+    %% ── GraphQL POST chain ──────────────────────────────────────────────────
+    ScenarioFactory --> StepBuilder : composes
+    StepBuilder --> RequestBuilder : delegates to
+    StepBuilder --> CheckFactory : delegates to
+
+    %% ── Auth implementations ─────────────────────────────────────────────────
+    StaticTokenProvider ..|> TokenProvider
+    OAuthClientCredentialsTokenProvider ..|> TokenProvider
+    TokenRefresher --> OAuthClientCredentialsTokenProvider : background refresh
+
+    %% ── ConfigLoader produces config models ─────────────────────────────────
+    ConfigLoader ..> EnvironmentConfig : creates
+    ConfigLoader ..> RunConfig : creates
+    ConfigLoader ..> ScenarioConfig : creates
+
+    %% ── Config model relationships ───────────────────────────────────────────
+    RunConfig "1" --> "many" ScenarioRef : references
+    ScenarioRef ..> ScenarioConfig : resolves to

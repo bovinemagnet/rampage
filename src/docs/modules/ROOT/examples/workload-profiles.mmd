@@ -1,0 +1,68 @@
+flowchart LR
+    %% Top-level model selector
+    START([run.execution.mode]) --> MODE{"mode == 'closed'?"}
+    MODE -- "yes" --> CLOSED
+    MODE -- "no (default)" --> OPEN
+
+    %% ── OPEN MODEL ──────────────────────────────────────────────────
+    subgraph OPEN ["Open Model — injectOpen (arrival rate, users/sec)"]
+        direction LR
+        O_TYPE{"workload type?"}
+
+        O_SMOKE["smoke"]
+        O_CONST["constant / baseline"]
+        O_SOAK["soak"]
+        O_RAH["ramp-and-hold"]
+        O_SPIKE["spike"]
+        O_STRESS["stress"]
+        O_UNKNOWN["unknown type"]
+
+        O_SMOKE_STEP["atOnceUsers(users)"]
+        O_CONST_STEP["constantUsersPerSec(rate.to).during(holdFor)<br/>default duration: 60s"]
+        O_SOAK_STEP["constantUsersPerSec(rate.to).during(holdFor)<br/>default duration: 1 hour"]
+        O_RAH_STEP["rampUsersPerSec(rate.from).to(rate.to).during(rampUp)<br/>then constantUsersPerSec(rate.to).during(holdFor)"]
+        O_SPIKE_STEP["constantUsersPerSec(baseline).during(rampUp)<br/>then rampUsersPerSec(baseline).to(peak).during(spikeDuration)<br/>then constantUsersPerSec(peak).during(holdFor)<br/>then rampUsersPerSec(peak).to(baseline).during(spikeDuration)"]
+        O_STRESS_STEP["stepped: constantUsersPerSec(rate.from + i*stepRate).during(stepDuration)<br/>repeated from rate.from up to maxRate<br/>requires stepRate > 0"]
+        O_UNKNOWN_STEP["atOnceUsers(1)<br/>warning logged"]
+
+        O_TYPE -- smoke --> O_SMOKE --> O_SMOKE_STEP
+        O_TYPE -- "constant / baseline" --> O_CONST --> O_CONST_STEP
+        O_TYPE -- soak --> O_SOAK --> O_SOAK_STEP
+        O_TYPE -- "ramp-and-hold" --> O_RAH --> O_RAH_STEP
+        O_TYPE -- spike --> O_SPIKE --> O_SPIKE_STEP
+        O_TYPE -- stress --> O_STRESS --> O_STRESS_STEP
+        O_TYPE -- "unknown" --> O_UNKNOWN --> O_UNKNOWN_STEP
+    end
+
+    %% ── CLOSED MODEL ─────────────────────────────────────────────────
+    subgraph CLOSED ["Closed Model — injectClosed (fixed concurrent users in system)"]
+        direction LR
+        C_TYPE{"workload type?"}
+
+        C_SMOKE["smoke"]
+        C_CONST["constant / baseline / soak"]
+        C_RAH["ramp-and-hold"]
+        C_BAD["unknown type"]
+
+        C_SMOKE_STEP["constantConcurrentUsers(users).during(duration)<br/>default duration: 30s"]
+        C_CONST_STEP["constantConcurrentUsers(rate.to users).during(holdFor)<br/>soak default duration: 1 hour; others: 60s"]
+        C_RAH_STEP["rampConcurrentUsers(rate.from).to(rate.to).during(rampUp)<br/>then constantConcurrentUsers(rate.to).during(holdFor)"]
+        C_BAD_STEP["throws IllegalArgumentException<br/>no silent fallback in closed model"]
+
+        C_TYPE -- smoke --> C_SMOKE --> C_SMOKE_STEP
+        C_TYPE -- "constant / baseline / soak" --> C_CONST --> C_CONST_STEP
+        C_TYPE -- "ramp-and-hold" --> C_RAH --> C_RAH_STEP
+        C_TYPE -- "unknown" --> C_BAD --> C_BAD_STEP
+    end
+
+    OPEN --> O_TYPE
+    CLOSED --> C_TYPE
+
+    %% ── NOTES ────────────────────────────────────────────────────────
+    NOTE["Duration format: ms / s / m / h suffix, or bare seconds<br/>e.g. '500ms', '30s', '5m', '1h', or '60' (= 60 s)"]
+
+    style OPEN fill:#e8f4e8,stroke:#4a7c4a,color:#000
+    style CLOSED fill:#e8eef8,stroke:#3a5a8a,color:#000
+    style C_BAD_STEP fill:#fde8e8,stroke:#a04040,color:#000
+    style O_UNKNOWN_STEP fill:#fff8e0,stroke:#a08000,color:#000
+    style NOTE fill:#f5f5f5,stroke:#aaaaaa,color:#444,font-style:italic

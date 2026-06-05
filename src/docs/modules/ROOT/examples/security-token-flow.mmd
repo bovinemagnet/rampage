@@ -1,0 +1,84 @@
+flowchart TD
+
+    %% ── Startup: provider selection ──────────────────────────────────────────
+    subgraph Acquisition["Token Acquisition"]
+
+        A([RampageSimulation starts])
+        B["TokenProvider.fromEnvironment(env)"]
+        M{"security mode?"}
+
+        A --> B
+        B --> M
+
+        M -- "no security" --> SP["StaticTokenProvider(null)"]
+        M -- "bearer-token" --> SR["SecretResolver.resolveToken(...)"]
+        SR --> SP2["StaticTokenProvider(resolvedValue)"]
+        M -- "oauth-client-credentials" --> OP["OAuthClientCredentialsTokenProvider"]
+
+        %% OAuth fetch / cache
+        C{"token cached and not within 30s of expiry?"}
+        FT["fetchToken()"]
+        POST["POST to tokenUrl with HTTP Basic auth"]:::live
+        R{"HTTP 2xx and access_token present?"}
+        CACHE["cache access_token, set expiresAt = now + expires_in"]
+        CT["return cached token"]
+        ERR["throw IllegalStateException"]
+
+        OP --> C
+        C -- "yes" --> CT
+        C -- "no" --> FT
+        FT --> POST
+        POST --> R
+        R -- "no" --> ERR
+        R -- "yes" --> CACHE
+        CACHE --> CT
+
+        %% Background refresh
+        TR{"refreshIntervalSeconds > 0?"}
+        TRF["TokenRefresher started in RampageSimulation.before()"]
+        TICK["calls oauth.fetchToken() every refreshIntervalSeconds"]
+        RF{"fetchToken succeeded?"}
+        FM{"onRefreshFailure mode?"}
+        STOP["stop the run"]
+        KEEP["keep last good token, log warning"]
+
+        OP --> TR
+        TR -- "yes" --> TRF
+        TRF --> TICK
+        TICK --> RF
+        RF -- "yes" --> CACHE
+        RF -- "no" --> FM
+        FM -- "fail" --> STOP
+        FM -- "warn" --> KEEP
+        TR -- "no" --> CT
+
+    end
+
+    %% ── Request-time attachment ───────────────────────────────────────────────
+    subgraph Attachment["Request-Time Attachment"]
+
+        SS["ScenarioFactory session-prep step"]
+        SA["set session: authToken = tokenProvider.currentToken()"]
+        SB["set session: correlationId = fresh UUID"]
+        HP["HttpProtocolFactory.build(env, secretResolver, endpointRef)"]
+        HH["add header Authorization: Bearer authToken"]
+        CH["add header X-Correlation-Id: correlationId"]
+        REQ["outgoing HTTP request"]
+
+        SS --> SA
+        SS --> SB
+        HP --> HH
+        HP --> CH
+        HH --> REQ
+        CH --> REQ
+        SA --> REQ
+        SB --> REQ
+
+    end
+
+    %% ── Wire the two subgraphs together ──────────────────────────────────────
+    CT --> SS
+    SP --> SS
+    SP2 --> SS
+
+classDef live fill:#d4edff,stroke:#0077cc,color:#003366

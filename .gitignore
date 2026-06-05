@@ -45,3 +45,4 @@ bin/
 
 # Playwright MCP transient artefacts (snapshots, console logs)
 .playwright-mcp/
+AGENTS.md

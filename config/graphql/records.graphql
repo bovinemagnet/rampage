@@ -1,0 +1,10 @@
+query Records($pageNumber: Int! = 0, $pageSize: Int! = 100) {
+  records(pageNumber: $pageNumber, pageSize: $pageSize) {
+    id
+    name
+    label
+    details {
+      id
+    }
+  }
+}

@@ -1,0 +1,108 @@
+flowchart TD
+
+    %% ── Main pipeline ──────────────────────────────────────────────
+
+    START(["RampageSimulation initialiser"])
+    LOAD["For each enabled ScenarioRef in run.yaml:<br/>ConfigLoader.loadScenario(ref)"]
+    EXPAND["PlaceholderSubstitutor.expandInPlace<br/>env · run · scenarios · secretResolver"]
+    D_PH{"placeholder errors?"}
+    HALT_PH(["THROW IllegalArgumentException<br/>— no traffic generated"])
+    VALIDATE["ConfigValidator.validate<br/>env · run · scenarios<br/>aggregates all errors incl. unresolved secrets"]
+    D_VAL{"validation errors?"}
+    HALT_VAL(["THROW ConfigValidationException<br/>— no traffic generated"])
+    D_DRY{"isDryRun?<br/>loadtest.dryRun prop OR run.safety.dryRun"}
+    DRY_WRITE["DryRunSummaryWriter.write<br/>dry-run-summary.json"]
+    HALT_DRY(["System.exit(0)<br/>— no traffic generated"])
+    TOKEN["TokenProvider.fromEnvironment<br/>build auth: static bearer OR OAuth<br/>client-credentials"]
+    SF_BUILD["Create ScenarioFactory<br/>correlationId supplier · token supplier<br/>resource loader"]
+    WEIGHT["Calculate totalInheritedWeight<br/>across all inherited scenarios"]
+    LOOP_START[["For each ScenarioConfig in activeScenarios"]]
+
+    %% ── Inside loop ─────────────────────────────────────────────────
+
+    GQL["Load GraphQL query file<br/>ConfigLoader.loadResource"]
+    D_FEED{"feeder + database<br/>configured?"}
+    D_PRELOAD{"preload?"}
+    FEED_PRELOAD["FeederFactory.loadFromSql<br/>whole result set into memory<br/>via DataSourceRegistry.getOrCreate"]
+    FEED_STREAM["FeederFactory.streamFromSql<br/>lazy JDBC iterator<br/>via DataSourceRegistry.getOrCreate"]
+    HEADERS["HeaderResolver.resolveScenarioHeaders<br/>env · run · scenario"]
+    SCB["ScenarioFactory.build<br/>sets correlationId + authToken in session<br/>then GraphQL POST step chain with checks<br/>→ ScenarioBuilder"]
+    D_FTYPE{"streaming OR<br/>list feeder?"}
+    ATTACH_STREAM["Attach streaming iterator<br/>scenarioBuilder.feed(streamingFeeder)"]
+    ATTACH_LIST["Attach listFeeder with strategy<br/>circular / queue / shuffle / random"]
+    PROTOCOL["HttpProtocolFactory.build(endpointRef)<br/>cached per endpoint in protocolsByRef"]
+    WORKLOAD["WorkloadFactory.effectiveWorkload<br/>scenario override if not inheritFromRun<br/>else run-level execution.workload<br/>else default smoke 1-user"]
+    D_WEIGHT{"inherits from run<br/>AND weight > 0?"}
+    SCALE["WorkloadFactory.scaleWorkload<br/>weight / totalInheritedWeight"]
+    D_MODE{"execution mode<br/>== closed?"}
+    INJ_CLOSED["workloadFactory.buildClosedInjection<br/>scenarioBuilder.injectClosed"]
+    INJ_OPEN["workloadFactory.buildInjection<br/>scenarioBuilder.injectOpen"]
+    PROTO_POP["population.protocols(scenarioProtocol)<br/>add to populations list"]
+    LOOP_END[["End of scenario loop"]]
+
+    %% ── Post-loop ────────────────────────────────────────────────────
+
+    ASSERT["AssertionFactory.buildAll<br/>run.assertions · scenarios<br/>p95 · p99 · maxErrorPct thresholds"]
+    SETUP(["setUp(populations)<br/>.assertions(assertions)<br/>— initialiser complete"])
+
+    %% ── Lifecycle side-notes ────────────────────────────────────────
+
+    NOTE_BEFORE["before():<br/>write run-metadata.json + config snapshot if enabled<br/>start TokenRefresher for OAuth background refresh<br/>dataSourceRegistry.logStats"]
+    NOTE_AFTER["after():<br/>close TokenRefresher<br/>close streaming feeders<br/>close DataSourceRegistry"]
+
+    %% ── Main flow edges ─────────────────────────────────────────────
+
+    START --> LOAD
+    LOAD --> EXPAND
+    EXPAND --> D_PH
+    D_PH -- "yes" --> HALT_PH
+    D_PH -- "no" --> VALIDATE
+    VALIDATE --> D_VAL
+    D_VAL -- "yes" --> HALT_VAL
+    D_VAL -- "no" --> D_DRY
+    D_DRY -- "yes" --> DRY_WRITE
+    DRY_WRITE --> HALT_DRY
+    D_DRY -- "no" --> TOKEN
+    TOKEN --> SF_BUILD
+    SF_BUILD --> WEIGHT
+    WEIGHT --> LOOP_START
+
+    LOOP_START --> GQL
+    GQL --> D_FEED
+    D_FEED -- "yes" --> D_PRELOAD
+    D_FEED -- "no" --> HEADERS
+    D_PRELOAD -- "preload" --> FEED_PRELOAD
+    D_PRELOAD -- "streaming" --> FEED_STREAM
+    FEED_PRELOAD --> HEADERS
+    FEED_STREAM --> HEADERS
+    HEADERS --> SCB
+    SCB --> D_FTYPE
+    D_FTYPE -- "streaming" --> ATTACH_STREAM
+    D_FTYPE -- "list" --> ATTACH_LIST
+    D_FTYPE -- "none" --> PROTOCOL
+    ATTACH_STREAM --> PROTOCOL
+    ATTACH_LIST --> PROTOCOL
+    PROTOCOL --> WORKLOAD
+    WORKLOAD --> D_WEIGHT
+    D_WEIGHT -- "yes" --> SCALE
+    D_WEIGHT -- "no" --> D_MODE
+    SCALE --> D_MODE
+    D_MODE -- "closed" --> INJ_CLOSED
+    D_MODE -- "open" --> INJ_OPEN
+    INJ_CLOSED --> PROTO_POP
+    INJ_OPEN --> PROTO_POP
+    PROTO_POP --> LOOP_END
+    LOOP_END -- "next scenario" --> LOOP_START
+    LOOP_END -- "all done" --> ASSERT
+    ASSERT --> SETUP
+
+    %% ── Lifecycle dotted edges ───────────────────────────────────────
+
+    SETUP -.->|"Gatling calls before()"| NOTE_BEFORE
+    SETUP -.->|"Gatling calls after()"| NOTE_AFTER
+
+    %% ── Halt node styling ───────────────────────────────────────────
+
+    style HALT_PH  fill:#c0392b,color:#fff,stroke:#922b21
+    style HALT_VAL fill:#c0392b,color:#fff,stroke:#922b21
+    style HALT_DRY fill:#c0392b,color:#fff,stroke:#922b21

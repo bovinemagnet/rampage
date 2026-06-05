@@ -1,0 +1,60 @@
+flowchart LR
+
+  subgraph YAML["YAML Configuration"]
+    ENV["environment.yaml<br/>→ EnvironmentConfig<br/>(base URLs, HTTP defaults,<br/>security/auth, JDBC databases,<br/>observability headers, safety flags)"]
+    RUN["run.yaml<br/>→ RunConfig<br/>(scenarios list, execution mode,<br/>workload, global assertions,<br/>reporting, safety)"]
+    SCN["scenarios/*.yaml<br/>→ ScenarioConfig<br/>(endpoint ref, headers, steps,<br/>GraphQL query file, feeder spec,<br/>checks, workload override)"]
+  end
+
+  subgraph RES["Resource Files"]
+    GQL[".graphql query files"]
+    SQL[".sql feeder query files"]
+    BODY["request body files"]
+  end
+
+  subgraph ENGINE["Engine — io.rampage.factory"]
+    CL["ConfigLoader<br/>(Jackson YAML;<br/>unknown keys tolerated)"]
+    PS["PlaceholderSubstitutor<br/>(expands placeholders;<br/>halts on error)"]
+    CV["ConfigValidator<br/>(validates all three layers;<br/>aggregates errors;<br/>halts on error)"]
+
+    subgraph FACTORIES["Factories"]
+      HPF["HttpProtocolFactory<br/>→ HttpProtocolBuilder<br/>(base URL, auth header,<br/>observability headers)"]
+      SF["ScenarioFactory<br/>+ StepBuilder + RequestBuilder<br/>+ CheckFactory<br/>→ ScenarioBuilder<br/>(GraphQL POST chain with checks)"]
+      FF["FeederFactory<br/>+ DataSourceRegistry<br/>→ feeder rows<br/>(preload or JDBC streaming)"]
+      WF["WorkloadFactory<br/>→ injection profile<br/>(open or closed model)"]
+      AF["AssertionFactory<br/>→ assertions<br/>(p95 / p99 / error rate)"]
+      SR["SecretResolver<br/>+ TokenProvider<br/>→ resolved secrets<br/>and bearer token"]
+    end
+  end
+
+  subgraph OUTPUT["Output"]
+    SIM["RampageSimulation<br/>.setUp(populations)<br/>.assertions(...)"]:::highlight
+    RPT["Gatling HTML report<br/>run-metadata.json<br/>config snapshot"]
+  end
+
+  ENV --> CL
+  RUN --> CL
+  SCN --> CL
+  GQL --> SF
+  SQL --> FF
+  BODY --> SF
+
+  CL --> PS
+  PS --> CV
+  CV --> HPF
+  CV --> SF
+  CV --> FF
+  CV --> WF
+  CV --> AF
+  CV --> SR
+
+  HPF --> SIM
+  SF  --> SIM
+  FF  --> SIM
+  WF  --> SIM
+  AF  --> SIM
+  SR  --> SIM
+
+  SIM --> RPT
+
+  classDef highlight fill:#f0a500,color:#000,font-weight:bold

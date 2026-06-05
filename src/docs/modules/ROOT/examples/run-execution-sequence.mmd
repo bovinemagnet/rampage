@@ -1,0 +1,44 @@
+sequenceDiagram
+    participant Injector as Injector
+    participant VU as Virtual User
+    participant Feeder as Feeder
+    participant Session as Session
+    participant Auth as TokenProvider
+    participant SUT as Target GraphQL API
+
+    Note over Injector,SUT: RampageSimulation.before - start OAuth TokenRefresher if configured, write run metadata
+
+    Injector->>VU: Spawn virtual user per workload profile
+    Note over Injector: Open model uses arrival rate. Closed model uses fixed concurrency
+
+    loop For each virtual user
+
+        Feeder-->>Session: Inject one row as session attributes
+        VU->>Auth: currentToken
+        Auth-->>Session: Set authToken
+        Note over Session: Also set correlationId as a fresh UUID
+
+        opt Before-request pause configured
+            VU->>VU: Pause before request
+        end
+
+        VU->>+SUT: POST /endpointRef with JSON body containing query and variables
+        Note over VU,SUT: Authorization Bearer authToken and correlation-id header with correlationId value
+
+        SUT-->>-VU: HTTP response with GraphQL JSON
+
+        Note over VU: Checks run - status 200 and JSONPath extractions saved back to Session
+
+        opt After-request pause configured
+            VU->>VU: Pause after request
+        end
+
+        opt Scenario has additional steps
+            Note over VU,SUT: Chain repeats for each step reusing the same Session
+        end
+
+    end
+
+    Note over Auth: TokenRefresher periodically calls fetchToken to keep authToken fresh in OAuth mode
+
+    Note over Injector,SUT: RampageSimulation.after - close streaming feeders and datasource pool. Evaluate global assertions p95 p99 and error-rate. Write HTML report and run-metadata.json

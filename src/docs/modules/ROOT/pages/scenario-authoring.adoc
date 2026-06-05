@@ -208,6 +208,7 @@ feeder:
 | Picks a random row per request from the full dataset.
 |===
 
+[[feeder-variable-rules]]
 === `$\{feeder:X}` variable binding
 
 Any value under `request.variables` may reference a feeder column:
@@ -220,6 +221,75 @@ variables:
 ----
 
 YAML types are preserved by the Jackson body serialiser. A column value of `true` (a YAML boolean) produces `"active": true` in the JSON body, not `"active": "true"`.
+
+[[feeder-flat-scalars]]
+==== Feeder values must be flat scalars
+
+Rampage substitutes `${feeder:...}` only into top-level scalar values in the `variables` map. It does _not_ expand placeholders inside nested arrays or objects. If a GraphQL argument is typed as a list or an input object, construct it inline in the query text and keep the variable entries flat.
+
+For example, given a query where `studentCode` expects `[String]` and `between` expects an input object:
+
+[source,graphql]
+----
+query Q($code: String, $from: LocalDateTime!, $to: LocalDateTime!) {
+  allocationHistory(
+    studentCode: [$code],
+    between: { fromDateTime: $from, toDateTime: $to }
+  ) {
+    id
+    status
+  }
+}
+----
+
+The scenario variables are all flat scalars:
+
+[source,yaml]
+----
+variables:
+  code: ${feeder:code}
+  from: ${feeder:from}
+  to: ${feeder:to}
+----
+
+Writing `["${feeder:code}"]` or a nested object directly under `variables` does not work — the placeholder is not expanded inside nested structures.
+
+[[feeder-sessionkey-remap]]
+==== Remapping snake_case column names to camelCase session keys
+
+JDBC feeders return column labels as the database driver reports them, which is often snake_case. The `sessionKey` field on a column entry renames that column in the Gatling session so your `${feeder:...}` placeholders can use the camelCase name expected by GraphQL variables. The remap fires only when the `sessionKey` value differs from the column name.
+
+[source,yaml]
+----
+feeder:
+  type: jdbc
+  databaseRef: sourceData
+  sqlFile: config/queries/get-allocations.sql
+  strategy: circular
+  columns:
+    student_code:
+      type: string
+      required: true
+      sessionKey: studentCode   # <1>
+----
+<1> The SQL column `student_code` is available in the scenario as `${feeder:studentCode}`.
+
+The matching SQL query:
+
+[source,sql]
+----
+SELECT DISTINCT student_code FROM allocated
+----
+
+And the scenario variable referencing the remapped key:
+
+[source,yaml]
+----
+variables:
+  studentCode: ${feeder:studentCode}
+----
+
+NOTE: Aliasing the SQL column to the exact session key (e.g. `SELECT student_code AS studentCode`) is fragile because case handling varies between JDBC drivers. The `sessionKey` remap is the reliable approach.
 
 === Response checks
 
@@ -675,10 +745,15 @@ gradle21w validateLoadTest \
 
 The following diagram shows the message sequence for `rest-flow.yaml`.
 
-[source]
-----
-include::example$cancel-order-flow.mmd[]
-----
+.Cancel-order message sequence
+image::cancel-order-flow.svg[Cancel-order message sequence]
+
+== Request lifecycle
+
+Per virtual user, Rampage injects a feeder row, resolves the bearer token and a fresh correlation ID into the session, sends the request chain, and runs the configured checks. The sequence below shows the full runtime flow including OAuth token refresh and the simulation lifecycle hooks.
+
+.Per-user request lifecycle
+image::run-execution-sequence.svg[Per-user request lifecycle]
 
 == See also
 

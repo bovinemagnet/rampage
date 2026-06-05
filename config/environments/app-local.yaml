@@ -1,21 +1,21 @@
-id: aql-local
-name: AQL Local Environment
+id: app-local
+name: App Local Environment
 
-# Targets the local AQL GraphQL endpoint and reads feeder data from a local
-# PostgreSQL `monash_prd_even` database.
+# Targets a local GraphQL endpoint and reads feeder data from a local
+# PostgreSQL `app_local` database.
 #
 # Required environment variables before running:
-#   export AQL_BEARER_TOKEN=BEEF-CAKE
+#   export APP_BEARER_TOKEN=<your-bearer-token>
 #   export PGUSER=<your-postgres-user>     # if not the default 'postgres'
 #   export PGPASSWORD=<your-postgres-password>
 #
 # Note: ScenarioFactory appends "/<endpointRef>" to the base URL, so
 # `baseUrls.graphql` is the parent of /graphql — the simulation will POST to
-# http://127.0.0.1:9080/aql/graphql.
+# http://127.0.0.1:9080/app/graphql.
 
 baseUrls:
-  graphql: http://127.0.0.1:9080/aql
-  rest: http://127.0.0.1:9080/aql
+  graphql: http://127.0.0.1:9080/app
+  rest: http://127.0.0.1:9080/app
 
 http:
   connectTimeoutMillis: 5000
@@ -28,15 +28,15 @@ security:
   mode: bearer-token
   token:
     source: env
-    envVar: AQL_BEARER_TOKEN
+    envVar: APP_BEARER_TOKEN
     required: true
   headers:
     X-Correlation-Source: gatling
 
 databases:
-  monash:
+  app:
     driverClassName: org.postgresql.Driver
-    jdbcUrl: jdbc:postgresql://localhost:5432/monash_prd_even
+    jdbcUrl: jdbc:postgresql://localhost:5432/app_local
     username:
       source: env
       envVar: PGUSER

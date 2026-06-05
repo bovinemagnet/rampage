@@ -57,6 +57,11 @@ Fields:
 
 == Auth modes
 
+The diagram below shows how a token provider is selected at startup, how the OAuth client-credentials flow fetches and caches tokens, and how the token and correlation ID are attached to each outgoing request.
+
+.Token acquisition and request-time attachment
+image::security-token-flow.svg[Token acquisition and request-time attachment]
+
 === `bearer-token`
 
 The token value is read at startup and injected as `Authorization: Bearer <token>` on every request. For long runs, use `oauth-client-credentials` with `TokenRefresher` instead.
@@ -237,6 +242,11 @@ Example error output when `API_TOKEN` is not set:
 ----
 
 The process exits with code 1, which fails a CI step without leaving ambiguity.
+
+The full secret-resolution decision flow — covering inline `ENV:`/`SM:` references and structured `env`/`secret-manager` credentials, and where each path throws — is shown below.
+
+.Secret resolution and fail-fast behaviour
+image::secret-resolution.svg[Secret resolution and fail-fast behaviour]
 
 == Production environment guardrails
 

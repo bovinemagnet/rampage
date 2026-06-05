@@ -4,6 +4,13 @@
 
 This guide walks you from a freshly cloned repository to a passing smoke test in a few minutes.
 
+== End-to-end flow
+
+At a high level: author the config files, export the required secrets, validate, then run. The diagram below shows the full path from authoring to comparing runs, including the dry-run and classpath-fallback branches.
+
+.End-to-end usage flow
+image::how-to-use.svg[End-to-end usage flow]
+
 == Prerequisites
 
 Before running any Gradle tasks, ensure the following are available on your machine.

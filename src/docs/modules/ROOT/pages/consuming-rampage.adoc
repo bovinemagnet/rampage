@@ -1,0 +1,183 @@
+= Using Rampage from your own project
+:author: Paul Snow
+:version: 0.0.0
+
+Most Rampage documentation assumes you are working inside the Rampage repository and running Gradle tasks there. This page describes a different topology: your load-test configuration lives in a separate repository that you own, and Rampage is pulled in as a library via a Gradle composite build. The published Rampage checkout remains unmodified and generic.
+
+== When to use this approach
+
+Use a separate consumer project when:
+
+* You want your environments, runs, scenarios, GraphQL queries, and SQL feeders to live in a repository that only your team controls.
+* You want to version-control load-test configuration independently of the Rampage engine.
+* You want to avoid forking or modifying Rampage itself.
+
+With a composite build, Gradle treats the Rampage checkout as an included build and substitutes its published coordinate (`io.rampage:rampage`) transparently. Your project compiles and runs exactly as if Rampage were a regular Maven dependency, but without a published artifact.
+
+== How it works
+
+Rampage resolves `-Dloadtest.env` and `-Dloadtest.run` from any filesystem path. When Gatling forks a JVM, it inherits the system properties you forward, so paths like `config/environments/local.yaml` resolve relative to the working directory of the Gradle process — which is your consumer project root.
+
+The same rule applies to the `file:`, `graphqlQueryFile`, and `sqlFile` references inside scenario YAML: they are resolved against the Gradle working directory first, then the classpath. As long as you run `gatlingRun` from your consumer project directory, all relative `config/...` paths resolve locally.
+
+`RampageSimulation` is the only class in Rampage's `gatling` source set. Everything it depends on — `io.rampage.factory.*`, `io.rampage.config.model.*`, `io.rampage.reporting.*` — lives in the engine (main) jar. A consumer project therefore compiles just that one class against the engine jar and does not need to touch any other Rampage source.
+
+== Project layout
+
+A minimal consumer project has this structure:
+
+----
+config/
+  environments/*.yaml
+  runs/*.yaml
+  scenarios/*.yaml
+  graphql/*.graphql
+  queries/*.sql
+build.gradle
+settings.gradle
+----
+
+The `config/` tree mirrors the layout used inside the Rampage repository. The Gradle files are described in the sections below.
+
+== settings.gradle
+
+Use a composite build to include Rampage and substitute its published coordinate:
+
+[source,groovy]
+----
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+rootProject.name = 'my-load-tests'
+
+def rampageDir = providers.gradleProperty('rampageDir').getOrElse('../rampage')
+includeBuild(rampageDir) {
+    dependencySubstitution {
+        substitute module('io.rampage:rampage') using project(':')
+    }
+}
+----
+
+By default, `rampageDir` resolves to a sibling `../rampage` directory. Override it at runtime with `-PrampageDir=/path/to/rampage` when the checkout is in a different location.
+
+== build.gradle
+
+[source,groovy]
+----
+plugins {
+    id 'java'
+    id 'io.gatling.gradle' version '3.15.0'
+}
+
+def rampageDir = file(providers.gradleProperty('rampageDir').getOrElse('../rampage'))
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+    gatling 'io.gatling.highcharts:gatling-charts-highcharts:3.15.0'
+
+    // Rampage engine via the composite build
+    gatlingImplementation 'io.rampage:rampage'
+
+    // Engine runtime dependencies needed on the Gatling runtime classpath
+    gatlingImplementation 'com.fasterxml.jackson.core:jackson-databind:2.21.3'
+    gatlingImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.3'
+    gatlingImplementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.21.3'
+    gatlingImplementation 'org.slf4j:slf4j-api:2.0.17'
+    gatlingImplementation 'ch.qos.logback:logback-classic:1.5.32'
+    gatlingImplementation 'com.zaxxer:HikariCP:7.0.2'
+    gatlingImplementation 'org.postgresql:postgresql:42.7.8'
+    gatlingImplementation 'com.h2database:h2:2.4.240'
+}
+
+// Compile rampage's RampageSimulation (its only gatling-source class) plus its
+// fallback gatling.conf / logback from the library checkout.
+sourceSets {
+    gatling {
+        java { srcDir "${rampageDir}/src/gatling/java" }
+        resources { srcDir "${rampageDir}/src/gatling/resources" }
+    }
+}
+
+// Forward -Dloadtest.* (and rampage.*) system properties to the forked Gatling JVM.
+gatling {
+    def forwarded = System.properties.stringPropertyNames().findAll {
+        it.startsWith('loadtest.') || it.startsWith('rampage.') || it.startsWith('gatling.data.')
+    }.collectEntries { [(it): System.getProperty(it)] }
+    systemProperties = forwarded
+}
+----
+
+NOTE: Configuration cache must be disabled in your consumer project because the system-property forwarding block reads `System.properties` at configuration time. Add `org.gradle.configuration-cache=false` to `gradle.properties`.
+
+== Optional: load a local `.env` file
+
+Rampage reads credentials via `System.getenv()`. It does not read `.env` files itself. A consumer build can load a `.env` file during configuration and pass the resulting entries to the forked Gatling JVM via the `GatlingRunTask` `environment` map. Real exported environment variables take precedence over `.env` values because the merge order puts `System.getenv()` last.
+
+[source,groovy]
+----
+def dotenv = { ->
+    def env = [:]
+    def f = file('.env')
+    if (f.exists()) {
+        f.eachLine { rawLine ->
+            def line = rawLine.trim()
+            if (line.isEmpty() || line.startsWith('#')) return
+            def idx = line.indexOf('=')
+            if (idx <= 0) return
+            def key = line.substring(0, idx).trim()
+            def value = line.substring(idx + 1).trim()
+            if (value.length() >= 2 &&
+                ((value.startsWith('"') && value.endsWith('"')) ||
+                 (value.startsWith("'") && value.endsWith("'")))) {
+                value = value.substring(1, value.length() - 1)
+            }
+            env[key] = value
+        }
+    }
+    return env
+}()
+
+tasks.named('gatlingRun') {
+    environment(dotenv + System.getenv())
+}
+----
+
+WARNING: A `.env` file holds secrets. Add it to `.gitignore` and never commit it.
+
+== Running
+
+Run `gatlingRun` from your consumer project directory so that relative `config/...` paths resolve correctly:
+
+[source,bash]
+----
+gradle21w gatlingRun \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+To point at a Rampage checkout in a non-default location:
+
+[source,bash]
+----
+gradle21w gatlingRun \
+  -PrampageDir=/path/to/rampage \
+  -Dloadtest.env=config/environments/local.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+The HTML report is written under `build/reports/gatling/` in your consumer project.
+
+== Feeder variables
+
+The rules for `${feeder:...}` variable binding — including the flat-scalar constraint and the snake_case-to-`sessionKey` remap — apply equally in a consumer project. See xref:scenario-authoring.adoc#feeder-variable-rules[GraphQL feeder variable rules] for the full detail.
