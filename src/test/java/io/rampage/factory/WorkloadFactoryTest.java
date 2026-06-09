@@ -333,4 +333,51 @@ class WorkloadFactoryTest {
         assertEquals("smoke", effective.getType());
         assertEquals(1, effective.getUsers());
     }
+
+    @Test
+    void resolveHoldDuration_prefersDurationOverDefault() {
+        WorkloadConfig wc = new WorkloadConfig();
+        wc.setDuration("1h");
+        assertEquals(Duration.ofHours(1),
+            WorkloadFactory.resolveHoldDuration(wc, Duration.ofSeconds(60)));
+    }
+
+    @Test
+    void resolveHoldDuration_fallsBackToHoldForWhenDurationAbsent() {
+        WorkloadConfig wc = new WorkloadConfig();
+        wc.setHoldFor("45s");
+        assertEquals(Duration.ofSeconds(45),
+            WorkloadFactory.resolveHoldDuration(wc, Duration.ofSeconds(60)));
+    }
+
+    @Test
+    void resolveHoldDuration_durationWinsWhenBothSet() {
+        WorkloadConfig wc = new WorkloadConfig();
+        wc.setDuration("1h");
+        wc.setHoldFor("45s");
+        assertEquals(Duration.ofHours(1),
+            WorkloadFactory.resolveHoldDuration(wc, Duration.ofSeconds(60)));
+    }
+
+    @Test
+    void resolveHoldDuration_usesDefaultWhenNeitherSet() {
+        WorkloadConfig wc = new WorkloadConfig();
+        Duration def = Duration.ofSeconds(60);
+        assertEquals(def, WorkloadFactory.resolveHoldDuration(wc, def));
+    }
+
+    @Test
+    void buildInjection_constant_withDuration_returnsSingleStep() {
+        WorkloadConfig workload = new WorkloadConfig();
+        workload.setType("constant");
+        RateConfig rate = new RateConfig();
+        rate.setTo(4.0);
+        workload.setRate(rate);
+        workload.setDuration("1h");
+
+        OpenInjectionStep[] steps = workloadFactory.buildInjection(workload);
+
+        assertNotNull(steps);
+        assertEquals(1, steps.length);
+    }
 }

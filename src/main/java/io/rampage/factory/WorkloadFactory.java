@@ -134,7 +134,7 @@ public class WorkloadFactory {
 
         if ("soak".equals(type)) {
             double rate = workload.getRate() != null ? workload.getRate().getTo() : 1.0;
-            Duration duration = parseDuration(workload.getHoldFor(), Duration.ofHours(1));
+            Duration duration = resolveHoldDuration(workload, Duration.ofHours(1));
             return new OpenInjectionStep[]{
                 constantUsersPerSec(rate).during(duration)
             };
@@ -142,7 +142,7 @@ public class WorkloadFactory {
 
         if ("constant".equals(type) || "baseline".equals(type)) {
             double rate = workload.getRate() != null ? workload.getRate().getTo() : 1.0;
-            Duration duration = parseDuration(workload.getHoldFor(), Duration.ofSeconds(60));
+            Duration duration = resolveHoldDuration(workload, Duration.ofSeconds(60));
             return new OpenInjectionStep[]{
                 constantUsersPerSec(rate).during(duration)
             };
@@ -186,6 +186,18 @@ public class WorkloadFactory {
         return new OpenInjectionStep[]{
             atOnceUsers(1)
         };
+    }
+
+    /**
+     * Resolves the hold duration for an open-model workload, preferring the explicit
+     * {@code duration} field, falling back to {@code holdFor}, then the type default.
+     */
+    static Duration resolveHoldDuration(WorkloadConfig workload, Duration typeDefault) {
+        if (workload.getDuration() != null && !workload.getDuration().isBlank()) {
+            return parseDuration(workload.getDuration(),
+                parseDuration(workload.getHoldFor(), typeDefault));
+        }
+        return parseDuration(workload.getHoldFor(), typeDefault);
     }
 
     public static Duration parseDuration(String durationStr, Duration defaultDuration) {
