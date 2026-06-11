@@ -395,6 +395,130 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void validate_failsForUnknownFeederStrategy() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        FeederConfig feeder = new FeederConfig();
+        feeder.setStrategy("round-robin");
+        sc.setFeeder(feeder);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("strategy") && e.contains("round-robin")),
+            "Expected unknown feeder strategy error: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_passesForKnownFeederStrategies() {
+        for (String strategy : List.of("circular", "queue", "shuffle", "random", "CIRCULAR")) {
+            ScenarioConfig sc = validScenario("test-scenario");
+            FeederConfig feeder = new FeederConfig();
+            feeder.setStrategy(strategy);
+            sc.setFeeder(feeder);
+            assertDoesNotThrow(() -> validator.validate(validEnv(), validRun(), List.of(sc)),
+                "Strategy '" + strategy + "' should be valid");
+        }
+    }
+
+    @Test
+    void validate_failsForUnknownExecutionMode() {
+        RunConfig run = validRun();
+        run.getExecution().setMode("burst");
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("mode") && e.contains("burst")),
+            "Expected unknown execution mode error: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_passesForOpenAndClosedExecutionModes() {
+        for (String mode : List.of("open", "closed", "OPEN", "Closed")) {
+            RunConfig run = validRun();
+            run.getExecution().setMode(mode);
+            assertDoesNotThrow(() -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))),
+                "Mode '" + mode + "' should be valid");
+        }
+    }
+
+    @Test
+    void validate_failsForNegativeGlobalAssertionValues() {
+        RunConfig run = validRun();
+        AssertionsConfig assertions = new AssertionsConfig();
+        GlobalAssertionConfig global = new GlobalAssertionConfig();
+        global.setMaxResponseTimeP95Millis(-1);
+        global.setMaxResponseTimeP99Millis(-5);
+        global.setMaxErrorPercentage(-2.0);
+        assertions.setGlobal(global);
+        run.setAssertions(assertions);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("maxResponseTimeP95Millis")));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("maxResponseTimeP99Millis")));
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("maxErrorPercentage")));
+    }
+
+    @Test
+    void validate_failsWhenGlobalErrorPercentageExceeds100() {
+        RunConfig run = validRun();
+        AssertionsConfig assertions = new AssertionsConfig();
+        GlobalAssertionConfig global = new GlobalAssertionConfig();
+        global.setMaxErrorPercentage(150.0);
+        assertions.setGlobal(global);
+        run.setAssertions(assertions);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("maxErrorPercentage") && e.contains("100")),
+            "Expected percentage range error: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_failsForInvalidScenarioAssertionValues() {
+        RunConfig run = validRun();
+        AssertionsConfig assertions = new AssertionsConfig();
+        ScenarioAssertionConfig scenarioAssertion = new ScenarioAssertionConfig();
+        scenarioAssertion.setMaxResponseTimeP95Millis(-100);
+        scenarioAssertion.setMaxErrorPercentage(101.0);
+        assertions.setScenarios(Map.of("test-scenario", scenarioAssertion));
+        run.setAssertions(assertions);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("test-scenario") && e.contains("maxResponseTimeP95Millis")));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("test-scenario") && e.contains("maxErrorPercentage")));
+    }
+
+    @Test
+    void validate_passesForValidAssertionValues() {
+        RunConfig run = validRun();
+        AssertionsConfig assertions = new AssertionsConfig();
+        GlobalAssertionConfig global = new GlobalAssertionConfig();
+        global.setMaxResponseTimeP95Millis(800);
+        global.setMaxResponseTimeP99Millis(1500);
+        global.setMaxErrorPercentage(1.0);
+        assertions.setGlobal(global);
+        ScenarioAssertionConfig scenarioAssertion = new ScenarioAssertionConfig();
+        scenarioAssertion.setMaxResponseTimeP95Millis(500);
+        scenarioAssertion.setMaxErrorPercentage(0.5);
+        assertions.setScenarios(Map.of("test-scenario", scenarioAssertion));
+        run.setAssertions(assertions);
+
+        assertDoesNotThrow(() ->
+            validator.validate(validEnv(), run, List.of(validScenario("test-scenario"))));
+    }
+
+    @Test
     void validate_reportsUnresolvedDatabaseCredentials() {
         EnvironmentConfig env = validEnv();
         DatabaseConfig db = new DatabaseConfig();

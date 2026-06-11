@@ -72,6 +72,10 @@ class RampageSimulationWireMockIntegrationTest {
         Path pingQuery = tempDir.resolve("ping.graphql");
         Files.writeString(pingQuery, "query Ping { __typename }\n");
 
+        // Exercises every CheckFactory check kind end-to-end. These cannot be unit-tested:
+        // Gatling's CoreDsl/HttpDsl statics require a Gatling-bootstrapped run. The run's
+        // maxErrorPercentage is tightened to 0.5 below, so any failing check marks requests
+        // KO, trips the global assertion, and fails this test via a non-zero exit status.
         Path scenarioFile = scenariosDir.resolve("smoke.yaml");
         Files.writeString(scenarioFile, """
             id: smoke
@@ -85,6 +89,24 @@ class RampageSimulationWireMockIntegrationTest {
                 probe: rampage
             checks:
               httpStatus: 200
+              jsonPath:
+                - path: $.data.__typename
+                  expectation: exists
+                - path: $.errors
+                  expectation: absentOrEmpty
+                - path: $.data.__typename
+                  expectation: equalsValue
+                  equalsValue: Query
+              regex:
+                - pattern: '"__typename"'
+                  expectation: matches
+              header:
+                - name: Content-Type
+                  expectation: equals
+                  value: application/json
+              bodyContains:
+                - __typename
+              responseTimeMillis: 5000
             """.formatted(pingQuery.toAbsolutePath()));
 
         Path envFile = tempDir.resolve("environment.yaml");
@@ -123,7 +145,7 @@ class RampageSimulationWireMockIntegrationTest {
                 users: 5
             assertions:
               global:
-                maxErrorPercentage: 100.0
+                maxErrorPercentage: 0.5
             reporting:
               outputDirectory: %s
               writeRunMetadata: true

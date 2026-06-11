@@ -4,7 +4,10 @@ import io.rampage.config.model.ChecksConfig;
 import io.rampage.config.model.EnvironmentConfig;
 import io.rampage.config.model.ExecutionConfig;
 import io.rampage.config.model.ExtractConfig;
+import io.rampage.config.model.HeaderCheck;
 import io.rampage.config.model.HttpConfig;
+import io.rampage.config.model.JsonPathCheck;
+import io.rampage.config.model.RegexCheck;
 import io.rampage.config.model.RateConfig;
 import io.rampage.config.model.RequestConfig;
 import io.rampage.config.model.RunConfig;
@@ -232,6 +235,170 @@ class ConfigValidatorStepsTest {
         ScenarioConfig sc = scenario("legacy");
         // No request set — validator should still accept (matches existing behaviour).
         assertDoesNotThrow(() -> validator.validate(env(), run("legacy"), List.of(sc)));
+    }
+
+    @Test
+    void unknownExtractTypeFails() {
+        ScenarioConfig sc = scenario("bad-extract-type");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ExtractConfig ex = new ExtractConfig();
+        ex.setType("xpath");
+        ex.setPath("//id");
+        ex.setSessionKey("userId");
+        step.setExtract(List.of(ex));
+        sc.setSteps(List.of(step));
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("bad-extract-type"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(e -> e.contains("xpath")),
+            "Expected unknown extract type error: " + thrown.getErrors());
+    }
+
+    @Test
+    void knownExtractTypesValidate() {
+        for (String type : List.of("jsonPath", "jsonpath", "regex", "header", "body")) {
+            ScenarioConfig sc = scenario("good-extract-type");
+            StepConfig step = step("get-user", "GET", "/users/1");
+            ExtractConfig ex = new ExtractConfig();
+            ex.setType(type);
+            ex.setPath("$.id");
+            ex.setSessionKey("userId");
+            step.setExtract(List.of(ex));
+            sc.setSteps(List.of(step));
+            assertDoesNotThrow(() -> validator.validate(env(), run("good-extract-type"), List.of(sc)),
+                "Extract type '" + type + "' should be valid");
+        }
+    }
+
+    @Test
+    void unknownJsonPathExpectationFails() {
+        ScenarioConfig sc = scenario("bad-jsonpath-expectation");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ChecksConfig checks = new ChecksConfig();
+        JsonPathCheck check = new JsonPathCheck();
+        check.setPath("$.id");
+        check.setExpectation("isNull");
+        checks.setJsonPath(List.of(check));
+        step.setChecks(checks);
+        sc.setSteps(List.of(step));
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("bad-jsonpath-expectation"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(e -> e.contains("isNull")),
+            "Expected unknown jsonPath expectation error: " + thrown.getErrors());
+    }
+
+    @Test
+    void jsonPathEqualsSessionRequiresSessionKey() {
+        ScenarioConfig sc = scenario("equals-session-no-key");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ChecksConfig checks = new ChecksConfig();
+        JsonPathCheck check = new JsonPathCheck();
+        check.setPath("$.id");
+        check.setExpectation("equalsSession");
+        checks.setJsonPath(List.of(check));
+        step.setChecks(checks);
+        sc.setSteps(List.of(step));
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("equals-session-no-key"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(
+            e -> e.contains("equalsSession") && e.contains("sessionKey")),
+            "Expected equalsSession-requires-sessionKey error: " + thrown.getErrors());
+    }
+
+    @Test
+    void jsonPathEqualsValueRequiresEqualsValue() {
+        ScenarioConfig sc = scenario("equals-value-missing");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ChecksConfig checks = new ChecksConfig();
+        JsonPathCheck check = new JsonPathCheck();
+        check.setPath("$.id");
+        check.setExpectation("equalsValue");
+        checks.setJsonPath(List.of(check));
+        step.setChecks(checks);
+        sc.setSteps(List.of(step));
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("equals-value-missing"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(
+            e -> e.contains("equalsValue")),
+            "Expected equalsValue-requires-value error: " + thrown.getErrors());
+    }
+
+    @Test
+    void unknownRegexExpectationFails() {
+        ScenarioConfig sc = scenario("bad-regex-expectation");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ChecksConfig checks = new ChecksConfig();
+        RegexCheck check = new RegexCheck();
+        check.setPattern("id-\\d+");
+        check.setExpectation("contains");
+        checks.setRegex(List.of(check));
+        step.setChecks(checks);
+        sc.setSteps(List.of(step));
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("bad-regex-expectation"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(e -> e.contains("contains")),
+            "Expected unknown regex expectation error: " + thrown.getErrors());
+    }
+
+    @Test
+    void unknownHeaderExpectationFails() {
+        ScenarioConfig sc = scenario("bad-header-expectation");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ChecksConfig checks = new ChecksConfig();
+        HeaderCheck check = new HeaderCheck();
+        check.setName("Content-Type");
+        check.setExpectation("startsWith");
+        checks.setHeader(List.of(check));
+        step.setChecks(checks);
+        sc.setSteps(List.of(step));
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("bad-header-expectation"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(e -> e.contains("startsWith")),
+            "Expected unknown header expectation error: " + thrown.getErrors());
+    }
+
+    @Test
+    void scenarioLevelCheckExpectationsAreValidated() {
+        ScenarioConfig sc = scenario("bad-scenario-checks");
+        ChecksConfig checks = new ChecksConfig();
+        JsonPathCheck check = new JsonPathCheck();
+        check.setPath("$.data");
+        check.setExpectation("nonsense");
+        checks.setJsonPath(List.of(check));
+        sc.setChecks(checks);
+        var thrown = assertThrows(ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(env(), run("bad-scenario-checks"), List.of(sc)));
+        assertTrue(thrown.getErrors().stream().anyMatch(e -> e.contains("nonsense")),
+            "Expected scenario-level expectation error: " + thrown.getErrors());
+    }
+
+    @Test
+    void knownCheckExpectationsValidate() {
+        ScenarioConfig sc = scenario("good-checks");
+        StepConfig step = step("get-user", "GET", "/users/1");
+        ChecksConfig checks = new ChecksConfig();
+        JsonPathCheck jp1 = new JsonPathCheck();
+        jp1.setPath("$.id");
+        jp1.setExpectation("exists");
+        JsonPathCheck jp2 = new JsonPathCheck();
+        jp2.setPath("$.errors");
+        jp2.setExpectation("absentOrEmpty");
+        JsonPathCheck jp3 = new JsonPathCheck();
+        jp3.setPath("$.name");
+        jp3.setExpectation("equalsValue");
+        jp3.setEqualsValue("alice");
+        checks.setJsonPath(List.of(jp1, jp2, jp3));
+        RegexCheck rx = new RegexCheck();
+        rx.setPattern("id-\\d+");
+        rx.setExpectation("matches");
+        checks.setRegex(List.of(rx));
+        HeaderCheck hd = new HeaderCheck();
+        hd.setName("Content-Type");
+        hd.setExpectation("equals");
+        hd.setValue("application/json");
+        checks.setHeader(List.of(hd));
+        step.setChecks(checks);
+        sc.setSteps(List.of(step));
+        assertDoesNotThrow(() -> validator.validate(env(), run("good-checks"), List.of(sc)));
     }
 
     @Test

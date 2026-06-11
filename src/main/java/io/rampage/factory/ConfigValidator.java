@@ -21,6 +21,24 @@ public class ConfigValidator {
     private static final Set<String> KNOWN_BODY_TYPES = Set.of(
         "graphql", "json", "form", "text", "none");
 
+    private static final Set<String> KNOWN_FEEDER_STRATEGIES = Set.of(
+        "circular", "queue", "shuffle", "random");
+
+    private static final Set<String> KNOWN_EXECUTION_MODES = Set.of(
+        "open", "closed");
+
+    private static final Set<String> KNOWN_EXTRACT_TYPES = Set.of(
+        "jsonpath", "regex", "header", "body");
+
+    private static final Set<String> KNOWN_JSONPATH_EXPECTATIONS = Set.of(
+        "exists", "absentorempty", "equalssession", "equalsvalue");
+
+    private static final Set<String> KNOWN_REGEX_EXPECTATIONS = Set.of(
+        "exists", "matches");
+
+    private static final Set<String> KNOWN_HEADER_EXPECTATIONS = Set.of(
+        "exists", "equals", "matches");
+
     private final SecretResolver secretResolver;
 
     public ConfigValidator() {
@@ -82,11 +100,19 @@ public class ConfigValidator {
                 }
             }
 
-            if (run.getExecution() != null && run.getExecution().getWorkload() != null) {
-                validateWorkload(run.getExecution().getWorkload(), "run.execution.workload", errors);
+            if (run.getExecution() != null) {
+                String mode = run.getExecution().getMode();
+                if (mode != null && !mode.isBlank()
+                    && !KNOWN_EXECUTION_MODES.contains(mode.toLowerCase(Locale.ROOT))) {
+                    errors.add("run.execution.mode '" + mode + "' is not one of " + KNOWN_EXECUTION_MODES);
+                }
+                if (run.getExecution().getWorkload() != null) {
+                    validateWorkload(run.getExecution().getWorkload(), "run.execution.workload", errors);
+                }
             }
 
             errors.addAll(AssertionFactory.validateUnknownScenarios(run.getAssertions(), scenarios));
+            validateAssertionValues(run.getAssertions(), errors);
 
             if (env != null && run.getSafety() != null
                 && run.getSafety().isFailIfEnvironmentAllowsProduction()
@@ -179,6 +205,8 @@ public class ConfigValidator {
 
         validateSteps(env, sc, scPath, errors);
 
+        validateChecks(sc.getChecks(), scPath + ".checks", errors);
+
         FeederConfig feeder = sc.getFeeder();
         if (feeder != null) {
             if (feeder.getSqlFile() != null && !feeder.getSqlFile().isBlank()
@@ -190,6 +218,21 @@ public class ConfigValidator {
                 if (env.getDatabases() == null || !env.getDatabases().containsKey(dbRef)) {
                     errors.add(scPath + ".feeder.databaseRef '" + dbRef + "' is not defined in environment.databases");
                 }
+            }
+            String strategy = feeder.getStrategy();
+            if (strategy != null && !strategy.isBlank()
+                && !KNOWN_FEEDER_STRATEGIES.contains(strategy.toLowerCase(Locale.ROOT))) {
+                errors.add(scPath + ".feeder.strategy '" + strategy + "' is not one of " + KNOWN_FEEDER_STRATEGIES);
+            }
+            // These fields are modelled but not yet honoured by the engine — warn rather
+            // than error so existing configs keep validating.
+            if (feeder.getOnExhaustion() != null && !"stop".equalsIgnoreCase(feeder.getOnExhaustion())) {
+                log.warn("{}.feeder.onExhaustion '{}' is not yet honoured by the engine and will be ignored",
+                    scPath, feeder.getOnExhaustion());
+            }
+            if (feeder.getOnMissingRequired() != null && !"fail".equalsIgnoreCase(feeder.getOnMissingRequired())) {
+                log.warn("{}.feeder.onMissingRequired '{}' is not yet honoured by the engine and will be ignored",
+                    scPath, feeder.getOnMissingRequired());
             }
         }
 
@@ -235,6 +278,7 @@ public class ConfigValidator {
                 validateRequest(step.getRequest(), stepPath + ".request", errors);
                 validateSessionReferences(step.getRequest(), sessionKeysAvailable, stepPath, errors);
             }
+            validateChecks(step.getChecks(), stepPath + ".checks", errors);
             validateExtracts(step.getExtract(), stepPath + ".extract", sessionKeysAvailable, errors);
         }
     }
@@ -279,6 +323,9 @@ public class ConfigValidator {
                 continue;
             }
             String type = e.getType() != null ? e.getType().toLowerCase(java.util.Locale.ROOT) : "jsonpath";
+            if (!KNOWN_EXTRACT_TYPES.contains(type)) {
+                errors.add(ePath + ".type '" + e.getType() + "' is not one of " + KNOWN_EXTRACT_TYPES);
+            }
             if (!"body".equals(type) && (e.getPath() == null || e.getPath().isBlank())) {
                 errors.add(ePath + ".path must not be blank for type=" + type);
             }
@@ -309,6 +356,91 @@ public class ConfigValidator {
         }
         validateDurationField(workload.getRampUp(), path + ".rampUp", errors);
         validateDurationField(workload.getHoldFor(), path + ".holdFor", errors);
+    }
+
+    /**
+     * Validates check expectations against the values {@link CheckFactory} honours.
+     * Unknown expectations would otherwise silently degrade to an existence check.
+     */
+    private void validateChecks(ChecksConfig checks, String path, List<String> errors) {
+        if (checks == null) return;
+        if (checks.getJsonPath() != null) {
+            for (int i = 0; i < checks.getJsonPath().size(); i++) {
+                JsonPathCheck c = checks.getJsonPath().get(i);
+                if (c == null) continue;
+                String cPath = path + ".jsonPath[" + i + "]";
+                String expectation = c.getExpectation();
+                if (expectation != null && !expectation.isBlank()) {
+                    String normalised = expectation.toLowerCase(Locale.ROOT);
+                    if (!KNOWN_JSONPATH_EXPECTATIONS.contains(normalised)) {
+                        errors.add(cPath + ".expectation '" + expectation
+                            + "' is not one of [exists, absentOrEmpty, equalsSession, equalsValue]");
+                    } else if ("equalssession".equals(normalised)
+                        && (c.getSessionKey() == null || c.getSessionKey().isBlank())) {
+                        errors.add(cPath + ".expectation=equalsSession requires .sessionKey");
+                    } else if ("equalsvalue".equals(normalised) && c.getEqualsValue() == null) {
+                        errors.add(cPath + ".expectation=equalsValue requires .equalsValue");
+                    }
+                }
+            }
+        }
+        if (checks.getRegex() != null) {
+            for (int i = 0; i < checks.getRegex().size(); i++) {
+                RegexCheck c = checks.getRegex().get(i);
+                if (c == null) continue;
+                String expectation = c.getExpectation();
+                if (expectation != null && !expectation.isBlank()
+                    && !KNOWN_REGEX_EXPECTATIONS.contains(expectation.toLowerCase(Locale.ROOT))) {
+                    errors.add(path + ".regex[" + i + "].expectation '" + expectation
+                        + "' is not one of [exists, matches]");
+                }
+            }
+        }
+        if (checks.getHeader() != null) {
+            for (int i = 0; i < checks.getHeader().size(); i++) {
+                HeaderCheck c = checks.getHeader().get(i);
+                if (c == null) continue;
+                String expectation = c.getExpectation();
+                if (expectation != null && !expectation.isBlank()
+                    && !KNOWN_HEADER_EXPECTATIONS.contains(expectation.toLowerCase(Locale.ROOT))) {
+                    errors.add(path + ".header[" + i + "].expectation '" + expectation
+                        + "' is not one of [exists, equals, matches]");
+                }
+            }
+        }
+    }
+
+    /**
+     * Range-checks assertion thresholds. Zero means "not set" ({@link AssertionFactory}
+     * only emits assertions for values &gt; 0), so only negative values and
+     * out-of-range percentages are errors.
+     */
+    private void validateAssertionValues(AssertionsConfig assertions, List<String> errors) {
+        if (assertions == null) return;
+        GlobalAssertionConfig global = assertions.getGlobal();
+        if (global != null) {
+            if (global.getMaxResponseTimeP95Millis() < 0) {
+                errors.add("run.assertions.global.maxResponseTimeP95Millis must not be negative");
+            }
+            if (global.getMaxResponseTimeP99Millis() < 0) {
+                errors.add("run.assertions.global.maxResponseTimeP99Millis must not be negative");
+            }
+            if (global.getMaxErrorPercentage() < 0 || global.getMaxErrorPercentage() > 100) {
+                errors.add("run.assertions.global.maxErrorPercentage must be between 0 and 100");
+            }
+        }
+        if (assertions.getScenarios() != null) {
+            assertions.getScenarios().forEach((id, cfg) -> {
+                if (cfg == null) return;
+                String base = "run.assertions.scenarios." + id;
+                if (cfg.getMaxResponseTimeP95Millis() < 0) {
+                    errors.add(base + ".maxResponseTimeP95Millis must not be negative");
+                }
+                if (cfg.getMaxErrorPercentage() < 0 || cfg.getMaxErrorPercentage() > 100) {
+                    errors.add(base + ".maxErrorPercentage must be between 0 and 100");
+                }
+            });
+        }
     }
 
     private void validateMutatingApproval(EnvironmentConfig env, RunConfig run, ScenarioConfig sc, List<String> errors) {
