@@ -1,6 +1,6 @@
 = Troubleshooting
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 This page covers the most common errors encountered when configuring and running Rampage, with causes and remedies for each.
 

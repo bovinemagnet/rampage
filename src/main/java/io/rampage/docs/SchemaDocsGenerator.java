@@ -45,7 +45,7 @@ public final class SchemaDocsGenerator {
         StringBuilder adoc = new StringBuilder();
         adoc.append("= Rampage Configuration Reference\n");
         adoc.append(":author: Paul Snow\n");
-        adoc.append(":version: 0.0.0\n\n");
+        adoc.append(":version: 0.1.0\n\n");
         adoc.append("Auto-generated from `io.rampage.config.model` POJOs by `SchemaDocsGenerator`.\n\n");
 
         Map<String, Object> schemas = new LinkedHashMap<>();

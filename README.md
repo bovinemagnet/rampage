@@ -88,7 +88,7 @@ repositories {
 
 // build.gradle.kts of a consumer project using the Gatling Gradle plugin
 dependencies {
-    gatling("io.rampage:rampage:0.0.0")
+    gatling("io.rampage:rampage:0.1.0")
 }
 ```
 

@@ -1,9 +1,9 @@
 = Requirements traceability
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Author: Paul Snow +
-Version: 0.0.0 +
+Version: 0.1.0 +
 Date: 2026-05-14 +
 Source PRD: `docs/prd/initial-prd.md` +
 Last updated: 2026-05-15 — M1 + M2 + M3 features landed (F-001 through F-028); REST/HTTP support, multi-step scenarios, response extraction, inter-step pauses, regex/header/responseTime/bodyContains checks shipped.
@@ -138,9 +138,9 @@ Status legend:
 | `ScenarioConfig.headers` are applied in `ScenarioFactory.build`.
 
 | SCN-007
-| HTTP status + JSONPath checks + rich check types
-| Partial
-| `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession`, `equalsValue`, `saveAs` supported. `regex`, `header`, `responseTimeMillis`, and `bodyContains` checks now implemented. XPath and JSON schema checks still missing.
+| HTTP status + JSONPath checks
+| Done
+| `httpStatus`, JSONPath (`exists`, `absentOrEmpty`, `equalsSession`, `equalsValue`), regex, header (`equals`/`matches`), `bodyContains`, `responseTimeMillis`, and extracts via `CheckFactory`; expectations validated by `ConfigValidator`. No XPath or JSON schema (beyond PRD scope; status ranges tracked as F-043).
 
 | SCN-007a
 | REST / HTTP-method scenarios
@@ -359,7 +359,7 @@ Status legend:
 
 | 2
 | Unknown required fields / invalid enums
-| Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false`; workload type and HTTP method enums validated; `bodyType` compatibility with body-source fields validated.
+| Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false` (unknown YAML keys still ignored); enums validated for workload type, HTTP method, body type, feeder strategy, execution mode, extract type, and check expectations
 
 | 3
 | Missing GraphQL/SQL/body files
@@ -387,7 +387,7 @@ Status legend:
 
 | 9
 | Malformed assertions
-| Missing
+| Done — thresholds range-checked (negative times rejected, error percentage 0–100, global and scenario level); assertions naming unknown scenarios rejected
 
 | 10
 | Scenario with no checks

@@ -1,6 +1,6 @@
 = Configuration reference
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Rampage resolves three independent YAML files at startup. Keeping them separate means you can mix and match environments, runs, and scenarios without duplicating configuration.
 

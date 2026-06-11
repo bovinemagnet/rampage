@@ -1,6 +1,6 @@
 = Rampage
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Rampage is a configuration-driven Gatling load testing framework. YAML files describe the environment, run, and scenarios; a thin Java engine resolves them into Gatling protocols, scenarios, feeders, and injection profiles.
 

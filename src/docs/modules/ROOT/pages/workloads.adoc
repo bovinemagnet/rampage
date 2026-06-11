@@ -1,6 +1,6 @@
 = Workload profiles
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 A workload profile describes how Gatling injects virtual users or arrivals into a scenario. The `execution.workload` block in the run YAML selects the profile and its parameters.
 

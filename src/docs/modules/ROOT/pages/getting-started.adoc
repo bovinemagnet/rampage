@@ -1,6 +1,6 @@
 = Getting started
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 This guide walks you from a freshly cloned repository to a passing smoke test in a few minutes.
 

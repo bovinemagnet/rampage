@@ -1,6 +1,6 @@
 = Scenario authoring
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 A scenario in Rampage is a YAML file that fully describes one logical test flow: the protocol and request to send, the data source to feed it, the response checks to apply, and the safety markers that control where it can run. No Java is required.
 

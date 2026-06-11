@@ -1,6 +1,6 @@
 = Using Rampage from your own project
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Most Rampage documentation assumes you are working inside the Rampage repository and running Gradle tasks there. This page describes a different topology: your load-test configuration lives in a separate repository that you own, and Rampage is pulled in as a library via a Gradle composite build. The published Rampage checkout remains unmodified and generic.
 

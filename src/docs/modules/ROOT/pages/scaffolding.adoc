@@ -1,6 +1,6 @@
 = Scenario scaffolding
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Rampage provides two import tasks that generate scenario YAML from existing artefacts, reducing the time needed to instrument a service that already has observable traffic or an API specification.
 

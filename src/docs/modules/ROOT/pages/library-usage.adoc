@@ -1,8 +1,8 @@
 = Using Rampage as a library
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
-Rampage is published as the Maven artefact `io.rampage:rampage:0.0.0`. This page explains how to declare it as a dependency, authenticate to GitHub Packages, write the thin subclass the Gatling plugin needs, and supply configuration YAML.
+Rampage is published as the Maven artefact `io.rampage:rampage:0.1.0`. This page explains how to declare it as a dependency, authenticate to GitHub Packages, write the thin subclass the Gatling plugin needs, and supply configuration YAML.
 If you are iterating on the Rampage engine itself, or prefer not to depend on a published release, see xref:consuming-rampage.adoc[] for the Gradle composite-build alternative.
 
 The artefact is available from two locations:
@@ -98,7 +98,7 @@ dependencies {
     gatling("io.gatling.highcharts:gatling-charts-highcharts:3.15.0")
 
     // Rampage engine
-    gatling("io.rampage:rampage:0.0.0")
+    gatling("io.rampage:rampage:0.1.0")
 
     // Add a JDBC driver if your scenarios use SQL feeders
     // gatling("com.h2database:h2:2.4.240")
@@ -115,7 +115,7 @@ NOTE: Jackson, SLF4J, Logback, and HikariCP are declared as POM runtime dependen
 <dependency>
     <groupId>io.rampage</groupId>
     <artifactId>rampage</artifactId>
-    <version>0.0.0</version>
+    <version>0.1.0</version>
     <scope>provided</scope>
 </dependency>
 ----
@@ -177,7 +177,7 @@ If no SQL feeder is configured, no driver is needed.
 
 == Releases and versioning
 
-Releases are published automatically from the `publish.yml` GitHub Actions workflow when a version tag (`v*`) is pushed to the repository. Use the latest published version from https://github.com/bovinemagnet/rampage/packages and replace `0.0.0` in the dependency coordinates with the actual release version.
+Releases are published automatically from the `publish.yml` GitHub Actions workflow when a version tag (`v*`) is pushed to the repository. Use the latest published version from https://github.com/bovinemagnet/rampage/packages and replace `0.1.0` in the dependency coordinates with the actual release version.
 
 == Troubleshooting
 

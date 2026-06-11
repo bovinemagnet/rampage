@@ -1,6 +1,6 @@
 = Security and secrets
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Rampage is designed to run against real infrastructure, including production-adjacent environments. This page explains how to supply credentials safely, how headers are layered and protected, and how the production guardrails work.
 

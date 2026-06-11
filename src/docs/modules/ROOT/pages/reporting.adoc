@@ -1,6 +1,6 @@
 = Reporting and CI
 :author: Paul Snow
-:version: 0.0.0
+:version: 0.1.0
 
 Rampage produces several output files alongside the Gatling HTML report. This page documents what is written, where it lands, and how to integrate the outputs into a CI pipeline.
 
