@@ -2,8 +2,13 @@ import java.time.Duration
 
 plugins {
     java
+    `maven-publish`
     alias(libs.plugins.gatling)
+    alias(libs.plugins.antora)
 }
+
+group = "io.rampage"
+version = "0.0.0"
 
 repositories {
     mavenCentral()
@@ -14,6 +19,8 @@ java {
         languageVersion = JavaLanguageVersion.of(21)
         vendor = JvmVendorSpec.ADOPTIUM
     }
+    withSourcesJar()
+    withJavadocJar()
 }
 
 dependencies {
@@ -25,9 +32,6 @@ dependencies {
 
     // OpenAPI parser (used by the importOpenApi scaffolding task)
     implementation(libs.swagger.parser)
-
-    // H2 for SQL feeder (test DB)
-    implementation(libs.h2)
 
     // HikariCP connection pool
     implementation(libs.hikaricp)
@@ -55,6 +59,18 @@ dependencies {
     testImplementation(libs.gatling.charts.highcharts)
     testImplementation(libs.wiremock.standalone)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// Ship RampageSimulation in the library JAR so consumers can run or subclass it.
+// Only the compiled classes are included — the gatling source set's resources
+// (gatling.conf, logback.xml, default YAML) are local run configuration and must
+// not leak into the published artefact.
+tasks.jar {
+    from(sourceSets["gatling"].output.classesDirs)
+}
+
+tasks.named<Jar>("sourcesJar") {
+    from(sourceSets["gatling"].allJava)
 }
 
 tasks.test {
@@ -166,6 +182,53 @@ tasks.register("generateSchemaDocs", JavaExec::class) {
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("io.rampage.docs.SchemaDocsGenerator")
     args(layout.buildDirectory.dir("schema").get().asFile.toString())
+}
+
+// Builds the documentation site from src/docs into build/site via `gradle antora`.
+// The plugin provisions its own Node.js runtime, so no local Node install is needed.
+antora {
+    version = libs.versions.antora.asProvider().get()
+    playbook = file("antora-playbook.yml")
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+            pom {
+                name = "Rampage"
+                description = "Configuration-driven Gatling load testing framework: " +
+                    "scenarios are defined in YAML, GraphQL, and SQL rather than Java."
+                url = "https://github.com/bovinemagnet/rampage"
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "Paul Snow"
+                    }
+                }
+                scm {
+                    connection = "scm:git:https://github.com/bovinemagnet/rampage.git"
+                    developerConnection = "scm:git:git@github.com:bovinemagnet/rampage.git"
+                    url = "https://github.com/bovinemagnet/rampage"
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/bovinemagnet/rampage")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }
 
 tasks.register("newScenario") {
