@@ -26,7 +26,7 @@ Use this task when you want to replay real user traffic. Capture a HAR file from
 
 [source,bash]
 ----
-gradle21w importHar \
+./gradlew importHar \
   -Drampage.har.file=path/to/capture.har \
   -Drampage.scenario.id=checkout-flow
 ----
@@ -89,7 +89,7 @@ When any step uses a mutating HTTP method (POST, PUT, PATCH, DELETE), the import
 
 [source,bash]
 ----
-gradle21w importHar \
+./gradlew importHar \
   -Drampage.har.file=captures/checkout.har \
   -Drampage.scenario.id=checkout-flow \
   -Drampage.har.host=api.example.com \
@@ -135,7 +135,7 @@ Use this task when you have an OpenAPI 3.x description and want to generate one 
 
 [source,bash]
 ----
-gradle21w importOpenApi \
+./gradlew importOpenApi \
   -Drampage.openapi.file=path/to/openapi.yaml
 ----
 
@@ -198,7 +198,7 @@ Command:
 
 [source,bash]
 ----
-gradle21w importOpenApi \
+./gradlew importOpenApi \
   -Drampage.openapi.file=config/openapi/orders-api.yaml \
   -Drampage.scenario.prefix=orders- \
   -Drampage.openapi.endpointRef=rest \
@@ -228,7 +228,7 @@ checks:
 . *Import* — run `importHar` or `importOpenApi` with the relevant options.
 . *Review* — open each generated YAML and read every field. Remove or redact any residual sensitive values.
 . *Replace dynamic values* — substitute hard-coded IDs, tokens, and session values with `${feeder:colName}` placeholders. Add or update the `feeder` block to declare the columns and point at a SQL query.
-. *Validate* — run `gradle21w validateLoadTest` to confirm the scenario is structurally correct.
+. *Validate* — run `./gradlew validateLoadTest` to confirm the scenario is structurally correct.
 . *Reference* — add the scenario ID(s) to a run YAML `scenarios` list.
 . *Commit* — commit the YAML files. Do not commit the original `.har` file or any OpenAPI spec that contains sensitive information unless it is intentional.
 

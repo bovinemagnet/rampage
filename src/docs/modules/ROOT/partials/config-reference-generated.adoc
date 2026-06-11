@@ -3,7 +3,7 @@
 //
 // Regenerate from the io.rampage.config.model POJOs with:
 //
-//   gradle21w generateSchemaDocs
+//   ./gradlew generateSchemaDocs
 //   cp build/schema/reference.adoc \
 //      src/docs/modules/ROOT/partials/config-reference-generated.adoc
 //

@@ -1,21 +1,21 @@
 flowchart TD
     A["Author config files under config/"] --> B["config/environments/&lt;env&gt;.yaml<br/>config/runs/&lt;run&gt;.yaml<br/>config/scenarios/&lt;id&gt;.yaml<br/>*.graphql query files<br/>*.sql feeder files"]
     B --> C["Export required secrets as env vars<br/>e.g. export API_TOKEN=..."]
-    C --> D["gradle21w validateLoadTest<br/>-Dloadtest.env=config/environments/local.yaml<br/>-Dloadtest.run=config/runs/load.yaml"]
+    C --> D["./gradlew validateLoadTest<br/>-Dloadtest.env=config/environments/local.yaml<br/>-Dloadtest.run=config/runs/load.yaml"]
     D --> E{"Config valid?"}
     E -- "No: aggregated errors<br/>printed, exits non-zero" --> F["Fix YAML / missing secrets"]
     F --> D
     E -- "Yes" --> G{"Dry run?"}
-    G -- "Yes" --> H["gradle21w gatlingRun<br/>-Dloadtest.dryRun=true"]
+    G -- "Yes" --> H["./gradlew gatlingRun<br/>-Dloadtest.dryRun=true"]
     H --> I["Writes dry-run-summary.json<br/>No traffic sent — exits"]
     G -- "No" --> J{"-Dloadtest.env /<br/>-Dloadtest.run set?"}
     J -- "Yes" --> K["Load YAML from<br/>filesystem paths<br/>under config/"]
     J -- "No" --> L["Fall back to embedded<br/>classpath defaults<br/>src/gatling/resources/"]
-    K --> M["gradle21w gatlingRun<br/>-Dloadtest.env=&lt;path&gt;<br/>-Dloadtest.run=&lt;path&gt;"]
+    K --> M["./gradlew gatlingRun<br/>-Dloadtest.env=&lt;path&gt;<br/>-Dloadtest.run=&lt;path&gt;"]
     L --> M
     M --> N["Gatling simulation runs<br/>Secrets resolved — fail-fast<br/>if any env var is missing"]
     N --> O["Outputs written:<br/>build/reports/gatling/ (HTML report)<br/>run-metadata.json<br/>config snapshot (if reporting enabled)"]
-    O --> P["Optional: compare runs<br/>gradle21w runSummaryMain<br/>to track regressions"]
+    O --> P["Optional: compare runs<br/>./gradlew runSummaryMain<br/>to track regressions"]
 
     style O fill:#2e7d32,color:#ffffff
     style F fill:#b71c1c,color:#ffffff

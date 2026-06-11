@@ -19,11 +19,8 @@ Before running any Gradle tasks, ensure the following are available on your mach
 |===
 | Requirement | Detail
 
-| Java 21
-| The build is configured with a Java 21 toolchain (Adoptium Temurin). Install via https://adoptium.net[Adoptium] or `sdk install java 21-tem` with SDKMAN.
-
-| `gradle21w` on `PATH`
-| The project uses `gradle21w` as the local Gradle wrapper alias. Confirm it resolves: `which gradle21w`.
+| Java 21+
+| Required to launch the Gradle wrapper. The build provisions a Java 25 toolchain automatically — install JDK 21 via https://adoptium.net[Adoptium] or `sdk install java 21-tem` with SDKMAN.
 
 | H2 database (bundled)
 | The sample `config/environments/local.yaml` uses an in-process H2 database, so no external database is required for the smoke test.
@@ -31,12 +28,29 @@ Before running any Gradle tasks, ensure the following are available on your mach
 
 NOTE: Production databases require you to add the appropriate JDBC driver to the build. H2 is the only driver bundled by default.
 
+== Clone and build
+
+[source,bash]
+----
+git clone https://github.com/bovinemagnet/rampage.git
+cd rampage
+----
+
+Then compile the engine and run the unit suite:
+
+[source,bash]
+----
+./gradlew build
+----
+
+NOTE: The first invocation downloads the Gradle distribution and the Java 25 toolchain. Allow a few extra minutes on first run while both are fetched and cached locally.
+
 == Verify the toolchain
 
 [source,bash]
 ----
-java -version     # expect 21.x.x
-gradle21w --version
+java -version       # expect 21.x.x or later
+./gradlew --version
 ----
 
 == Running the smoke test
@@ -49,7 +63,7 @@ Run the config validator before executing any load traffic. This performs fail-f
 
 [source,bash]
 ----
-gradle21w validateLoadTest \
+./gradlew validateLoadTest \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/smoke.yaml
 ----
@@ -60,7 +74,7 @@ The task exits 0 when the config is valid and 1 when errors are found. All error
 
 [source,bash]
 ----
-gradle21w gatlingRun \
+./gradlew gatlingRun \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/smoke.yaml
 ----
@@ -111,11 +125,11 @@ Example — validate-then-dry-run a load profile against a staging environment:
 
 [source,bash]
 ----
-gradle21w validateLoadTest \
+./gradlew validateLoadTest \
   -Dloadtest.env=config/environments/staging.yaml \
   -Dloadtest.run=config/runs/load.yaml
 
-gradle21w gatlingRun \
+./gradlew gatlingRun \
   -Dloadtest.env=config/environments/staging.yaml \
   -Dloadtest.run=config/runs/load.yaml \
   -Dloadtest.dryRun=true

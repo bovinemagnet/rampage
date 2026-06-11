@@ -2,15 +2,16 @@
 
 A configuration-driven Gatling load testing framework. YAML describes the environment, run, and scenarios; a thin Java engine resolves them into Gatling protocols, scenarios, feeders, injection profiles, and assertions.
 
-- **Author:** Paul Snow
-- **Version:** 0.0.0
-- **Java:** 25 (Adoptium toolchain)
-- **Gatling:** 3.15.0
-- **Build:** Gradle 9.x via the wrapper
+| | |
+|---|---|
+| **Java** | 25 (Adoptium toolchain, provisioned by the build) |
+| **Gatling** | 3.15.0 |
+| **Build** | Gradle 9.x via the included wrapper (`./gradlew`) |
+| **Distribution** | `io.rampage:rampage` on GitHub Packages |
 
 ## What it does
 
-Engineers add new load test scenarios by writing YAML, GraphQL, and SQL — never Java. The framework handles:
+Engineers add new load test scenarios by writing YAML, GraphQL, and SQL — no Java required. The framework provides:
 
 - Three-file config split: `environment.yaml` (where), `run.yaml` (what + scale), `scenarios/*.yaml` (how).
 - GraphQL POST requests with externalised query files and JSON variables.
@@ -26,22 +27,26 @@ Engineers add new load test scenarios by writing YAML, GraphQL, and SQL — neve
 
 ## Quick start
 
+The only prerequisite is a JDK capable of launching Gradle (Java 21 or later); the build provisions its own Java 25 toolchain.
+
+> **New to Rampage?** The [Getting started guide](src/docs/modules/ROOT/pages/getting-started.adoc) walks through local set-up, validation, a first run, and where the reports land, step by step.
+
 ```bash
-# Validate the bundled smoke config (no traffic):
-gradle21w validateLoadTest -Dloadtest.env=config/environments/local.yaml \
+# Validate the bundled smoke configuration (no traffic is generated):
+./gradlew validateLoadTest -Dloadtest.env=config/environments/local.yaml \
                            -Dloadtest.run=config/runs/smoke.yaml
 
 # Run the smoke test against a local target on http://localhost:8080:
-gradle21w gatlingRun -Dloadtest.env=config/environments/local.yaml \
+./gradlew gatlingRun -Dloadtest.env=config/environments/local.yaml \
                      -Dloadtest.run=config/runs/smoke.yaml
 
-# Dry-run a load profile without traffic:
-gradle21w gatlingRun -Dloadtest.env=config/environments/local.yaml \
+# Dry-run a load profile without generating traffic:
+./gradlew gatlingRun -Dloadtest.env=config/environments/local.yaml \
                      -Dloadtest.run=config/runs/load.yaml \
                      -Dloadtest.dryRun=true
 
 # Scaffold a new scenario from templates:
-gradle21w newScenario -PscenarioId=customer-search
+./gradlew newScenario -PscenarioId=customer-search
 ```
 
 The Gatling HTML report, `run-metadata.json`, `dry-run-summary.json`, and `config-snapshot.yaml` land under `build/reports/gatling/`.
@@ -64,16 +69,59 @@ docs/                             # planning artefacts (PRD, review, roadmap, fe
 .github/workflows/                # CI workflow + manual smoke workflow
 ```
 
+## Use as a library
+
+Rampage is published as a Maven library (`io.rampage:rampage`) so other projects can drive it from their own Gatling builds. Releases are published to GitHub Packages on tag push; `./gradlew publishToMavenLocal` works for local consumption.
+
+```kotlin
+// settings: add the repository (GitHub Packages requires authentication)
+repositories {
+    mavenLocal()
+    maven {
+        url = uri("https://maven.pkg.github.com/bovinemagnet/rampage")
+        credentials {
+            username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
+            password = providers.gradleProperty("gpr.key").orNull ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
+// build.gradle.kts of a consumer project using the Gatling Gradle plugin
+dependencies {
+    gatling("io.rampage:rampage:0.0.0")
+}
+```
+
+The JAR ships the engine (factories, config models, validators) and `io.rampage.simulation.RampageSimulation`. Gatling itself is **not** a transitive dependency — the consumer's Gatling plugin provides it — and no JDBC driver is bundled, so add the one your feeders need (H2, PostgreSQL, …). A consumer points the simulation at its own YAML with `-Dloadtest.env=` / `-Dloadtest.run=`, or subclasses it in their `src/gatling/java`:
+
+```java
+public class MyLoadTest extends io.rampage.simulation.RampageSimulation {
+}
+```
+
+See the Antora documentation (`src/docs/`) page “Using Rampage as a library” for the full consumer guide.
+
 ## Documentation
 
-- Antora site under `src/docs/` — getting started, configuration reference, scenario authoring, workload profiles, security, reporting, troubleshooting.
-- `docs/prd/initial-prd.md` — the product spec.
-- `docs/review/code-review.md` — defects and gaps at the start of work.
-- `docs/review/requirements-traceability.md` — PRD requirement → status mapping.
-- `docs/roadmap/roadmap.md` — milestone plan (M1-M4).
-- `docs/features/` — feature briefs shaped as paste-into-GitHub-issue bodies.
+The full documentation is an Antora component under `src/docs/`; build the site with `./gradlew antora` (output in `build/site/`). The key guides are also readable directly on GitHub:
 
-Regenerate the AsciiDoc configuration reference from the model classes via `gradle21w generateSchemaDocs` (output in `build/schema/`).
+- [Getting started](src/docs/modules/ROOT/pages/getting-started.adoc) — local set-up, validation, first run, and report output.
+- [Scenario authoring](src/docs/modules/ROOT/pages/scenario-authoring.adoc) — writing the YAML, GraphQL, and SQL for a new scenario.
+- [Configuration reference](src/docs/modules/ROOT/pages/configuration-reference.adoc) — every field in the environment, run, and scenario YAML.
+- [Workload profiles](src/docs/modules/ROOT/pages/workloads.adoc) — choosing and tuning injection profiles.
+- [Security and secrets](src/docs/modules/ROOT/pages/security.adoc) — credentials, tokens, and production guardrails.
+- [Using Rampage as a library](src/docs/modules/ROOT/pages/library-usage.adoc) — consuming the published Maven artefact from your own project.
+- [Reporting and CI](src/docs/modules/ROOT/pages/reporting.adoc) and [Troubleshooting](src/docs/modules/ROOT/pages/troubleshooting.adoc).
+
+Project planning artefacts:
+
+- `docs/prd/initial-prd.md` — the product specification.
+- `docs/review/code-review.md` — defects and gaps identified at the start of development.
+- `docs/review/requirements-traceability.md` — PRD requirement → status mapping.
+- `docs/roadmap/roadmap.md` — milestone plan and platform evolution themes.
+- `docs/features/` — feature briefs, each shaped as a ready-to-file GitHub issue.
+
+Regenerate the AsciiDoc configuration reference from the model classes with `./gradlew generateSchemaDocs` (output in `build/schema/`).
 
 ## Project status
 
@@ -84,16 +132,15 @@ Regenerate the AsciiDoc configuration reference from the model classes via `grad
 | M3 | Multi-scenario, Multi-environment | Done |
 | M4 | Reporting, CI, and DX | Done |
 
-Tests: 164 passing across `ConfigLoader`, `ConfigValidator`, `FeederFactory`, `SecretResolver`, `ScenarioFactory`, `WorkloadFactory`, `OAuthClientCredentialsTokenProvider`, `TokenRefresher`, `DataSourceRegistry`, `HeaderResolver`, `PlaceholderSubstitutor`, `BodyRedactor`, `AssertionFactory`, `RunMetadataWriter`, `DryRunSummaryWriter`, `ConfigSnapshotWriter`, and an end-to-end wiring integration test.
+The unit suite (280+ tests, `./gradlew test`) covers the configuration loaders, validators, factories, secret resolution, token refresh, and reporting writers. A WireMock-backed integration suite (`./gradlew integrationTest`) drives the full simulation in-process and exercises every check kind end-to-end.
 
 See `docs/review/requirements-traceability.md` for a row-by-row PRD coverage map.
 
 ## Conventions
 
-- British spelling throughout user-facing strings and docs.
-- Default author is **Paul Snow**, default version is **0.0.0** unless the work specifies otherwise.
-- Local development uses `gradle21w` (a wrapper that sets up the Java 21 launcher for the Gradle 9 daemon, then drives the Java 25 toolchain). CI uses `./gradlew` so that no machine-local symlink is required.
-- AsciiDoc work targets the Antora component at `src/docs/`; Mermaid diagrams are externalised into `src/docs/modules/ROOT/examples/`.
+- British spelling throughout user-facing strings and documentation.
+- All build and run commands use the included Gradle wrapper, `./gradlew`.
+- AsciiDoc documentation targets the Antora component at `src/docs/`; Mermaid diagrams are externalised into `src/docs/modules/ROOT/examples/`.
 
 ## Licence
 

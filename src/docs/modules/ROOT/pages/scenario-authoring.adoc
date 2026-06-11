@@ -2,7 +2,7 @@
 :author: Paul Snow
 :version: 0.0.0
 
-A scenario in Rampage is a YAML file that fully describes one logical test flow: the protocol and request to send, the data source to feed it, the response checks to apply, and the safety markers that control where it can run. You never write Java.
+A scenario in Rampage is a YAML file that fully describes one logical test flow: the protocol and request to send, the data source to feed it, the response checks to apply, and the safety markers that control where it can run. No Java is required.
 
 Rampage supports both GraphQL and REST/HTTP scenarios. All existing GraphQL YAML is fully backward compatible — no changes are required to existing scenario files.
 
@@ -12,7 +12,7 @@ Use the `newScenario` Gradle task to generate a scenario YAML, a GraphQL query f
 
 [source,bash]
 ----
-gradle21w newScenario -PscenarioId=get-order
+./gradlew newScenario -PscenarioId=get-order
 ----
 
 This creates:
@@ -687,7 +687,7 @@ Then validate before running:
 
 [source,bash]
 ----
-gradle21w validateLoadTest \
+./gradlew validateLoadTest \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/load.yaml
 ----
@@ -736,7 +736,7 @@ Both are exercised together by `config/runs/rest-load.yaml` with a 70/30 weight 
 
 [source,bash]
 ----
-gradle21w validateLoadTest \
+./gradlew validateLoadTest \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/rest-load.yaml
 ----

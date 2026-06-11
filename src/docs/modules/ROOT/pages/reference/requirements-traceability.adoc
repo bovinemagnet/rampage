@@ -299,15 +299,15 @@ Status legend:
 |===
 | Command | Status | Notes
 
-| `gradle21w validateLoadTest -Dloadtest.env=... -Dloadtest.run=...`
+| `./gradlew validateLoadTest -Dloadtest.env=... -Dloadtest.run=...`
 | Done
 | Registered in `build.gradle.kts`; `ConfigValidatorMain` exits 0/1.
 
-| `gradle21w gatlingRun -Dloadtest.env=... -Dloadtest.run=...`
+| `./gradlew gatlingRun -Dloadtest.env=... -Dloadtest.run=...`
 | Done
 | Provided by Gatling plugin; properties consumed by `ConfigLoader`.
 
-| `gradle21w gatlingRun-<simulationClass>`
+| `./gradlew gatlingRun-<simulationClass>`
 | Done
 | Standard plugin behaviour.
 

@@ -12,7 +12,8 @@ Use a separate consumer project when:
 * You want to version-control load-test configuration independently of the Rampage engine.
 * You want to avoid forking or modifying Rampage itself.
 
-With a composite build, Gradle treats the Rampage checkout as an included build and substitutes its published coordinate (`io.rampage:rampage`) transparently. Your project compiles and runs exactly as if Rampage were a regular Maven dependency, but without a published artifact.
+With a composite build, Gradle treats the Rampage checkout as an included build and substitutes its published coordinate (`io.rampage:rampage`) transparently. Your project compiles and runs exactly as if Rampage were a regular Maven dependency, but without a published artefact.
+Rampage is now also published as a Maven artefact on GitHub Packages; see xref:library-usage.adoc[] if you prefer to consume a released version rather than an included build.
 
 == How it works
 
@@ -161,7 +162,7 @@ Run `gatlingRun` from your consumer project directory so that relative `config/.
 
 [source,bash]
 ----
-gradle21w gatlingRun \
+./gradlew gatlingRun \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/smoke.yaml
 ----
@@ -170,7 +171,7 @@ To point at a Rampage checkout in a non-default location:
 
 [source,bash]
 ----
-gradle21w gatlingRun \
+./gradlew gatlingRun \
   -PrampageDir=/path/to/rampage \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/smoke.yaml

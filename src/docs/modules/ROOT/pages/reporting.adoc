@@ -244,7 +244,7 @@ The `summariseRun` Gradle task parses the most recent Gatling report directory a
 
 [source,bash]
 ----
-gradle21w summariseRun
+./gradlew summariseRun
 ----
 
 By default the task scans `build/reports/gatling/` for the most recent `rampagesimulation-*` directory. Override the scan root or supply a baseline with system properties:

@@ -25,7 +25,7 @@ Set the variable before calling Gradle:
 [source,bash]
 ----
 export API_TOKEN=your-token-value
-gradle21w validateLoadTest \
+./gradlew validateLoadTest \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/smoke.yaml
 ----
@@ -185,7 +185,7 @@ Use this in CI to confirm YAML correctness without touching the target system.
 
 [source,bash]
 ----
-gradle21w gatlingRun \
+./gradlew gatlingRun \
   -Dloadtest.env=config/environments/staging.yaml \
   -Dloadtest.run=config/runs/load.yaml \
   -Dloadtest.dryRun=true

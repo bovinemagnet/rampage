@@ -1,0 +1,204 @@
+= Using Rampage as a library
+:author: Paul Snow
+:version: 0.0.0
+
+Rampage is published as the Maven artefact `io.rampage:rampage:0.0.0`. This page explains how to declare it as a dependency, authenticate to GitHub Packages, write the thin subclass the Gatling plugin needs, and supply configuration YAML.
+If you are iterating on the Rampage engine itself, or prefer not to depend on a published release, see xref:consuming-rampage.adoc[] for the Gradle composite-build alternative.
+
+The artefact is available from two locations:
+
+* *GitHub Packages*: `https://maven.pkg.github.com/bovinemagnet/rampage`
+* *Maven Local*: built and installed with `./gradlew publishToMavenLocal` from the Rampage repository
+
+== What the JAR contains and does not contain
+
+=== Contains
+
+* Engine packages: `io.rampage.factory.*`, `io.rampage.config.model.*`, `io.rampage.reporting.*`, `io.rampage.scaffold.*`
+* `io.rampage.simulation.RampageSimulation` — the base class your simulation subclasses
+
+=== Does not contain
+
+* `gatling.conf` or `logback.xml` — supply these via your own `src/gatling/resources/`
+* Default YAML resources (`environment.yaml`, `run.yaml`, `scenarios/`) — supply these via system properties or classpath resources in your own project
+* Gatling itself — provided at runtime by your Gatling Gradle plugin
+* Any JDBC driver — add H2, PostgreSQL, or whichever driver your SQL feeders need
+
+== Repository configuration
+
+=== Gradle (Kotlin DSL) — `settings.gradle.kts`
+
+[source,kotlin]
+----
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/bovinemagnet/rampage")
+            credentials {
+                username = providers.gradleProperty("gpr.user")
+                    .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                    .get()
+                password = providers.gradleProperty("gpr.key")
+                    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                    .get()
+            }
+        }
+    }
+}
+----
+
+=== Maven — `pom.xml` repository block
+
+[source,xml]
+----
+<repositories>
+  <repository>
+    <id>github-rampage</id>
+    <name>GitHub Packages — Rampage</name>
+    <url>https://maven.pkg.github.com/bovinemagnet/rampage</url>
+  </repository>
+</repositories>
+----
+
+For Maven, credentials go in `~/.m2/settings.xml`:
+
+[source,xml]
+----
+<server>
+  <id>github-rampage</id>
+  <username>${env.GITHUB_ACTOR}</username>
+  <password>${env.GITHUB_TOKEN}</password>
+</server>
+----
+
+NOTE: A GitHub personal access token with the `read:packages` scope is required. GitHub Packages requires authentication even for public packages.
+
+For local development without GitHub Packages, run `./gradlew publishToMavenLocal` inside the Rampage repository and add `mavenLocal()` to your repositories block.
+
+== Dependency declaration
+
+=== Gradle Kotlin DSL — `build.gradle.kts`
+
+[source,kotlin]
+----
+plugins {
+    java
+    id("io.gatling.gradle") version "3.15.0"
+}
+
+repositories {
+    mavenCentral()
+    // GitHub Packages repository declared in settings.gradle.kts above
+    // or mavenLocal() for local development
+}
+
+dependencies {
+    gatling("io.gatling.highcharts:gatling-charts-highcharts:3.15.0")
+
+    // Rampage engine
+    gatling("io.rampage:rampage:0.0.0")
+
+    // Add a JDBC driver if your scenarios use SQL feeders
+    // gatling("com.h2database:h2:2.4.240")
+    // gatling("org.postgresql:postgresql:42.7.8")
+}
+----
+
+NOTE: Jackson, SLF4J, Logback, and HikariCP are declared as POM runtime dependencies in the Rampage artefact and are pulled in automatically. You do not need to declare them explicitly unless you require a specific version override.
+
+=== Maven — `pom.xml` dependency
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.rampage</groupId>
+    <artifactId>rampage</artifactId>
+    <version>0.0.0</version>
+    <scope>provided</scope>
+</dependency>
+----
+
+[#_subclass_pattern]
+== Subclass pattern
+
+The Gatling plugin discovers simulations by scanning the classpath for `Simulation` subclasses. `RampageSimulation` is the base class — create a thin subclass in `src/gatling/java`:
+
+[source,java]
+----
+package com.example.loadtest;
+
+public class MyLoadTest extends io.rampage.simulation.RampageSimulation {
+    // No body needed. All behaviour is driven by YAML configuration.
+}
+----
+
+The class name (`MyLoadTest`) becomes the simulation name in Gatling reports.
+
+== Supplying configuration
+
+=== System properties (recommended for CI and local runs)
+
+Pass filesystem paths via system properties:
+
+[source,bash]
+----
+./gradlew gatlingRun \
+  -Dloadtest.env=config/environments/staging.yaml \
+  -Dloadtest.run=config/runs/smoke.yaml
+----
+
+=== Classpath resources (embedded defaults)
+
+Place `environment.yaml`, `run.yaml`, and `scenarios/<id>.yaml` in `src/gatling/resources/`. These are used when the system properties are absent, which is useful for a single self-contained test project.
+
+The scenario YAML files referenced by `run.yaml` are resolved as `scenarios/<id>.yaml` on the classpath. GraphQL query files and SQL feeder files are resolved filesystem-first, then classpath.
+
+See xref:configuration-reference.adoc[Configuration reference] for a full field listing.
+
+== JDBC drivers
+
+The Rampage JAR does not bundle any JDBC driver. Add the driver for your feeder database to the `gatling` configuration:
+
+[cols="1,2",options="header"]
+|===
+|Database
+|Gradle Kotlin DSL
+
+|H2 (in-process, local dev)
+|`gatling("com.h2database:h2:2.4.240")`
+
+|PostgreSQL
+|`gatling("org.postgresql:postgresql:42.7.8")`
+|===
+
+If no SQL feeder is configured, no driver is needed.
+
+== Releases and versioning
+
+Releases are published automatically from the `publish.yml` GitHub Actions workflow when a version tag (`v*`) is pushed to the repository. Use the latest published version from https://github.com/bovinemagnet/rampage/packages and replace `0.0.0` in the dependency coordinates with the actual release version.
+
+== Troubleshooting
+
+*Symptom*: `error: package io.gatling.* does not exist` +
+*Cause*: Gatling is `compileOnly` in the Rampage POM. The consumer must apply the Gatling Gradle plugin, which puts Gatling on the compile and runtime classpaths. +
+*Remedy*: Confirm `id("io.gatling.gradle")` is in your `plugins {}` block.
+
+---
+
+*Symptom*: Gradle resolution fails with HTTP 401 +
+*Cause*: Missing or expired credentials. GitHub Packages requires authentication even for public packages. +
+*Remedy*: Set `gpr.user` / `gpr.key` in `~/.gradle/gradle.properties` (never commit these), or export `GITHUB_ACTOR` / `GITHUB_TOKEN` environment variables. The token requires the `read:packages` scope.
+
+---
+
+*Symptom*: Gatling reports "No simulations found" or the `gatlingRun` task skips +
+*Cause*: No class extending `Simulation` is on the Gatling source set classpath. The thin subclass in `src/gatling/java` is missing or was not compiled. +
+*Remedy*: Create the subclass as shown in the <<_subclass_pattern>> section.
+
+---
+
+*Symptom*: Simulation runs but uses unexpected values; no `-Dloadtest.*` was passed +
+*Cause*: No system properties were set; Rampage falls back to classpath `environment.yaml` / `run.yaml`. +
+*Remedy*: Always pass `-Dloadtest.env` and `-Dloadtest.run` explicitly, or ensure the classpath resources in `src/gatling/resources/` reflect your intent.

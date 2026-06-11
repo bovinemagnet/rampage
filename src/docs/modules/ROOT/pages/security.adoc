@@ -232,7 +232,7 @@ Unresolved placeholders cause a validation failure consistent with the fail-fast
 
 == Fail-fast preflight
 
-`ConfigValidator` aggregates all credential and placeholder errors across the whole config before aborting. This means a single `gradle21w validateLoadTest` run reports every missing variable in one pass rather than one at a time.
+`ConfigValidator` aggregates all credential and placeholder errors across the whole config before aborting. This means a single `./gradlew validateLoadTest` run reports every missing variable in one pass rather than one at a time.
 
 Example error output when `API_TOKEN` is not set:
 

@@ -152,8 +152,8 @@ Additionally shipped (not in original feature list):
 Exit criteria:
 
 * A CI run uploads HTML report, `run-metadata.json`, and config snapshot as artefacts.
-* Antora docs build cleanly via `gradle21w antora`.
-* A new engineer can run `gradle21w newScenario -PscenarioId=foo` to bootstrap a YAML + GraphQL + SQL trio.
+* Antora docs build cleanly via `./gradlew antora`.
+* A new engineer can run `./gradlew newScenario -PscenarioId=foo` to bootstrap a YAML + GraphQL + SQL trio.
 
 == Platform evolution
 

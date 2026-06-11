@@ -31,7 +31,7 @@ Pass file paths on the Gradle command line:
 
 [source,bash]
 ----
-gradle21w gatlingRun \
+./gradlew gatlingRun \
   -Dloadtest.env=config/environments/local.yaml \
   -Dloadtest.run=config/runs/smoke.yaml
 ----
@@ -434,6 +434,6 @@ safety:
 
 == Auto-generated field reference
 
-The following section is generated from the model classes by `gradle21w generateSchemaDocs`. Re-run that task after model changes to update it.
+The following section is generated from the model classes by `./gradlew generateSchemaDocs`. Re-run that task after model changes to update it.
 
 include::partial$config-reference-generated.adoc[leveloffset=+1]
