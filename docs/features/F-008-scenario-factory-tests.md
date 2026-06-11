@@ -19,7 +19,7 @@
   - scenario headers applied
   - `operationName` included when set
 - [ ] Tests do not require a running HTTP server; assert on the `HttpRequestActionBuilder` shape or extract a testable seam.
-- [ ] Tests run under existing `gradle21w test` invocation.
+- [ ] Tests run under existing `./gradlew test` invocation.
 
 ## Implementation Notes
 

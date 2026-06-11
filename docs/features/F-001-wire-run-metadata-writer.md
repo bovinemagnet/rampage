@@ -10,7 +10,7 @@
 
 ## Acceptance Criteria
 
-- [ ] After a successful `gradle21w gatlingRun`, a file `run-metadata.json` is written under the resolved `reporting.outputDirectory` (default `build/reports/gatling/`).
+- [ ] After a successful `./gradlew gatlingRun`, a file `run-metadata.json` is written under the resolved `reporting.outputDirectory` (default `build/reports/gatling/`).
 - [ ] The file is written only when `reporting.writeRunMetadata: true`. When `false`, no file is produced.
 - [ ] The metadata includes: `runId`, `runName`, `environment`, `startedAt`, `gitCommit`, `gitBranch`, `scenarios[]` (id + name + tags), and `runMetadata` (owner/application/service/changeReference/description).
 - [ ] When `reporting.redactSecrets: true`, the metadata file contains no raw secret values — secret-sourced fields are absent or set to `***REDACTED***`.

@@ -9,7 +9,7 @@ PRD post-MVP AC-6 expects scenario templates to be generated from a CLI task. En
 
 ## Acceptance Criteria
 
-- [ ] `gradle21w newScenario -PscenarioId=customer-search` produces:
+- [ ] `./gradlew newScenario -PscenarioId=customer-search` produces:
   - `config/scenarios/customer-search.yaml`
   - `config/graphql/customer-search.graphql`
   - `config/queries/customer-search-data.sql`

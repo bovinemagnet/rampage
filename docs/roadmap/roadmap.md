@@ -128,8 +128,8 @@ Features:
 
 Exit criteria:
 - A CI run uploads HTML report, `run-metadata.json`, and config snapshot as artefacts.
-- Antora docs build cleanly via `gradle21w antora`.
-- A new engineer can run `gradle21w newScenario -PscenarioId=foo` to bootstrap a YAML + GraphQL + SQL trio.
+- Antora docs build cleanly via `./gradlew antora`.
+- A new engineer can run `./gradlew newScenario -PscenarioId=foo` to bootstrap a YAML + GraphQL + SQL trio.
 
 ## Platform evolution
 
@@ -200,6 +200,10 @@ This theme is the data foundation on which every other platform theme builds.
 - Wire the modelled-but-unused `includeRunMetadataHeaders` observability flag.
 
 **Impact:** Medium. **Effort:** Medium.
+
+### Follow-up briefs from the June 2026 review
+
+A full codebase review (June 2026) confirmed all M1–M4 features are genuinely implemented and produced follow-up briefs `F-039`–`F-045` in `docs/features/`, mapped to the themes above: console authentication, resource bounds, and web-resource tests (Theme 4), and engine refinements — per-request correlation IDs, HTTP status range checks, request-timeout overrides, and wiring or removing the unused feeder exhaustion fields (Theme 6). The same review delivered Maven library publishing: the engine plus `RampageSimulation` now publish as `io.rampage:rampage` to GitHub Packages on tag push.
 
 ### Sequencing note
 

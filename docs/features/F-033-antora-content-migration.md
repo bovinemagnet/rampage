@@ -15,7 +15,7 @@ Once `src/docs/` exists (F-032), the planning artefacts in `docs/review/`, `docs
 - [ ] Each feature brief becomes a page under `src/docs/modules/ROOT/pages/features/F-NNN-*.adoc`.
 - [ ] `nav.adoc` is updated with the new sections.
 - [ ] Cross-references between pages use `xref:module:page.adoc[]` syntax (per project convention).
-- [ ] `gradle21w antora` succeeds with no errors.
+- [ ] `./gradlew antora` succeeds with no errors.
 
 ## Implementation Notes
 

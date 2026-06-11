@@ -23,7 +23,7 @@ The architecture established in `RampageSimulation` plus the `*Factory` set is c
 
 | Aspect | Observed |
 |---|---|
-| Build | Gradle Kotlin DSL, Gradle Wrapper 9.5.1 (via `gradle21w`), Gatling plugin 3.13.5, Java 25 (Adoptium) |
+| Build | Gradle Kotlin DSL, Gradle Wrapper 9.5.1 (via `./gradlew`), Gatling plugin 3.13.5, Java 25 (Adoptium) |
 | Source sets | `main` (engine), `gatling` (simulation + classpath YAML), `test` (JUnit 5, AssertJ, Mockito) |
 | Tests | 42 passing — `ConfigLoaderTest`, `ConfigValidatorTest`, `FeederFactoryTest`, `SecretResolverTest`, `WorkloadFactoryTest`, `RunMetadataWriterTest` |
 | Sample configs | `src/gatling/resources/{environment,run,scenarios/*}.yaml` (classpath) and `config/{environments,runs,scenarios,queries,graphql}/*` (filesystem) |

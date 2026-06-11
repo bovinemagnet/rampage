@@ -9,7 +9,7 @@ PRD post-MVP AC-8 expects config schema documentation to be generated automatica
 
 ## Acceptance Criteria
 
-- [ ] A new Gradle task `gradle21w generateSchemaDocs` produces:
+- [ ] A new Gradle task `./gradlew generateSchemaDocs` produces:
   - `build/schema/environment.schema.json`, `run.schema.json`, `scenario.schema.json` (JSON Schema draft 2020-12).
   - `build/schema/reference.adoc` listing every field with type, default, required-or-optional, and any `@JsonProperty` description.
 - [ ] The generated AsciiDoc is wired into the Antora site under `src/docs/.../config-reference.adoc` (committed at release time, or referenced as a generated include).

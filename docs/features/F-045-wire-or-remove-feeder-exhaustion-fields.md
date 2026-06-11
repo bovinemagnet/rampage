@@ -1,0 +1,36 @@
+# F-045 — Wire or remove `feeder.onExhaustion` / `feeder.onMissingRequired`
+
+**Milestone:** Platform evolution — Theme 6 (Engine-level gaps)
+**PRD references:** §12, FDR-004
+**Traces to:** 2026-06 codebase review; F-023 acceptance criteria
+
+## Summary
+
+`FeederConfig` models `onExhaustion` (default `stop`) and `onMissingRequired` (default `fail`), and F-023 described `onExhaustion` semantics, but nothing in the engine reads either field. They are dead configuration: a user setting `onExhaustion: fail` gets no behaviour change and no error. The validator now logs a warning when a non-default value is set; this brief is the follow-through.
+
+## Acceptance Criteria
+
+Either wire them:
+
+- [ ] `onExhaustion: stop` — with `strategy: queue`, the scenario stops emitting requests when rows run out (current Gatling queue behaviour); `onExhaustion: fail` — the run fails with a clear message.
+- [ ] `onMissingRequired: fail` — a required feeder column whose value is null/absent fails the run at preload (extend the existing `FeederFactory` column validation); `onMissingRequired: skip` — the offending row is dropped with a logged count.
+- [ ] Validator accepts only the supported values; the "ignored field" warning is removed.
+
+Or remove them:
+
+- [ ] Fields deleted from `FeederConfig`, schema docs regenerated, any sample YAML cleaned up, and the F-023 brief annotated.
+
+Decide which path when picking the issue up; wiring is preferred if `strategy: queue` sees real use.
+
+## Implementation Notes
+
+- `FeederFactory.loadFromSql` already walks columns for required/session-key mapping — `onMissingRequired` slots in there.
+- Gatling's `queue()` strategy already stops the injector when exhausted; "fail" needs a row-count vs expected-iterations guard, which may only be approximable — document the limitation if so.
+
+## Out of scope
+
+- New exhaustion strategies (recycle-with-warning, etc.).
+
+## Suggested labels
+
+`area:feeder`, `type:enhancement`, `priority:low`

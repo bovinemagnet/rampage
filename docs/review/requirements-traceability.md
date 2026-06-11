@@ -91,9 +91,9 @@ Status legend:
 
 | Command | Status | Notes |
 |---|---|---|
-| `gradle21w validateLoadTest -Dloadtest.env=... -Dloadtest.run=...` | Done | Registered in `build.gradle.kts`; `ConfigValidatorMain` exits 0/1. |
-| `gradle21w gatlingRun -Dloadtest.env=... -Dloadtest.run=...` | Done | Provided by Gatling plugin; properties consumed by `ConfigLoader`. |
-| `gradle21w gatlingRun-<simulationClass>` | Done | Standard plugin behaviour. |
+| `./gradlew validateLoadTest -Dloadtest.env=... -Dloadtest.run=...` | Done | Registered in `build.gradle.kts`; `ConfigValidatorMain` exits 0/1. |
+| `./gradlew gatlingRun -Dloadtest.env=... -Dloadtest.run=...` | Done | Provided by Gatling plugin; properties consumed by `ConfigLoader`. |
+| `./gradlew gatlingRun-<simulationClass>` | Done | Standard plugin behaviour. |
 | `-Dloadtest.dryRun=true` | Done | Both the YAML flag and the system property gate `gatlingRun`; writes `dry-run-summary.json` (F-013). |
 
 ## Gradle Build Requirements (PRD §16)

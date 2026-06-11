@@ -94,6 +94,20 @@ Create labels for:
 
 **Exit:** Reports are useful artefacts; CI consumes them; engineers can spin up a new scenario in under 10 minutes.
 
+## Platform evolution — follow-up briefs (June 2026 review)
+
+A full codebase review in June 2026 confirmed F-001 through F-038 are implemented and raised the following follow-ups. They slot under the roadmap's "Platform evolution" themes rather than a new milestone.
+
+| ID | Title | Type | Priority |
+|---|---|---|---|
+| [F-039](F-039-console-authentication.md) | Console authentication | enhancement | high |
+| [F-040](F-040-console-resource-bounds.md) | Console resource bounds: run queue and process output | enhancement | medium |
+| [F-041](F-041-console-web-resource-tests.md) | Console web-resource test coverage | test | medium |
+| [F-042](F-042-per-request-correlation-id.md) | Optional per-request correlation ID | enhancement | low |
+| [F-043](F-043-http-status-range-checks.md) | HTTP status range checks | feature | low |
+| [F-044](F-044-request-timeout-override.md) | Per-scenario and per-step request timeout override | feature | low |
+| [F-045](F-045-wire-or-remove-feeder-exhaustion-fields.md) | Wire or remove `feeder.onExhaustion` / `onMissingRequired` | enhancement | low |
+
 ## Dependency notes
 
 - F-007 depends on F-001 landing first.
