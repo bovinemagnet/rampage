@@ -9,14 +9,14 @@
 
 ## Acceptance Criteria
 
-- [ ] `RunMetadataWriter` includes a per-scenario block:
+- [x] `RunMetadataWriter` includes a per-scenario block:
   - `effectiveWorkload`: type, rampUp, holdFor, rate (or users), source (`run|scenario-override`)
   - `effectiveAssertions`: scenario-level assertions actually applied
   - `feederRowCount`: rows preloaded (or `streaming` for direct mode)
   - `tags`
-- [ ] The aggregate block at the top of the file includes:
+- [x] The aggregate block at the top of the file includes:
   - `totalScenarios` (enabled), `totalRate` (sum across open-mode scenarios), `totalUsers` (sum across closed-mode scenarios)
-- [ ] Tests verify the schema.
+- [x] Tests verify the schema.
 
 ## Implementation Notes
 

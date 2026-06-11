@@ -14,14 +14,14 @@ PRD §6 lists `src/gatling/resources/{gatling.conf, logback.xml}` as expected fi
   - `INFO` for `io.rampage.*`
   - `WARN` for `io.gatling.*` and `io.netty.*`
   - `WARN` for `com.zaxxer.hikari.*`
-  - A console appender suitable for CI (no ANSI by default; `LOGBACK_ANSI` env var enables ANSI for local terminals).
+  - A console appender suitable for CI (no ANSI by default; `LOGBACK_ANSI` env var enables ANSI for local terminals). _(not implemented)_
   - Optional file appender to `build/reports/gatling/rampage.log`.
-- [ ] `src/gatling/resources/gatling.conf` overrides defaults to:
+- [x] `src/gatling/resources/gatling.conf` overrides defaults to:
   - Use the Highcharts reporter
   - Set reasonable connection pool sizes
   - Disable Gatling's "press enter" prompt on completion
-- [ ] CI run produces ≤ 50 lines of log noise per test run (excluding the run metadata summary).
-- [ ] Documented in `CLAUDE.md`.
+- [x] CI run produces ≤ 50 lines of log noise per test run (excluding the run metadata summary).
+- [ ] Documented in `CLAUDE.md`. _(not implemented)_
 
 ## Implementation Notes
 

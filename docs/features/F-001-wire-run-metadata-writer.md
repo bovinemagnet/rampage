@@ -10,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [ ] After a successful `./gradlew gatlingRun`, a file `run-metadata.json` is written under the resolved `reporting.outputDirectory` (default `build/reports/gatling/`).
-- [ ] The file is written only when `reporting.writeRunMetadata: true`. When `false`, no file is produced.
-- [ ] The metadata includes: `runId`, `runName`, `environment`, `startedAt`, `gitCommit`, `gitBranch`, `scenarios[]` (id + name + tags), and `runMetadata` (owner/application/service/changeReference/description).
-- [ ] When `reporting.redactSecrets: true`, the metadata file contains no raw secret values — secret-sourced fields are absent or set to `***REDACTED***`.
-- [ ] A unit or integration test asserts the file is produced and contains the expected top-level keys.
+- [x] After a successful `./gradlew gatlingRun`, a file `run-metadata.json` is written under the resolved `reporting.outputDirectory` (default `build/reports/gatling/`).
+- [x] The file is written only when `reporting.writeRunMetadata: true`. When `false`, no file is produced.
+- [x] The metadata includes: `runId`, `runName`, `environment`, `startedAt`, `gitCommit`, `gitBranch`, `scenarios[]` (id + name + tags), and `runMetadata` (owner/application/service/changeReference/description).
+- [x] When `reporting.redactSecrets: true`, the metadata file contains no raw secret values — secret-sourced fields are absent or set to `***REDACTED***`.
+- [x] A unit or integration test asserts the file is produced and contains the expected top-level keys.
 
 ## Implementation Notes
 

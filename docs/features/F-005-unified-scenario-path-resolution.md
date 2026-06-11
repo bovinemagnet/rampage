@@ -9,11 +9,11 @@
 
 ## Acceptance Criteria
 
-- [ ] `ConfigLoader` gains a single `loadScenario(ScenarioRef)` method that tries, in order: (1) the explicit `ref.file` as filesystem path, (2) the explicit `ref.file` as classpath path, (3) `scenarios/<ref.id>.yaml` as classpath path.
-- [ ] Both `ConfigValidatorMain` and `RampageSimulation` use this single method.
-- [ ] When the scenario cannot be loaded, the same exception type is thrown by both call sites, carrying the resolution attempts in the message.
-- [ ] Tests verify each of the three resolution paths and the failure mode.
-- [ ] Documentation in `CLAUDE.md` is updated to describe the resolution order.
+- [x] `ConfigLoader` gains a single `loadScenario(ScenarioRef)` method that tries, in order: (1) the explicit `ref.file` as filesystem path, (2) the explicit `ref.file` as classpath path, (3) `scenarios/<ref.id>.yaml` as classpath path.
+- [x] Both `ConfigValidatorMain` and `RampageSimulation` use this single method.
+- [x] When the scenario cannot be loaded, the same exception type is thrown by both call sites, carrying the resolution attempts in the message.
+- [x] Tests verify each of the three resolution paths and the failure mode.
+- [ ] Documentation in `CLAUDE.md` is updated to describe the resolution order. _(not implemented)_
 
 ## Implementation Notes
 

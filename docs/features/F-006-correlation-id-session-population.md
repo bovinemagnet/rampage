@@ -10,10 +10,10 @@
 
 ## Acceptance Criteria
 
-- [ ] When `environment.observability.correlationIdHeader` is set, every scenario virtual user has a unique `correlationId` available as a session attribute by the time the request is sent.
-- [ ] The format is `<runId>-<scenarioId>-<uuid>` (configurable later, but a reasonable default).
-- [ ] When `includeRunMetadataHeaders: true`, additional headers `X-Run-Id` and `X-Scenario-Id` are populated from session, not env.
-- [ ] Tests verify the session is populated and the header reaches the request builder.
+- [x] When `environment.observability.correlationIdHeader` is set, every scenario virtual user has a unique `correlationId` available as a session attribute by the time the request is sent.
+- [ ] The format is `<runId>-<scenarioId>-<uuid>` (configurable later, but a reasonable default). _(not implemented)_
+- [ ] When `includeRunMetadataHeaders: true`, additional headers `X-Run-Id` and `X-Scenario-Id` are populated from session, not env. _(not implemented)_
+- [ ] Tests verify the session is populated and the header reaches the request builder. _(not implemented — see [F-042](F-042-per-request-correlation-id.md))_
 
 ## Implementation Notes
 

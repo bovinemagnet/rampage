@@ -10,10 +10,10 @@
 
 ## Acceptance Criteria
 
-- [ ] `HttpProtocolFactory.build(env, ...)` calls `.requestTimeout(Duration.ofMillis(env.http.requestTimeoutMillis))` when configured.
-- [ ] `.connectTimeout(...)` is applied similarly (note: Gatling's `connectionTimeout` lives on the underlying client config).
-- [ ] `HttpConfig.followRedirects` is honoured via the Gatling builder.
-- [ ] Tests verify the builder is constructed with the expected values for representative `HttpConfig` inputs.
+- [x] `HttpProtocolFactory.build(env, ...)` calls `.requestTimeout(Duration.ofMillis(env.http.requestTimeoutMillis))` when configured.
+- [ ] `.connectTimeout(...)` is applied similarly (note: Gatling's `connectionTimeout` lives on the underlying client config). _(not implemented)_
+- [x] `HttpConfig.followRedirects` is honoured via the Gatling builder.
+- [ ] Tests verify the builder is constructed with the expected values for representative `HttpConfig` inputs. _(not implemented)_
 
 ## Implementation Notes
 

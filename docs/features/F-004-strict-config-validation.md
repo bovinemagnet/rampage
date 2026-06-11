@@ -12,16 +12,16 @@
 
 The validator throws a `ConfigValidationException` aggregating all errors when any of the following hold:
 
-- [ ] A scenario's `request.graphqlQueryFile` does not exist on filesystem or classpath.
-- [ ] A scenario's `feeder.sqlFile` does not exist on filesystem or classpath.
-- [ ] A scenario's `feeder.databaseRef` is not defined in `environment.databases`.
-- [ ] A `WorkloadConfig.type` is unknown (not in `smoke|baseline|ramp-and-hold|spike|stress|soak|constant`).
-- [ ] A `WorkloadConfig.rampUp` / `holdFor` / `duration` is a non-empty string that fails to parse (instead of silently defaulting).
-- [ ] A scenario with `safety.mutating: true` is targeted at an env where `safety.requireApprovalForMutatingRequests: true` and no explicit approval is provided (define an `approval` field on `ScenarioRef` or `run.safety`).
-- [ ] `RunSafetyConfig.failIfEnvironmentAllowsProduction: true` and `env.safety.allowProduction: true` together fail validation.
-- [ ] A scenario has no `checks` at all, unless it sets a new `safety.allowNoChecks: true` flag.
-- [ ] Production detection is stronger than `id.contains("prod")` — use an explicit `env.safety.isProduction: true` flag combined with the existing `allowProduction` check.
-- [ ] Tests cover each new validation rule with both failing and passing fixtures.
+- [x] A scenario's `request.graphqlQueryFile` does not exist on filesystem or classpath.
+- [x] A scenario's `feeder.sqlFile` does not exist on filesystem or classpath.
+- [x] A scenario's `feeder.databaseRef` is not defined in `environment.databases`.
+- [x] A `WorkloadConfig.type` is unknown (not in `smoke|baseline|ramp-and-hold|spike|stress|soak|constant`).
+- [x] A `WorkloadConfig.rampUp` / `holdFor` / `duration` is a non-empty string that fails to parse (instead of silently defaulting).
+- [x] A scenario with `safety.mutating: true` is targeted at an env where `safety.requireApprovalForMutatingRequests: true` and no explicit approval is provided (define an `approval` field on `ScenarioRef` or `run.safety`).
+- [x] `RunSafetyConfig.failIfEnvironmentAllowsProduction: true` and `env.safety.allowProduction: true` together fail validation.
+- [ ] A scenario has no `checks` at all, unless it sets a new `safety.allowNoChecks: true` flag. _(not implemented)_
+- [x] Production detection is stronger than `id.contains("prod")` — use an explicit `env.safety.isProduction: true` flag combined with the existing `allowProduction` check.
+- [x] Tests cover each new validation rule with both failing and passing fixtures.
 
 ## Implementation Notes
 

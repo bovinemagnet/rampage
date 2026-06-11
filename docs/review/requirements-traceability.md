@@ -1,7 +1,7 @@
 # Rampage — Requirements Traceability Matrix
 
 Author: Paul Snow
-Version: 0.0.0
+Version: 0.1.0
 Date: 2026-05-14
 Source PRD: `docs/prd/initial-prd.md`
 Last updated: 2026-05-14 — M1 + M2 + M3 + M4 features landed (F-001 through F-038).
@@ -46,7 +46,7 @@ Status legend:
 | SCN-004 | SQL-backed JDBC feeders | Done | `FeederFactory.loadFromSql` reads SQL from filesystem or classpath. |
 | SCN-005 | Feeder strategies (queue, shuffle, random, circular) | Done | All four strategies routed through Gatling's `FeederBuilder` (F-023). |
 | SCN-006 | Request-specific headers | Done | `ScenarioConfig.headers` are applied in `ScenarioFactory.build`. |
-| SCN-007 | HTTP status + JSONPath checks | Partial | `httpStatus`, `exists`, `absentOrEmpty`, `equalsSession` supported. No regex, no XPath, no JSON schema, no header checks. |
+| SCN-007 | HTTP status + JSONPath checks | Done | `httpStatus`, JSONPath (`exists`, `absentOrEmpty`, `equalsSession`, `equalsValue`), regex, header (`equals`/`matches`), `bodyContains`, `responseTimeMillis`, and extracts via `CheckFactory`; expectations validated by `ConfigValidator`. No XPath or JSON schema (beyond PRD scope; status ranges tracked as F-043). |
 | SCN-008 | Scenario-specific workload overrides | Done | `WorkloadFactory.effectiveWorkload` honours `scenario.workload.inheritFromRun=false` (F-017). |
 | SCN-009 | Mutating vs read-only marker | Done | `ScenarioSafetyConfig.mutating` enforced against `requireApprovalForMutatingRequests` + `run.safety.approveMutatingRequests` (F-014). |
 | SCN-010 | Tags for filtering and reporting | Partial | `tags` emitted in `run-metadata.json`, `dry-run-summary.json`, and the config snapshot (F-001, F-013, F-029); no scenario-filter CLI yet. |
@@ -113,14 +113,14 @@ Status legend:
 | # | Rule | Status |
 |---|---|---|
 | 1 | Required YAML files missing | Done (`ConfigLoader` throws) |
-| 2 | Unknown required fields / invalid enums | Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false`; workload type enum now validated (F-004) |
+| 2 | Unknown required fields / invalid enums | Partial — `FAIL_ON_UNKNOWN_PROPERTIES=false` (unknown YAML keys still ignored); enums validated for workload type, HTTP method, body type, feeder strategy, execution mode, extract type, and check expectations |
 | 3 | Missing GraphQL/SQL files | Done — `ConfigValidator` checks filesystem and classpath (F-004) |
 | 4 | Empty JDBC feeder with `failIfEmpty=true` | Partial — caught at feeder load, not in `ConfigValidator` |
 | 5 | Required secret cannot be resolved | Done — `SecretResolver` throws; `ConfigValidator` aggregates (F-002) |
 | 6 | Mutating scenario vs env disallowing mutation | Done — `requireApprovalForMutatingRequests` enforced (F-014) |
 | 7 | Production target without approval | Done — `isProduction` + `allowProduction` + `failIfEnvironmentAllowsProduction` (F-004 + F-014) |
 | 8 | Invalid workload duration/rate | Partial — strict duration parser validates rampUp/holdFor/duration (F-004); rate value sanity checks missing |
-| 9 | Malformed assertions | Missing |
+| 9 | Malformed assertions | Done — thresholds range-checked (negative times rejected, error percentage 0–100, global and scenario level); assertions naming unknown scenarios rejected |
 | 10 | Scenario with no checks | Missing |
 
 ## Reporting (PRD §19)

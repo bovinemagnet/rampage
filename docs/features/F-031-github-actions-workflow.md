@@ -9,16 +9,16 @@ There is no `.github/workflows/` directory in the repo. To meet PRD post-MVP AC-
 
 ## Acceptance Criteria
 
-- [ ] `.github/workflows/ci.yml` runs on push and pull request to `main`:
+- [x] `.github/workflows/ci.yml` runs on push and pull request to `main`:
   - Set up Java 25 (Adoptium) via `actions/setup-java`.
   - Run `./gradlew build test` (using the wrapper, not `./gradlew`, since CI does not have the user's symlink).
   - Upload `build/reports/tests/test/` as an artefact on failure.
-- [ ] `.github/workflows/smoke.yml` (manual `workflow_dispatch`):
+- [x] `.github/workflows/smoke.yml` (manual `workflow_dispatch`):
   - Same setup.
   - Runs `./gradlew gatlingRun -Dloadtest.env=config/environments/local.yaml -Dloadtest.run=config/runs/smoke.yaml`.
   - Requires `API_TOKEN` and DB credentials as repo secrets — fails fast (via F-002) if not present.
   - Uploads `build/reports/gatling/` (HTML report, `run-metadata.json`, config snapshot) as artefacts.
-- [ ] Both workflows pass at least once on `main`.
+- [ ] Both workflows pass at least once on `main`. _(not implemented)_
 
 ## Implementation Notes
 

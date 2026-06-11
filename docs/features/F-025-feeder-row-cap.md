@@ -9,11 +9,11 @@ A misconfigured SQL query (e.g. forgotten `WHERE`) can preload millions of rows 
 
 ## Acceptance Criteria
 
-- [ ] New field `FeederConfig.maxRows: int` (default `10000`).
-- [ ] When a preload query returns more rows than `maxRows`, the loader stops at the cap and logs WARN.
-- [ ] When `failIfOverLimit: true` (new optional field), the loader throws instead of truncating.
-- [ ] Direct mode (F-024) also honours `maxRows` by counting pulls.
-- [ ] Tests cover truncate, fail-on-limit, and unlimited (`maxRows: 0`).
+- [x] New field `FeederConfig.maxRows: int` (default `10000`).
+- [x] When a preload query returns more rows than `maxRows`, the loader stops at the cap and logs WARN.
+- [x] When `failIfOverLimit: true` (new optional field), the loader throws instead of truncating.
+- [x] Direct mode (F-024) also honours `maxRows` by counting pulls.
+- [ ] Tests cover truncate, fail-on-limit, and unlimited (`maxRows: 0`). _(not implemented — truncate and fail-on-limit are tested; the unlimited `maxRows: 0` case is not)_
 
 ## Implementation Notes
 

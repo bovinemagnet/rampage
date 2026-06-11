@@ -10,11 +10,11 @@ PRD §12.1 names two execution modes: preload and direct JDBC. Today only preloa
 
 ## Acceptance Criteria
 
-- [ ] When `feeder.preload: false`, the feeder streams rows from the JDBC connection lazily, one row per Gatling pull.
-- [ ] The connection is borrowed from the HikariCP pool (depends on F-009), held by a `ResultSet` cursor, and released when the result set is exhausted or the simulation ends.
-- [ ] Concurrency is bounded by the pool size; if N scenarios use direct mode against the same `databaseRef`, they share connections via the pool, not by opening one each.
-- [ ] PRD §12.2 recommends preload as the default — preserve that default behaviour.
-- [ ] Tests cover: streaming exhaustion behaviour, pool sharing, error paths.
+- [x] When `feeder.preload: false`, the feeder streams rows from the JDBC connection lazily, one row per Gatling pull.
+- [x] The connection is borrowed from the HikariCP pool (depends on F-009), held by a `ResultSet` cursor, and released when the result set is exhausted or the simulation ends.
+- [x] Concurrency is bounded by the pool size; if N scenarios use direct mode against the same `databaseRef`, they share connections via the pool, not by opening one each.
+- [x] PRD §12.2 recommends preload as the default — preserve that default behaviour.
+- [ ] Tests cover: streaming exhaustion behaviour, pool sharing, error paths. _(not implemented — exhaustion and pool sharing are tested; streaming error paths are not)_
 
 ## Implementation Notes
 

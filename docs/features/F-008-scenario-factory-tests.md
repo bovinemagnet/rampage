@@ -9,7 +9,7 @@
 
 ## Acceptance Criteria
 
-- [ ] `ScenarioFactoryTest` exists and covers:
+- [ ] `ScenarioFactoryTest` exists and covers: _(not implemented — check kinds, missing-checks and scenario-header coverage live only in the F-038 WireMock integration test, not in `ScenarioFactoryTest`)_
   - building a scenario with no feeder placeholders
   - building a scenario with `${feeder:X}` placeholders
   - boolean and number variables (depends on F-003)
@@ -18,8 +18,8 @@
   - missing `checks` block → no checks attached (until F-004 forbids it)
   - scenario headers applied
   - `operationName` included when set
-- [ ] Tests do not require a running HTTP server; assert on the `HttpRequestActionBuilder` shape or extract a testable seam.
-- [ ] Tests run under existing `./gradlew test` invocation.
+- [x] Tests do not require a running HTTP server; assert on the `HttpRequestActionBuilder` shape or extract a testable seam.
+- [x] Tests run under existing `./gradlew test` invocation.
 
 ## Implementation Notes
 

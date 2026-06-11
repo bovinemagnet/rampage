@@ -9,11 +9,11 @@
 
 ## Acceptance Criteria
 
-- [ ] After the first row is read, the loader verifies that every declared column in `feeder.columns` is present in `ResultSetMetaData` (case-insensitive label match). Missing columns fail the load.
-- [ ] For each row, columns with `required: true` must have non-null values. Null values fail the load (or skip the row, configurable via `onMissingRequired: fail|skip`, default `fail`).
-- [ ] Column type is loosely validated (`type: string` accepts anything stringifiable; `type: integer` requires numeric; etc.) — start with `string|integer|long|boolean|date` and document.
-- [ ] `sessionKey` is honoured: rows are rewritten so the named key (rather than the SQL column label) appears in the Gatling session.
-- [ ] Tests cover: missing column, null required value, type mismatch, `sessionKey` mapping.
+- [x] After the first row is read, the loader verifies that every declared column in `feeder.columns` is present in `ResultSetMetaData` (case-insensitive label match). Missing columns fail the load.
+- [x] For each row, columns with `required: true` must have non-null values. Null values fail the load (or skip the row, configurable via `onMissingRequired: fail|skip`, default `fail`).
+- [ ] Column type is loosely validated (`type: string` accepts anything stringifiable; `type: integer` requires numeric; etc.) — start with `string|integer|long|boolean|date` and document. _(not implemented)_
+- [x] `sessionKey` is honoured: rows are rewritten so the named key (rather than the SQL column label) appears in the Gatling session.
+- [ ] Tests cover: missing column, null required value, type mismatch, `sessionKey` mapping. _(not implemented — missing-column and `sessionKey` tests exist; null-required and type-mismatch tests do not)_
 
 ## Implementation Notes
 

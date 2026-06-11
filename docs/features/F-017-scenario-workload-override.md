@@ -10,10 +10,10 @@
 
 ## Acceptance Criteria
 
-- [ ] When a scenario sets `workload.inheritFromRun: false`, `WorkloadFactory.buildInjection` is called with that scenario's `ScenarioWorkloadConfig` translated into a `WorkloadConfig`.
-- [ ] When `inheritFromRun: true` (default), the run-level workload is used (existing behaviour).
-- [ ] When `inheritFromRun: false` and the scenario has no usable workload fields (no type, no rate), validation fails (F-004 territory).
-- [ ] Tests cover all three cases.
+- [x] When a scenario sets `workload.inheritFromRun: false`, `WorkloadFactory.buildInjection` is called with that scenario's `ScenarioWorkloadConfig` translated into a `WorkloadConfig`.
+- [x] When `inheritFromRun: true` (default), the run-level workload is used (existing behaviour).
+- [ ] When `inheritFromRun: false` and the scenario has no usable workload fields (no type, no rate), validation fails (F-004 territory). _(not implemented)_
+- [ ] Tests cover all three cases. _(not implemented)_
 
 ## Implementation Notes
 

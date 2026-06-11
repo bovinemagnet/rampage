@@ -9,11 +9,11 @@ Gatling's default behaviour can log request and response bodies on failure. If t
 
 ## Acceptance Criteria
 
-- [ ] A new `ScenarioConfig.security.sensitiveFields: List<String>` enumerates JSONPath expressions whose values must be redacted from any logged body.
-- [ ] A logback filter (or Gatling logger interceptor) replaces matching values with `***REDACTED***` in stdout, file, and HTML report failure dumps.
-- [ ] When `reporting.redactSecrets: true`, the redaction layer is active by default — `sensitiveFields` adds to the base set (feeder column values that map to declared columns with `sensitive: true`).
-- [ ] New optional flag on `ColumnConfig`: `sensitive: boolean` — feeder values for such columns are added to the redaction set.
-- [ ] Tests cover the redaction transform on representative bodies.
+- [x] A new `ScenarioConfig.security.sensitiveFields: List<String>` enumerates JSONPath expressions whose values must be redacted from any logged body.
+- [ ] A logback filter (or Gatling logger interceptor) replaces matching values with `***REDACTED***` in stdout, file, and HTML report failure dumps. _(not implemented)_
+- [ ] When `reporting.redactSecrets: true`, the redaction layer is active by default — `sensitiveFields` adds to the base set (feeder column values that map to declared columns with `sensitive: true`). _(not implemented)_
+- [x] New optional flag on `ColumnConfig`: `sensitive: boolean` — feeder values for such columns are added to the redaction set.
+- [x] Tests cover the redaction transform on representative bodies.
 
 ## Implementation Notes
 

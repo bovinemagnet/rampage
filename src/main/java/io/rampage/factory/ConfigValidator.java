@@ -27,6 +27,9 @@ public class ConfigValidator {
     private static final Set<String> KNOWN_EXECUTION_MODES = Set.of(
         "open", "closed");
 
+    private static final Set<String> KNOWN_ON_MISSING_REQUIRED = Set.of(
+        "fail", "skip");
+
     private static final Set<String> KNOWN_EXTRACT_TYPES = Set.of(
         "jsonpath", "regex", "header", "body");
 
@@ -224,15 +227,17 @@ public class ConfigValidator {
                 && !KNOWN_FEEDER_STRATEGIES.contains(strategy.toLowerCase(Locale.ROOT))) {
                 errors.add(scPath + ".feeder.strategy '" + strategy + "' is not one of " + KNOWN_FEEDER_STRATEGIES);
             }
-            // These fields are modelled but not yet honoured by the engine — warn rather
-            // than error so existing configs keep validating.
+            String onMissingRequired = feeder.getOnMissingRequired();
+            if (onMissingRequired != null && !onMissingRequired.isBlank()
+                && !KNOWN_ON_MISSING_REQUIRED.contains(onMissingRequired.toLowerCase(Locale.ROOT))) {
+                errors.add(scPath + ".feeder.onMissingRequired '" + onMissingRequired
+                    + "' is not one of " + KNOWN_ON_MISSING_REQUIRED);
+            }
+            // onExhaustion is modelled but not yet honoured by the engine (F-045) —
+            // warn rather than error so existing configs keep validating.
             if (feeder.getOnExhaustion() != null && !"stop".equalsIgnoreCase(feeder.getOnExhaustion())) {
                 log.warn("{}.feeder.onExhaustion '{}' is not yet honoured by the engine and will be ignored",
                     scPath, feeder.getOnExhaustion());
-            }
-            if (feeder.getOnMissingRequired() != null && !"fail".equalsIgnoreCase(feeder.getOnMissingRequired())) {
-                log.warn("{}.feeder.onMissingRequired '{}' is not yet honoured by the engine and will be ignored",
-                    scPath, feeder.getOnMissingRequired());
             }
         }
 

@@ -9,10 +9,10 @@ PRD §16 references Gatling plugin `3.15.0.2`. We are on `3.13.5`. Upgrade is lo
 
 ## Acceptance Criteria
 
-- [ ] `build.gradle.kts` sets the Gatling plugin and `gatling-charts-highcharts` to the latest stable version on Maven Central at the time of the upgrade.
-- [ ] All existing unit tests pass.
-- [ ] A real `gatlingRun` against the sample smoke config succeeds end-to-end.
-- [ ] Any deprecation warnings are addressed or documented.
+- [x] `build.gradle.kts` sets the Gatling plugin and `gatling-charts-highcharts` to the latest stable version on Maven Central at the time of the upgrade.
+- [x] All existing unit tests pass.
+- [x] A real `gatlingRun` against the sample smoke config succeeds end-to-end.
+- [x] Any deprecation warnings are addressed or documented.
 
 ## Implementation Notes
 

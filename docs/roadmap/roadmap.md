@@ -1,7 +1,7 @@
 # Rampage — Roadmap
 
 Author: Paul Snow
-Version: 0.0.0
+Version: 0.1.0
 Date: 2026-05-14
 Source PRD: `docs/prd/initial-prd.md`
 Source Review: `docs/review/code-review.md`, `docs/review/requirements-traceability.md`
@@ -12,9 +12,11 @@ Deliver a reusable, configuration-driven Gatling load testing framework where en
 
 ## Current State (snapshot)
 
-PRD Phase 2 (YAML Loading) is complete; Phases 3–5 are partially implemented; Phase 6 (Reporting and CI) has only the disconnected `RunMetadataWriter`. See `docs/review/requirements-traceability.md` for the line-by-line status.
+All four milestones (M1–M4) are complete: features F-001 through F-038 are implemented, tested, and verified by a full codebase review in June 2026. The framework also publishes as a Maven library (`io.rampage:rampage`) to GitHub Packages. See `docs/review/requirements-traceability.md` for the line-by-line PRD status and `docs/features/README.md` for per-feature state.
 
-The MVP backbone runs end-to-end against a hand-rolled environment, but does not yet meet MVP acceptance criteria 4, 7, and 10 honestly.
+Active work has moved to the platform evolution themes below; Theme 1 (results store) is in progress, and follow-up briefs F-039–F-045 capture the remaining engine and console refinements.
+
+> Historical note: the original May 2026 snapshot read "Phases 3–5 partially implemented; Phase 6 has only the disconnected `RunMetadataWriter`" — that state was closed out by M1–M4.
 
 ## Milestones
 
@@ -203,7 +205,7 @@ This theme is the data foundation on which every other platform theme builds.
 
 ### Follow-up briefs from the June 2026 review
 
-A full codebase review (June 2026) confirmed all M1–M4 features are genuinely implemented and produced follow-up briefs `F-039`–`F-045` in `docs/features/`, mapped to the themes above: console authentication, resource bounds, and web-resource tests (Theme 4), and engine refinements — per-request correlation IDs, HTTP status range checks, request-timeout overrides, and wiring or removing the unused feeder exhaustion fields (Theme 6). The same review delivered Maven library publishing: the engine plus `RampageSimulation` now publish as `io.rampage:rampage` to GitHub Packages on tag push.
+A full codebase review (June 2026) confirmed all M1–M4 features are genuinely implemented and produced follow-up briefs `F-039`–`F-045` in `docs/features/`, mapped to the themes above: console authentication, resource bounds, and web-resource tests (Theme 4), and engine refinements — per-request correlation IDs, HTTP status range checks, request-timeout overrides, and wiring or removing the unused feeder onExhaustion field (Theme 6). The same review delivered Maven library publishing: the engine plus `RampageSimulation` now publish as `io.rampage:rampage` to GitHub Packages on tag push.
 
 ### Sequencing note
 

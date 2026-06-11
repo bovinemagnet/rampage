@@ -10,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] GraphQL request body is built with a `Map<String,Object>` and serialised by Jackson `ObjectMapper`.
-- [ ] YAML-typed values (boolean, number, null, string, list, map) round-trip into JSON with the correct type.
-- [ ] `${feeder:name}` placeholders remain Gatling EL `#{name}` after serialisation — the EL string survives Jackson without further escaping (note: Jackson will quote `#{name}` which is what we want, since Gatling will substitute the string after body assembly).
-- [ ] The `operationName` field on `ScenarioConfig`, currently unused, is included in the JSON body when set.
-- [ ] Unicode (e.g. `"naïve"`) in the GraphQL query string is preserved verbatim in the JSON body.
-- [ ] New `ScenarioFactoryTest` covers: string/boolean/number/null variables, Unicode in query, presence/absence of `operationName`, presence/absence of feeder placeholders.
+- [x] GraphQL request body is built with a `Map<String,Object>` and serialised by Jackson `ObjectMapper`.
+- [x] YAML-typed values (boolean, number, null, string, list, map) round-trip into JSON with the correct type.
+- [x] `${feeder:name}` placeholders remain Gatling EL `#{name}` after serialisation — the EL string survives Jackson without further escaping (note: Jackson will quote `#{name}` which is what we want, since Gatling will substitute the string after body assembly).
+- [x] The `operationName` field on `ScenarioConfig`, currently unused, is included in the JSON body when set.
+- [x] Unicode (e.g. `"naïve"`) in the GraphQL query string is preserved verbatim in the JSON body.
+- [x] New `ScenarioFactoryTest` covers: string/boolean/number/null variables, Unicode in query, presence/absence of `operationName`, presence/absence of feeder placeholders.
 
 ## Implementation Notes
 

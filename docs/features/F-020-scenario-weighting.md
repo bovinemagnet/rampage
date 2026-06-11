@@ -9,12 +9,12 @@
 
 ## Acceptance Criteria
 
-- [ ] Weights are interpreted as relative proportions of the run-level rate.
-- [ ] For open-model, the per-scenario rate is `runRate * weight / sum(weights)`.
-- [ ] For closed-model, the per-scenario user count is `runUsers * weight / sum(weights)`, with at least 1 user per enabled scenario.
-- [ ] Disabled scenarios are excluded from the weight sum.
-- [ ] Scenarios with their own workload override (F-017) are excluded from the weighted split and their override is honoured as-is.
-- [ ] Tests cover: equal weights, skewed weights, single scenario, mixed override+weighted.
+- [x] Weights are interpreted as relative proportions of the run-level rate.
+- [x] For open-model, the per-scenario rate is `runRate * weight / sum(weights)`.
+- [x] For closed-model, the per-scenario user count is `runUsers * weight / sum(weights)`, with at least 1 user per enabled scenario.
+- [x] Disabled scenarios are excluded from the weight sum.
+- [x] Scenarios with their own workload override (F-017) are excluded from the weighted split and their override is honoured as-is.
+- [ ] Tests cover: equal weights, skewed weights, single scenario, mixed override+weighted. _(not implemented — only the `scaleWorkload` maths is unit-tested; the weighted-split cases in `RampageSimulation` are not covered)_
 
 ## Implementation Notes
 

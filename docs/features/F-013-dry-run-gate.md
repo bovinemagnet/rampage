@@ -10,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [ ] When `run.safety.dryRun: true` (or `-Dloadtest.dryRun=true`), `RampageSimulation` performs all loading, validation, feeder preload, and protocol/scenario construction, then exits **before** calling `setUp(...)`.
-- [ ] A summary is printed to stdout: env id, run id, scenarios, expected workload shape, feeder row counts, resolved global assertions.
-- [ ] The summary is also written as `dry-run-summary.json` under `reporting.outputDirectory`.
-- [ ] The Gradle task `validateLoadTest` calls the same dry-run code path (or is documented as equivalent).
-- [ ] Tests cover the dry-run path with and without each toggle.
+- [ ] When `run.safety.dryRun: true` (or `-Dloadtest.dryRun=true`), `RampageSimulation` performs all loading, validation, feeder preload, and protocol/scenario construction, then exits **before** calling `setUp(...)`. _(not implemented)_
+- [ ] A summary is printed to stdout: env id, run id, scenarios, expected workload shape, feeder row counts, resolved global assertions. _(not implemented)_
+- [x] The summary is also written as `dry-run-summary.json` under `reporting.outputDirectory`.
+- [x] The Gradle task `validateLoadTest` calls the same dry-run code path (or is documented as equivalent).
+- [ ] Tests cover the dry-run path with and without each toggle. _(not implemented)_
 
 ## Implementation Notes
 

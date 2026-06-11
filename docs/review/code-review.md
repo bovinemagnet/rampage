@@ -1,7 +1,7 @@
 # Rampage — Code Review
 
 Author: Paul Snow
-Version: 0.0.0
+Version: 0.1.0
 Date: 2026-05-14
 Scope: Full repository review against `docs/prd/initial-prd.md`.
 

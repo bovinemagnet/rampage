@@ -10,11 +10,11 @@ HikariCP is declared in `build.gradle.kts` but `FeederFactory.loadFromSql` uses 
 
 ## Acceptance Criteria
 
-- [ ] `FeederFactory` obtains connections from a `HikariDataSource` constructed from `DatabaseConfig`.
-- [ ] `PoolConfig.maximumPoolSize`, `connectionTimeoutMillis`, `idleTimeoutMillis` are applied to the Hikari config.
-- [ ] One `HikariDataSource` per unique `databaseRef`, cached for the simulation lifetime; closed at simulation end.
-- [ ] Pool stats (active, idle, awaiting) are logged at INFO at simulation start and end.
-- [ ] Tests cover: pool construction from `DatabaseConfig`, reuse of pool across scenarios, no double-close.
+- [x] `FeederFactory` obtains connections from a `HikariDataSource` constructed from `DatabaseConfig`.
+- [x] `PoolConfig.maximumPoolSize`, `connectionTimeoutMillis`, `idleTimeoutMillis` are applied to the Hikari config.
+- [x] One `HikariDataSource` per unique `databaseRef`, cached for the simulation lifetime; closed at simulation end.
+- [x] Pool stats (active, idle, awaiting) are logged at INFO at simulation start and end.
+- [x] Tests cover: pool construction from `DatabaseConfig`, reuse of pool across scenarios, no double-close.
 
 ## Implementation Notes
 

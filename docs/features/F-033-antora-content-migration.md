@@ -9,13 +9,13 @@ Once `src/docs/` exists (F-032), the planning artefacts in `docs/review/`, `docs
 
 ## Acceptance Criteria
 
-- [ ] `src/docs/modules/ROOT/pages/reference/code-review.adoc` mirrors `docs/review/code-review.md`.
-- [ ] `src/docs/modules/ROOT/pages/reference/requirements-traceability.adoc` mirrors `docs/review/requirements-traceability.md`.
-- [ ] `src/docs/modules/ROOT/pages/reference/roadmap.adoc` mirrors `docs/roadmap/roadmap.md`.
-- [ ] Each feature brief becomes a page under `src/docs/modules/ROOT/pages/features/F-NNN-*.adoc`.
-- [ ] `nav.adoc` is updated with the new sections.
-- [ ] Cross-references between pages use `xref:module:page.adoc[]` syntax (per project convention).
-- [ ] `./gradlew antora` succeeds with no errors.
+- [x] `src/docs/modules/ROOT/pages/reference/code-review.adoc` mirrors `docs/review/code-review.md`.
+- [x] `src/docs/modules/ROOT/pages/reference/requirements-traceability.adoc` mirrors `docs/review/requirements-traceability.md`.
+- [x] `src/docs/modules/ROOT/pages/reference/roadmap.adoc` mirrors `docs/roadmap/roadmap.md`.
+- [ ] Each feature brief becomes a page under `src/docs/modules/ROOT/pages/features/F-NNN-*.adoc`. _(not implemented)_
+- [x] `nav.adoc` is updated with the new sections.
+- [x] Cross-references between pages use `xref:module:page.adoc[]` syntax (per project convention).
+- [x] `./gradlew antora` succeeds with no errors.
 
 ## Implementation Notes
 

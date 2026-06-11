@@ -9,11 +9,11 @@ PRD §19 calls for a "sanitised resolved configuration snapshot" alongside the r
 
 ## Acceptance Criteria
 
-- [ ] When `reporting.includeConfigSnapshot: true`, a file `config-snapshot.yaml` (or `.json`) is written to the reporting directory containing the merged, resolved env/run/scenario configuration.
-- [ ] Secret values are redacted using the mechanism delivered in F-007.
-- [ ] The snapshot includes the resolved effective workload per scenario (computed by F-017 / F-020).
-- [ ] When `reporting.includeConfigSnapshot: false`, no snapshot is written (default `false` for backwards compatibility, but recommend `true` in new sample YAMLs).
-- [ ] Tests cover the redaction and the per-scenario effective-workload section.
+- [x] When `reporting.includeConfigSnapshot: true`, a file `config-snapshot.yaml` (or `.json`) is written to the reporting directory containing the merged, resolved env/run/scenario configuration.
+- [x] Secret values are redacted using the mechanism delivered in F-007.
+- [x] The snapshot includes the resolved effective workload per scenario (computed by F-017 / F-020).
+- [x] When `reporting.includeConfigSnapshot: false`, no snapshot is written (default `false` for backwards compatibility, but recommend `true` in new sample YAMLs).
+- [x] Tests cover the redaction and the per-scenario effective-workload section.
 
 ## Implementation Notes
 

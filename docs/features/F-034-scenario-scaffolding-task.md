@@ -9,14 +9,14 @@ PRD post-MVP AC-6 expects scenario templates to be generated from a CLI task. En
 
 ## Acceptance Criteria
 
-- [ ] `./gradlew newScenario -PscenarioId=customer-search` produces:
+- [x] `./gradlew newScenario -PscenarioId=customer-search` produces:
   - `config/scenarios/customer-search.yaml`
   - `config/graphql/customer-search.graphql`
   - `config/queries/customer-search-data.sql`
-- [ ] The generated files contain TODO comments where the user must fill in details (operation name, variables, feeder columns).
-- [ ] The task refuses to overwrite an existing scenario file unless `-PallowOverwrite=true`.
-- [ ] The task can also operate from templates under `config/templates/` (overridable defaults).
-- [ ] Documented in the Antora "Getting Started" page.
+- [x] The generated files contain TODO comments where the user must fill in details (operation name, variables, feeder columns).
+- [x] The task refuses to overwrite an existing scenario file unless `-PallowOverwrite=true`.
+- [x] The task can also operate from templates under `config/templates/` (overridable defaults).
+- [x] Documented in the Antora "Getting Started" page.
 
 ## Implementation Notes
 

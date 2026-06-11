@@ -9,14 +9,14 @@ PRD §11 lists `baseline` as a workload type, and RUN-003 requires closed-model 
 
 ## Acceptance Criteria
 
-- [ ] `WorkloadConfig.type: baseline` is accepted and emits a constant-rate profile sized to the established "normal" traffic for the SUT (no special logic; alias for `constant` with documentation).
-- [ ] `ExecutionConfig.mode: closed` is accepted alongside `open`.
-- [ ] In closed mode, `WorkloadFactory` emits `ClosedInjectionStep[]` instead of `OpenInjectionStep[]`. Supported shapes:
+- [x] `WorkloadConfig.type: baseline` is accepted and emits a constant-rate profile sized to the established "normal" traffic for the SUT (no special logic; alias for `constant` with documentation).
+- [x] `ExecutionConfig.mode: closed` is accepted alongside `open`.
+- [x] In closed mode, `WorkloadFactory` emits `ClosedInjectionStep[]` instead of `OpenInjectionStep[]`. Supported shapes:
   - `atOnceUsers(N)` for smoke
   - `constantConcurrentUsers(N).during(D)` for soak/constant
   - `rampConcurrentUsers(from).to(to).during(D)` for ramp-and-hold
-- [ ] `RampageSimulation` chooses `injectOpen` vs `injectClosed` based on `ExecutionConfig.mode`.
-- [ ] Tests cover open and closed expansions for each workload type that supports both.
+- [x] `RampageSimulation` chooses `injectOpen` vs `injectClosed` based on `ExecutionConfig.mode`.
+- [x] Tests cover open and closed expansions for each workload type that supports both.
 
 ## Implementation Notes
 

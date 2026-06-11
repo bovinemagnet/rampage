@@ -10,10 +10,10 @@
 
 ## Acceptance Criteria
 
-- [ ] Each `PopulationBuilder` may be associated with its own `HttpProtocolBuilder` derived from its scenario's `endpointRef`.
-- [ ] In Gatling Java DSL: `population.protocols(scenarioProtocol)` (per-population), not `setUp(...).protocols(...)`.
-- [ ] Tests cover a two-scenario run with different `baseUrls`.
-- [ ] Documentation: a single shared protocol is still emitted when all scenarios share the same `endpointRef` (small optimisation, not required).
+- [x] Each `PopulationBuilder` may be associated with its own `HttpProtocolBuilder` derived from its scenario's `endpointRef`.
+- [x] In Gatling Java DSL: `population.protocols(scenarioProtocol)` (per-population), not `setUp(...).protocols(...)`.
+- [ ] Tests cover a two-scenario run with different `baseUrls`. _(not implemented — no two-scenario different-`baseUrls` test exists)_
+- [x] Documentation: a single shared protocol is still emitted when all scenarios share the same `endpointRef` (small optimisation, not required).
 
 ## Implementation Notes
 

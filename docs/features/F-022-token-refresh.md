@@ -9,10 +9,10 @@ Tokens captured at simulation init may expire during long soak or stress runs. E
 
 ## Acceptance Criteria
 
-- [ ] When the token provider reports an expiry (`expires_in` in OAuth response or a static TTL configured via `SecurityConfig.token.ttlSeconds`), the framework refreshes the token before expiry.
-- [ ] Refresh happens in a background scheduled executor; refresh failures are logged as ERROR and trigger a configurable behaviour: `onRefreshFailure: continue|stop` (default `continue`).
-- [ ] Once refreshed, subsequent Gatling requests pick up the new token via session attribute or a builder-level header function.
-- [ ] Tests cover: refresh before expiry, refresh failure with `continue`, refresh failure with `stop`.
+- [ ] When the token provider reports an expiry (`expires_in` in OAuth response or a static TTL configured via `SecurityConfig.token.ttlSeconds`), the framework refreshes the token before expiry. _(not implemented — `SecurityConfig.token.ttlSeconds` is not modelled; OAuth `expires_in`-based refresh-before-expiry is implemented)_
+- [x] Refresh happens in a background scheduled executor; refresh failures are logged as ERROR and trigger a configurable behaviour: `onRefreshFailure: continue|stop` (default `continue`).
+- [x] Once refreshed, subsequent Gatling requests pick up the new token via session attribute or a builder-level header function.
+- [x] Tests cover: refresh before expiry, refresh failure with `continue`, refresh failure with `stop`.
 
 ## Implementation Notes
 

@@ -10,11 +10,11 @@ PRD §14 specifies a five-level header precedence: framework-required, environme
 
 ## Acceptance Criteria
 
-- [ ] A merge step computes the effective headers for each scenario request, layered framework → env → run → scenario → request.
-- [ ] If a scenario attempts to set a header in a protected set (default: `Authorization`, the configured `correlationIdHeader`), validation fails unless `scenario.security.allowAuthOverride: true`.
-- [ ] Run-level headers are supported on `RunConfig` (new field `headers: Map<String,String>`).
-- [ ] The effective headers are logged once per scenario at simulation start, with secret values redacted.
-- [ ] Tests cover: env-only, env+scenario, scenario tries to set Authorization (rejected), scenario sets Authorization with override flag.
+- [x] A merge step computes the effective headers for each scenario request, layered framework → env → run → scenario → request.
+- [x] If a scenario attempts to set a header in a protected set (default: `Authorization`, the configured `correlationIdHeader`), validation fails unless `scenario.security.allowAuthOverride: true`.
+- [x] Run-level headers are supported on `RunConfig` (new field `headers: Map<String,String>`).
+- [ ] The effective headers are logged once per scenario at simulation start, with secret values redacted. _(not implemented)_
+- [ ] Tests cover: env-only, env+scenario, scenario tries to set Authorization (rejected), scenario sets Authorization with override flag. _(not implemented)_
 
 ## Implementation Notes
 

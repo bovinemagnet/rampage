@@ -9,9 +9,9 @@
 
 ## Acceptance Criteria
 
-- [ ] For each enabled scenario with an entry in `assertions.scenarios`, the framework emits Gatling assertions scoped to that scenario name (e.g. `details(scenarioName).responseTime().percentile(95).lt(...)`).
-- [ ] When a scenario in `assertions.scenarios` is not present in `run.scenarios`, validation fails (configuration error).
-- [ ] Tests cover the translation from `ScenarioAssertionConfig` into a Gatling `Assertion[]`.
+- [x] For each enabled scenario with an entry in `assertions.scenarios`, the framework emits Gatling assertions scoped to that scenario name (e.g. `details(scenarioName).responseTime().percentile(95).lt(...)`).
+- [x] When a scenario in `assertions.scenarios` is not present in `run.scenarios`, validation fails (configuration error).
+- [x] Tests cover the translation from `ScenarioAssertionConfig` into a Gatling `Assertion[]`.
 
 ## Implementation Notes
 

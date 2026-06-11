@@ -9,11 +9,11 @@ Project conventions specify that final documentation lives in `src/docs/` as an 
 
 ## Acceptance Criteria
 
-- [ ] `src/docs/antora.yml` declares a component named `rampage` with version `0.0.0`.
-- [ ] `src/docs/modules/ROOT/nav.adoc` lists at least: Index, Getting Started, Configuration Reference, Scenario Authoring, Security, Troubleshooting.
-- [ ] `src/docs/modules/ROOT/pages/index.adoc` and each navigation entry exist as stub pages.
-- [ ] An `antora-playbook.yml` (or `./gradlew antora` task wiring) builds the site without errors.
-- [ ] `./gradlew antora` runs in CI as part of `F-031`.
+- [x] `src/docs/antora.yml` declares a component named `rampage` versioned with the project (currently `0.1.0`).
+- [x] `src/docs/modules/ROOT/nav.adoc` lists at least: Index, Getting Started, Configuration Reference, Scenario Authoring, Security, Troubleshooting.
+- [x] `src/docs/modules/ROOT/pages/index.adoc` and each navigation entry exist as stub pages.
+- [x] An `antora-playbook.yml` (or `./gradlew antora` task wiring) builds the site without errors.
+- [ ] `./gradlew antora` runs in CI as part of `F-031`. _(not implemented)_
 
 ## Implementation Notes
 

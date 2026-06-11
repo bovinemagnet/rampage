@@ -9,11 +9,11 @@ Stress tests progressively increase load until SLA breach or saturation. `Worklo
 
 ## Acceptance Criteria
 
-- [ ] `WorkloadConfig.type: stress` is accepted and produces a stepped or linearly-increasing injection profile.
-- [ ] New fields on `WorkloadConfig` or a new `StressConfig`: `stepRate` (rate increment per step), `stepDuration` (how long to hold each step), `maxRate` (cap).
-- [ ] Tests assert the step shape.
-- [ ] When combined with global assertions (e.g. `maxResponseTimeP95Millis`), the run fails as soon as the assertion is breached; document that this is the expected use.
-- [ ] Sample `config/runs/stress.yaml` demonstrates the profile.
+- [x] `WorkloadConfig.type: stress` is accepted and produces a stepped or linearly-increasing injection profile.
+- [x] New fields on `WorkloadConfig` or a new `StressConfig`: `stepRate` (rate increment per step), `stepDuration` (how long to hold each step), `maxRate` (cap).
+- [x] Tests assert the step shape.
+- [ ] When combined with global assertions (e.g. `maxResponseTimeP95Millis`), the run fails as soon as the assertion is breached; document that this is the expected use. _(not implemented)_
+- [ ] Sample `config/runs/stress.yaml` demonstrates the profile. _(not implemented)_
 
 ## Implementation Notes
 

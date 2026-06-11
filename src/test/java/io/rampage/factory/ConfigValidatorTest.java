@@ -422,6 +422,33 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void validate_failsForUnknownOnMissingRequired() {
+        ScenarioConfig sc = validScenario("test-scenario");
+        FeederConfig feeder = new FeederConfig();
+        feeder.setOnMissingRequired("explode");
+        sc.setFeeder(feeder);
+
+        ConfigValidator.ConfigValidationException ex = assertThrows(
+            ConfigValidator.ConfigValidationException.class,
+            () -> validator.validate(validEnv(), validRun(), List.of(sc)));
+        assertTrue(ex.getErrors().stream().anyMatch(
+            e -> e.contains("onMissingRequired") && e.contains("explode")),
+            "Expected unknown onMissingRequired error: " + ex.getErrors());
+    }
+
+    @Test
+    void validate_passesForKnownOnMissingRequiredValues() {
+        for (String value : List.of("fail", "skip", "FAIL", "Skip")) {
+            ScenarioConfig sc = validScenario("test-scenario");
+            FeederConfig feeder = new FeederConfig();
+            feeder.setOnMissingRequired(value);
+            sc.setFeeder(feeder);
+            assertDoesNotThrow(() -> validator.validate(validEnv(), validRun(), List.of(sc)),
+                "onMissingRequired '" + value + "' should be valid");
+        }
+    }
+
+    @Test
     void validate_failsForUnknownExecutionMode() {
         RunConfig run = validRun();
         run.getExecution().setMode("burst");

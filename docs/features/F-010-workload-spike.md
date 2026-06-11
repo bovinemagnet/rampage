@@ -9,10 +9,10 @@
 
 ## Acceptance Criteria
 
-- [ ] `WorkloadConfig.type: spike` is accepted and produces a Gatling injection sequence: warmup at a low constant rate, sudden jump to peak rate, hold for `holdFor`, drop back, optional recovery hold.
-- [ ] New `WorkloadConfig` fields: `baselineRate` (optional, default `rate.from`), `spikeDuration` (default `1s`).
-- [ ] Tests assert the produced `OpenInjectionStep[]` matches the expected step sequence for representative inputs.
-- [ ] Sample `config/runs/spike.yaml` demonstrates the profile.
+- [x] `WorkloadConfig.type: spike` is accepted and produces a Gatling injection sequence: warmup at a low constant rate, sudden jump to peak rate, hold for `holdFor`, drop back, optional recovery hold.
+- [x] New `WorkloadConfig` fields: `baselineRate` (optional, default `rate.from`), `spikeDuration` (default `1s`).
+- [x] Tests assert the produced `OpenInjectionStep[]` matches the expected step sequence for representative inputs.
+- [ ] Sample `config/runs/spike.yaml` demonstrates the profile. _(not implemented)_
 
 ## Implementation Notes
 

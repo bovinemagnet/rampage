@@ -9,16 +9,16 @@ The framework only supports static bearer tokens sourced from environment variab
 
 ## Acceptance Criteria
 
-- [ ] New `SecurityConfig.mode: oauth-client-credentials` is accepted, with fields:
+- [x] New `SecurityConfig.mode: oauth-client-credentials` is accepted, with fields:
   - `tokenUrl: String`
   - `clientId: CredentialConfig`
   - `clientSecret: CredentialConfig`
   - `scope: String` (optional)
   - `audience: String` (optional)
-- [ ] On simulation init, the framework performs the token request (JDK `HttpClient`), parses the response (Jackson), and stores the access token.
-- [ ] The token is injected as `Authorization: Bearer <token>` by `HttpProtocolFactory`.
-- [ ] If the token endpoint returns an error, validation fails (or dry-run prints the error and exits non-zero).
-- [ ] Tests use WireMock or a small embedded HTTP server to simulate the token endpoint.
+- [x] On simulation init, the framework performs the token request (JDK `HttpClient`), parses the response (Jackson), and stores the access token.
+- [x] The token is injected as `Authorization: Bearer <token>` by `HttpProtocolFactory`.
+- [ ] If the token endpoint returns an error, validation fails (or dry-run prints the error and exits non-zero). _(not implemented — the token is fetched lazily at first request; neither validation nor dry-run contacts the token endpoint)_
+- [x] Tests use WireMock or a small embedded HTTP server to simulate the token endpoint.
 
 ## Implementation Notes
 

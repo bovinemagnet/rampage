@@ -10,12 +10,12 @@ Production protection today is a string-match on `env.id.contains("prod")` insid
 
 ## Acceptance Criteria
 
-- [ ] New field `EnvironmentConfig.safety.isProduction: boolean` (default `false`); the validator stops relying on the id string.
-- [ ] If `env.safety.isProduction: true` and `env.safety.allowProduction: false`, validation fails.
-- [ ] If `run.safety.failIfEnvironmentAllowsProduction: true` and `env.safety.allowProduction: true`, validation fails — even if `isProduction: false`.
-- [ ] If any enabled scenario has `safety.mutating: true` and the environment has `safety.requireApprovalForMutatingRequests: true`, validation fails unless `run.safety.approveMutatingRequests: true` is set in this specific run.
-- [ ] Tests cover every truth-table combination.
-- [ ] Sample `config/environments/perf.yaml` (new) and `config/environments/local.yaml` set the new flags appropriately.
+- [x] New field `EnvironmentConfig.safety.isProduction: boolean` (default `false`); the validator stops relying on the id string.
+- [x] If `env.safety.isProduction: true` and `env.safety.allowProduction: false`, validation fails.
+- [x] If `run.safety.failIfEnvironmentAllowsProduction: true` and `env.safety.allowProduction: true`, validation fails — even if `isProduction: false`.
+- [x] If any enabled scenario has `safety.mutating: true` and the environment has `safety.requireApprovalForMutatingRequests: true`, validation fails unless `run.safety.approveMutatingRequests: true` is set in this specific run.
+- [x] Tests cover every truth-table combination.
+- [ ] Sample `config/environments/perf.yaml` (new) and `config/environments/local.yaml` set the new flags appropriately. _(not implemented)_
 
 ## Implementation Notes
 
