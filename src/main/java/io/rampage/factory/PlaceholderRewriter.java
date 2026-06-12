@@ -32,6 +32,16 @@ public final class PlaceholderRewriter {
 
     private PlaceholderRewriter() {}
 
+    /**
+     * Replaces all {@code ${feeder:key}} and {@code ${session:key}} placeholders
+     * in {@code input} with the Gatling EL form {@code #{key}}.
+     *
+     * <p>Returns the original reference unchanged if {@code input} is {@code null}
+     * or empty.
+     *
+     * @param input the string to rewrite; may be {@code null}
+     * @return the rewritten string, or the original value if no placeholders are found
+     */
     public static String rewriteString(String input) {
         if (input == null || input.isEmpty()) return input;
         Matcher m = ANY.matcher(input);
@@ -43,6 +53,15 @@ public final class PlaceholderRewriter {
         return out.toString();
     }
 
+    /**
+     * Rewrites every value in the given {@code String}-valued map using
+     * {@link #rewriteString(String)}, preserving key order.
+     *
+     * <p>Returns an empty map when {@code input} is {@code null}.
+     *
+     * @param input the map whose values should be rewritten; may be {@code null}
+     * @return a new map with the same keys and rewritten values
+     */
     public static Map<String, String> rewriteStringMap(Map<String, String> input) {
         Map<String, String> out = new LinkedHashMap<>();
         if (input == null) return out;
@@ -52,6 +71,20 @@ public final class PlaceholderRewriter {
         return out;
     }
 
+    /**
+     * Rewrites exact-match placeholder values in a GraphQL variables map.
+     *
+     * <p>Only values that are a {@code String} whose entire content matches a single
+     * {@code ${feeder:key}} or {@code ${session:key}} placeholder are rewritten to
+     * {@code #{key}}. Values that contain embedded placeholders alongside other text,
+     * or values of non-{@code String} types, are left unchanged. This preserves the
+     * typed semantics of GraphQL variables.
+     *
+     * <p>Returns an empty map when {@code input} is {@code null}.
+     *
+     * @param input the GraphQL variables map; may be {@code null}
+     * @return a new map with eligible placeholder values rewritten
+     */
     public static Map<String, Object> rewriteVariableMap(Map<String, Object> input) {
         Map<String, Object> out = new LinkedHashMap<>();
         if (input == null) return out;
@@ -72,6 +105,11 @@ public final class PlaceholderRewriter {
     /**
      * Returns the names of session keys referenced by a string ({@code ${session:x}}).
      * Used by the validator to flag references to keys that no earlier step extracts.
+     *
+     * @param input the string to scan for {@code ${session:key}} placeholders;
+     *              may be {@code null}
+     * @return a list of referenced session key names, in the order they appear;
+     *         never {@code null}
      */
     public static java.util.List<String> referencedSessionKeys(String input) {
         java.util.List<String> keys = new java.util.ArrayList<>();

@@ -21,6 +21,11 @@ import java.util.Map;
  */
 public final class MetricsAggregator {
 
+    /**
+     * Creates a new {@code MetricsAggregator} with no accumulated state.
+     */
+    public MetricsAggregator() {}
+
     private static final String SUFFIX_USERS_ACTIVE = ".users.allUsers.active";
     private static final String SUFFIX_REQ_COUNT    = ".allRequests.all.count";
     private static final String SUFFIX_REQ_KO       = ".allRequests.ko.count";
@@ -33,7 +38,9 @@ public final class MetricsAggregator {
     /**
      * Feeds one Carbon line into the aggregator.
      *
-     * @return a snapshot when a tick boundary has been crossed, otherwise null.
+     * @param line a single Carbon plain-text protocol line ({@code <path> <value> <timestamp>}).
+     * @return a completed {@link MetricSnapshot} when a tick boundary has been crossed,
+     *         or {@code null} if this line belongs to the current tick.
      */
     public MetricSnapshot ingest(String line) {
         String trimmed = line == null ? "" : line.trim();
@@ -65,6 +72,9 @@ public final class MetricsAggregator {
     /**
      * Forces a snapshot of the current state, e.g. when the simulation
      * terminates and no further ticks will arrive to flush the buffer.
+     *
+     * @return a {@link MetricSnapshot} for the last tick, or {@code null} if no
+     *         lines have been ingested.
      */
     public MetricSnapshot flush() {
         if (currentTick == -1) {

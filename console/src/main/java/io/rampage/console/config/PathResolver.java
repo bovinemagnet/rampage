@@ -17,6 +17,10 @@ public final class PathResolver {
     private PathResolver() {}
 
     /**
+     * Walks up the directory tree from {@code configured} looking for a
+     * {@code settings.gradle.kts} or {@code settings.gradle} file, returning the
+     * first directory that contains one.
+     *
      * @param configured the configured starting point (typically {@code user.dir}
      *                   or an explicit {@code rampage.console.repo-root}).
      * @return the directory containing {@code settings.gradle.kts}, or the

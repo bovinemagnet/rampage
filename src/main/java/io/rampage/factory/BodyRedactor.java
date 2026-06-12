@@ -24,8 +24,26 @@ public final class BodyRedactor {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String REDACTED = "***REDACTED***";
 
+    /** Prevents instantiation of this utility class. */
     private BodyRedactor() {}
 
+    /**
+     * Redacts sensitive data from a response body string.
+     *
+     * <p>Redaction is applied in two passes: first, JSON path expressions in
+     * {@code jsonPaths} are used to null out named fields within the JSON tree, replacing
+     * their values with {@code "***REDACTED***"}. If the body is not valid JSON the path
+     * pass is skipped silently. Second, any literal string in {@code sensitiveValues} is
+     * replaced with {@code "***REDACTED***"} wherever it appears. Sensitive values are
+     * processed longest-first to avoid partial replacements.
+     *
+     * @param body            the response body to redact; returned unchanged if {@code null}
+     *                        or empty
+     * @param jsonPaths       minimal dot-path expressions (e.g. {@code $.data.user.email});
+     *                        may be {@code null} or empty
+     * @param sensitiveValues literal strings to replace; may be {@code null} or empty
+     * @return the redacted body string, or the original body if no redaction applies
+     */
     public static String redact(String body, List<String> jsonPaths, Set<String> sensitiveValues) {
         if (body == null || body.isEmpty()) return body;
         String result = body;

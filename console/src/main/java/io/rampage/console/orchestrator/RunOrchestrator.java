@@ -84,6 +84,9 @@ public class RunOrchestrator {
     private ExecutorService dispatcher;
     private ExecutorService stdoutPumps;
 
+    /**
+     * No-argument constructor required by CDI.
+     */
     public RunOrchestrator() {
         // CDI no-arg constructor.
     }
@@ -143,16 +146,36 @@ public class RunOrchestrator {
         }
     }
 
-    /** Test seam — replace the launcher used to spawn Gatling. */
+    /**
+     * Replaces the launcher used to spawn Gatling processes.
+     * Intended as a test seam; production code uses the default launcher.
+     *
+     * @param launcher the replacement {@link ProcessLauncher}; must not be
+     *                 {@code null}
+     */
     public void setProcessLauncher(ProcessLauncher launcher) {
         this.processLauncher = launcher;
     }
 
-    /** Test seam — replace the ingestor that receives finished runs. */
+    /**
+     * Replaces the ingestor that receives finished run results.
+     * Intended as a test seam; set to {@code null} to disable ingestion.
+     *
+     * @param ingestor the replacement {@code RunResultIngestor}, or
+     *                 {@code null} to disable result ingestion
+     */
     public void setResultIngestor(RunResultIngestor ingestor) {
         this.resultIngestor = ingestor;
     }
 
+    /**
+     * Accepts a new load-test run, places it at the tail of the queue, and
+     * starts it immediately if no other run is currently executing.
+     *
+     * @param envPath filesystem or classpath path to the environment YAML file
+     * @param runPath filesystem or classpath path to the run YAML file
+     * @return the newly created {@link RunRecord}; never {@code null}
+     */
     public RunRecord enqueue(String envPath, String runPath) {
         QueuedRun queued = QueuedRun.create(envPath, runPath);
         RunRecord record = new RunRecord(queued);
@@ -165,6 +188,19 @@ public class RunOrchestrator {
         return record;
     }
 
+    /**
+     * Requests termination of the run identified by {@code runId}.
+     *
+     * <p>If the run is currently executing, the underlying OS process is
+     * destroyed and the record transitions to {@link RunStatus#KILLED}.  If the
+     * run is still waiting in the queue, it is removed and transitioned to
+     * {@link RunStatus#KILLED} without ever starting.</p>
+     *
+     * @param runId the unique identifier of the run to kill
+     * @return an {@link java.util.Optional} containing the killed
+     *         {@link RunRecord}, or an empty {@code Optional} if no run with
+     *         the given ID was found
+     */
     public Optional<RunRecord> kill(String runId) {
         RunRecord active = current.get();
         if (active != null && active.id().equals(runId)) {
@@ -185,20 +221,53 @@ public class RunOrchestrator {
         return Optional.empty();
     }
 
+    /**
+     * Returns a point-in-time snapshot of the runs currently waiting in the
+     * queue.
+     *
+     * @return an ordered list of queued {@link RunRecord}s; never {@code null},
+     *         may be empty
+     */
     public List<RunRecord> queueSnapshot() {
         synchronized (lock) {
             return new ArrayList<>(queue);
         }
     }
 
+    /**
+     * Returns the run that is currently executing, if any.
+     *
+     * @return an {@link java.util.Optional} containing the active
+     *         {@link RunRecord}, or an empty {@code Optional} if the execution
+     *         slot is idle
+     */
     public Optional<RunRecord> currentRun() {
         return Optional.ofNullable(current.get());
     }
 
+    /**
+     * Returns a combined snapshot of the currently active run and the waiting
+     * queue, suitable for rendering the queue-panel UI template.
+     *
+     * @return a non-null {@link OrchestratorView}
+     */
     public OrchestratorView snapshot() {
         return new OrchestratorView(current.get(), queueSnapshot());
     }
 
+    /**
+     * Returns the most recently known runs in reverse-chronological order
+     * (newest first), up to the specified limit.
+     *
+     * <p>Includes runs in any terminal or active state.  The list is a
+     * defensive copy; mutations do not affect the orchestrator's internal
+     * state.</p>
+     *
+     * @param limit the maximum number of records to return; non-positive values
+     *              return an empty list
+     * @return a list of at most {@code limit} {@link RunRecord}s; never
+     *         {@code null}
+     */
     public List<RunRecord> recentRuns(int limit) {
         synchronized (lock) {
             List<RunRecord> all = new ArrayList<>(known.values());
@@ -209,6 +278,13 @@ public class RunOrchestrator {
         }
     }
 
+    /**
+     * Looks up a known run by its unique identifier.
+     *
+     * @param runId the run identifier to look up
+     * @return an {@link java.util.Optional} containing the {@link RunRecord},
+     *         or an empty {@code Optional} if the identifier is unknown
+     */
     public Optional<RunRecord> get(String runId) {
         synchronized (lock) {
             return Optional.ofNullable(known.get(runId));

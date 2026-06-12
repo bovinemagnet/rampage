@@ -44,6 +44,34 @@ public final class RequestBuilder {
 
     private RequestBuilder() {}
 
+    /**
+     * Builds a Gatling {@code HttpRequestActionBuilder} from the supplied step and
+     * context objects.
+     *
+     * <p>The HTTP verb, path, body type, headers, query parameters, request timeout,
+     * and checks are all derived from the step and scenario configuration. The
+     * {@code graphqlQuery} and {@code inlineBodyFromFile} values are pre-loaded by
+     * the caller to avoid repeated I/O.
+     *
+     * @param scenarioCfg        the scenario configuration providing defaults such
+     *                           as endpoint reference and operation name
+     * @param step               the step configuration describing this individual
+     *                           request
+     * @param graphqlQuery       the pre-loaded GraphQL query string; may be
+     *                           {@code null} for non-GraphQL requests
+     * @param inlineBodyFromFile the pre-loaded body file content referenced by
+     *                           {@code request.bodyFile}; may be {@code null}
+     * @param httpConfig         HTTP-level settings such as per-request timeout;
+     *                           may be {@code null}
+     * @param effectiveHeaders   the merged set of headers to attach to the request;
+     *                           may be {@code null}
+     * @param checks             the list of Gatling checks to attach; may be
+     *                           {@code null} or empty
+     * @param env                the environment configuration used to resolve
+     *                           absolute URLs for step-level endpoint overrides;
+     *                           may be {@code null}
+     * @return the configured {@code HttpRequestActionBuilder}
+     */
     public static HttpRequestActionBuilder build(ScenarioConfig scenarioCfg,
                                                   StepConfig step,
                                                   String graphqlQuery,

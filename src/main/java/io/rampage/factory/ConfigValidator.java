@@ -9,6 +9,22 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Validates a complete set of Rampage configuration objects (environment, run, and scenarios)
+ * before a simulation is started.
+ *
+ * <p>All errors are collected before throwing so that the caller receives a single
+ * {@link ConfigValidationException} that lists every problem at once rather than
+ * failing on the first one. Validation covers, among other things:
+ * <ul>
+ *   <li>Presence of required fields (base URLs, run name, scenario list)</li>
+ *   <li>Referential integrity between run scenario references and loaded scenario configs</li>
+ *   <li>Workload type and duration format correctness</li>
+ *   <li>Feeder SQL file existence and column declarations</li>
+ *   <li>Protected-header override enforcement via {@code HeaderResolver}</li>
+ *   <li>Secret resolution for tokens and database credentials</li>
+ * </ul>
+ */
 public class ConfigValidator {
     private static final Logger log = LoggerFactory.getLogger(ConfigValidator.class);
 
@@ -44,14 +60,35 @@ public class ConfigValidator {
 
     private final SecretResolver secretResolver;
 
+    /**
+     * Creates a {@code ConfigValidator} with a default {@code SecretResolver}.
+     */
     public ConfigValidator() {
         this(new SecretResolver());
     }
 
+    /**
+     * Creates a {@code ConfigValidator} that uses the supplied {@code SecretResolver} when
+     * checking secret references in the environment configuration.
+     *
+     * @param secretResolver the resolver to use for token and credential validation
+     */
     public ConfigValidator(SecretResolver secretResolver) {
         this.secretResolver = secretResolver;
     }
 
+    /**
+     * Validates the supplied environment, run, and scenario configurations together.
+     *
+     * <p>All validation errors are collected into a list. If the list is non-empty at the
+     * end of validation a {@link ConfigValidationException} is thrown with the complete
+     * error list attached.
+     *
+     * @param env       the environment configuration; may be {@code null} (treated as an error)
+     * @param run       the run configuration; may be {@code null} (treated as an error)
+     * @param scenarios the loaded scenario configurations; must not be {@code null}
+     * @throws ConfigValidationException if one or more validation errors are found
+     */
     public void validate(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios) {
         List<String> errors = new ArrayList<>();
 
@@ -469,14 +506,31 @@ public class ConfigValidator {
         }
     }
 
+    /**
+     * Thrown by {@link ConfigValidator#validate} when one or more configuration errors are
+     * found. The complete list of errors is accessible via {@link #getErrors()}.
+     */
     public static class ConfigValidationException extends RuntimeException {
+        /** The individual validation error messages. */
         private final List<String> errors;
 
+        /**
+         * Creates a new exception with the given human-readable summary message and the
+         * complete list of individual validation errors.
+         *
+         * @param message a summary message describing the total number of errors
+         * @param errors  the individual error messages; copied defensively
+         */
         public ConfigValidationException(String message, List<String> errors) {
             super(message);
             this.errors = List.copyOf(errors);
         }
 
+        /**
+         * Returns the unmodifiable list of individual validation error messages.
+         *
+         * @return the validation errors; never {@code null}
+         */
         public List<String> getErrors() {
             return errors;
         }

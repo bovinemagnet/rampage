@@ -19,12 +19,23 @@ import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
 
+/**
+ * Writes a {@code run-metadata.json} file capturing the resolved configuration,
+ * effective workloads, feeder row counts, git provenance, and assertion configuration
+ * for a Gatling run. The file is written to a caller-supplied output directory and is
+ * intended to be consumed by the console ingestor after metadata promotion.
+ */
 public class RunMetadataWriter {
     private static final Logger log = LoggerFactory.getLogger(RunMetadataWriter.class);
     private final ObjectMapper mapper;
     private final String gitCommit;
     private final String gitBranch;
 
+    /**
+     * Constructs a {@code RunMetadataWriter}, capturing the current git short commit hash
+     * and branch name by invoking {@code git} as a subprocess. If git is unavailable, both
+     * values default to {@code "unknown"}.
+     */
     public RunMetadataWriter() {
         this.mapper = new ObjectMapper();
         this.mapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -32,15 +43,49 @@ public class RunMetadataWriter {
         this.gitBranch = readGit("rev-parse", "--abbrev-ref", "HEAD");
     }
 
+    /**
+     * Writes run metadata using the current instant as the start time and an empty
+     * feeder row counts map. Delegates to
+     * {@link #write(RunConfig, EnvironmentConfig, List, String, Instant, Map)}.
+     *
+     * @param run       the run configuration
+     * @param env       the environment configuration
+     * @param scenarios the resolved scenario configurations
+     * @param outputDir the directory path into which {@code run-metadata.json} is written
+     */
     public void write(RunConfig run, EnvironmentConfig env, List<ScenarioConfig> scenarios, String outputDir) {
         write(run, env, scenarios, outputDir, Instant.now(), Map.of());
     }
 
+    /**
+     * Writes run metadata using the supplied start time and an empty feeder row counts map.
+     * Delegates to {@link #write(RunConfig, EnvironmentConfig, List, String, Instant, Map)}.
+     *
+     * @param run        the run configuration
+     * @param env        the environment configuration
+     * @param scenarios  the resolved scenario configurations
+     * @param outputDir  the directory path into which {@code run-metadata.json} is written
+     * @param startedAt  the instant the run was started
+     */
     public void write(RunConfig run, EnvironmentConfig env, List<ScenarioConfig> scenarios,
                       String outputDir, Instant startedAt) {
         write(run, env, scenarios, outputDir, startedAt, Map.of());
     }
 
+    /**
+     * Writes {@code run-metadata.json} to {@code outputDir}, combining run/environment
+     * identifiers, git provenance, per-scenario effective workloads, feeder row counts,
+     * and effective assertion configuration.
+     *
+     * @param run              the run configuration
+     * @param env              the environment configuration
+     * @param scenarios        the resolved scenario configurations
+     * @param outputDir        the directory path into which the file is written;
+     *                         the directory is created if it does not exist
+     * @param startedAt        the instant the run was started
+     * @param feederRowCounts  a map from scenario id to the number of feeder rows loaded;
+     *                         entries are included only for scenarios present in the map
+     */
     public void write(RunConfig run, EnvironmentConfig env, List<ScenarioConfig> scenarios,
                       String outputDir, Instant startedAt, Map<String, Object> feederRowCounts) {
         Map<String, Object> metadata = new LinkedHashMap<>();

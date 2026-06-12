@@ -30,7 +30,16 @@ public final class RunSummaryComparator {
 
     private RunSummaryComparator() {}
 
-    /** Render the comparison into Markdown. {@code baselinePath} may be null. */
+    /**
+     * Renders a Markdown comparison between the current run summary and an optional baseline.
+     * Both files are expected to be JSON produced by {@code RunSummaryGenerator}.
+     *
+     * @param currentPath  path to the current {@code run-summary.json}; must not be null
+     * @param baselinePath path to the baseline {@code run-summary.json}; may be null or
+     *                     point to a non-existent file, in which case no deltas are shown
+     * @return a GitHub-flavoured Markdown string summarising the run result and request stats
+     * @throws IOException if the current summary file cannot be read
+     */
     public static String renderMarkdown(Path currentPath, Path baselinePath) throws IOException {
         Map<String, Object> current = readJson(currentPath);
         Map<String, Object> baseline = (baselinePath != null && Files.isRegularFile(baselinePath))
@@ -137,8 +146,15 @@ public final class RunSummaryComparator {
     }
 
     /**
-     * Render a number with an optional delta vs. baseline. {@code lowerIsBetter=false} means
-     * Δ is shown without judgement — we only flag direction. Latency metrics: positive Δ is bad.
+     * Renders a number with an optional delta indicator against a baseline value.
+     * If the absolute difference is less than 0.5, no delta is shown. A green indicator
+     * is used when the change is an improvement; red when it is a regression.
+     *
+     * @param current         the current metric value; returns {@code "—"} if null
+     * @param baseline        the baseline metric value; delta is omitted if null or non-numeric
+     * @param higherIsBetter  when true, a positive delta is shown as an improvement (green);
+     *                        when false, a negative delta is the improvement (e.g. latency)
+     * @return a formatted string, optionally suffixed with a direction indicator and delta value
      */
     static String formatWithDelta(Object current, Object baseline, boolean higherIsBetter) {
         if (current == null) return "—";
@@ -156,6 +172,15 @@ public final class RunSummaryComparator {
         return currentStr + " " + arrow + " " + sign + formatNumber(delta);
     }
 
+    /**
+     * Formats a numeric value for display in a Markdown table cell. Long and Integer
+     * values are rendered without a decimal point. Floating-point values that are
+     * whole numbers are also rendered as integers; others are formatted to one decimal
+     * place. Non-numeric values are converted via {@code toString}.
+     *
+     * @param value the value to format; returns {@code "—"} if null
+     * @return a formatted string representation of the value
+     */
     static String formatNumber(Object value) {
         if (value == null) return "—";
         if (value instanceof Long || value instanceof Integer) return value.toString();

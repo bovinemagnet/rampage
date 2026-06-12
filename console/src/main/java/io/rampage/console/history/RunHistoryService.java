@@ -23,6 +23,13 @@ import java.util.stream.Stream;
 @ApplicationScoped
 public class RunHistoryService {
 
+    /**
+     * Creates a new {@code RunHistoryService} instance.
+     * The CDI container calls this constructor; the actual reports directory is
+     * resolved in the {@link jakarta.annotation.PostConstruct} {@code init} method.
+     */
+    public RunHistoryService() {}
+
     @ConfigProperty(name = "rampage.console.repo-root")
     java.util.Optional<String> repoRootRaw;
 
@@ -45,9 +52,12 @@ public class RunHistoryService {
     }
 
     /**
-     * Every Gatling simulation directory under the reports root — a directory is
-     * a finished run if it contains an {@code index.html}. Sorted newest first by
-     * directory name (the name embeds a fixed-width timestamp).
+     * Returns every Gatling simulation directory under the reports root that contains
+     * an {@code index.html}. Sorted newest first by directory name (the name embeds
+     * a fixed-width timestamp).
+     *
+     * @return an immutable list of simulation directories sorted newest first;
+     *         never null, empty when the reports root does not exist.
      */
     public List<Path> scanSimulationDirs() {
         Path root = Paths.get(reportsDir).toAbsolutePath().normalize();
@@ -66,10 +76,15 @@ public class RunHistoryService {
     }
 
     /**
-     * The newest simulation directory modified at or after {@code since} (with a
-     * five-second slack for clock/mtime granularity). Used to attribute a report
-     * directory to the console run that just finished. Empty when a run produced
-     * no report (e.g. a kill before Gatling rendered output).
+     * Returns the newest simulation directory modified at or after {@code since}
+     * (with a five-second slack for clock/mtime granularity). Used to attribute a
+     * report directory to the console run that just finished.
+     *
+     * @param since the earliest acceptable last-modified instant; {@code null} matches
+     *              any directory.
+     * @return the most recent qualifying directory, or an empty {@code Optional} when
+     *         no run produced a report (e.g. the process was killed before Gatling
+     *         rendered output).
      */
     public Optional<Path> latestSimulationDirSince(Instant since) {
         return scanSimulationDirs().stream()
@@ -88,6 +103,15 @@ public class RunHistoryService {
         }
     }
 
+    /**
+     * Resolves a path relative to the reports root, rejecting traversal attempts
+     * that would escape the root directory.
+     *
+     * @param relativePath the path relative to the reports root
+     *                     (e.g. {@code rampagesimulation-20240101123456789/index.html}).
+     * @return the absolute, normalised {@code Path}.
+     * @throws IllegalArgumentException if {@code relativePath} escapes the reports root.
+     */
     public Path resolveReport(String relativePath) {
         Path root = Paths.get(reportsDir).toAbsolutePath().normalize();
         Path candidate = root.resolve(relativePath).normalize();
@@ -97,7 +121,11 @@ public class RunHistoryService {
         return candidate;
     }
 
-    /** Test seam — overrides the config-resolved reports dir. */
+    /**
+     * Test seam — overrides the config-resolved reports dir.
+     *
+     * @param dir the reports directory path to use
+     */
     public void setReportsDir(String dir) {
         this.reportsDir = dir;
     }

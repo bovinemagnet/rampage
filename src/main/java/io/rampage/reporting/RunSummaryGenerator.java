@@ -68,9 +68,16 @@ public final class RunSummaryGenerator {
     private RunSummaryGenerator() {}
 
     /**
-     * Parse a single Gatling simulation directory's {@code index.html} into a
-     * structured summary map — request stats, assertion outcomes and an overall
-     * PASS/FAIL status — without writing any file.
+     * Parses a single Gatling simulation directory's {@code index.html} into a
+     * structured summary map containing request stats, assertion outcomes, and an overall
+     * PASS/FAIL status. No file is written by this method.
+     *
+     * @param simulationDir a {@code rampagesimulation-*} directory that contains
+     *                      {@code index.html}
+     * @return an ordered map with keys {@code generatedAt}, {@code simulationDir},
+     *         {@code simulationPath}, {@code requests}, {@code assertions}, and {@code status}
+     * @throws IOException if {@code simulationDir} is not a directory, {@code index.html}
+     *                     is missing, or the file cannot be read
      */
     public static Map<String, Object> summarise(Path simulationDir) throws IOException {
         File simDir = simulationDir.toFile();
@@ -98,12 +105,17 @@ public final class RunSummaryGenerator {
     }
 
     /**
-     * Generate a {@code run-summary.json} from the most recent Gatling report directory
-     * inside {@code reportRoot} and write it to {@code outputFile}.
+     * Generates a {@code run-summary.json} from the most recent Gatling report directory
+     * inside {@code reportRoot} and writes it to {@code outputFile}.
      *
      * <p>Delegates the actual report parsing to {@link #summarise(Path)}.
      *
-     * @return the parsed summary as a Map, for callers that want to inspect or post-process it
+     * @param reportRoot the Gatling reports root directory (e.g. {@code build/reports/gatling});
+     *                   the most recently named {@code rampagesimulation-*} subdirectory is used
+     * @param outputFile the path to write the resulting {@code run-summary.json}; parent
+     *                   directories are created if they do not exist
+     * @return the parsed summary as a map, for callers that want to inspect or post-process it
+     * @throws IOException if no simulation directory is found, or reading/writing fails
      * @see #summarise(Path)
      */
     public static Map<String, Object> generate(Path reportRoot, Path outputFile) throws IOException {
@@ -122,6 +134,13 @@ public final class RunSummaryGenerator {
         return summary;
     }
 
+    /**
+     * Returns the alphabetically last {@code rampagesimulation-*} subdirectory of
+     * {@code reportRoot}, or null if none exists.
+     *
+     * @param reportRoot the directory to search; may be null
+     * @return the most recently named simulation directory, or null if not found
+     */
     static File findLatestSimulationDir(File reportRoot) {
         if (reportRoot == null || !reportRoot.isDirectory()) return null;
         File[] candidates = reportRoot.listFiles((dir, name) -> name.startsWith("rampagesimulation-"));
@@ -130,6 +149,15 @@ public final class RunSummaryGenerator {
         return candidates[0];
     }
 
+    /**
+     * Extracts per-request statistics from the Gatling {@code index.html} content.
+     * Each entry in the returned list corresponds to one row in the stats table and
+     * includes keys such as {@code id}, {@code name}, {@code total}, {@code ok},
+     * {@code ko}, {@code koPct}, {@code rps}, and the percentile/mean columns.
+     *
+     * @param html the full content of Gatling's {@code index.html}
+     * @return an ordered list of request-stat maps; never null, may be empty
+     */
     static List<Map<String, Object>> parseRequests(String html) {
         List<Map<String, Object>> rows = new ArrayList<>();
         Matcher names = NAME_SPAN.matcher(html);
@@ -161,6 +189,14 @@ public final class RunSummaryGenerator {
         return rows;
     }
 
+    /**
+     * Extracts assertion results from the Gatling {@code index.html} content.
+     * Each entry in the returned list has keys {@code description} and {@code result}
+     * ({@code "OK"} or {@code "KO"}).
+     *
+     * @param html the full content of Gatling's {@code index.html}
+     * @return an ordered list of assertion-result maps; never null, may be empty
+     */
     static List<Map<String, Object>> parseAssertions(String html) {
         List<Map<String, Object>> result = new ArrayList<>();
         Matcher desc = ASSERTION_DESC_CELL.matcher(html);

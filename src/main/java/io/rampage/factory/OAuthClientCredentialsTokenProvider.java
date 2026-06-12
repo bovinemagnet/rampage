@@ -17,6 +17,16 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * {@link TokenProvider} that obtains a bearer token from an OAuth 2.0
+ * {@code client_credentials} token endpoint and caches it until 30 seconds
+ * before its reported expiry.
+ *
+ * <p>The token is fetched synchronously on the first call to
+ * {@link #currentToken()} and on any subsequent call when the cached token is
+ * within 30 seconds of expiry. {@link #fetchToken()} is also called periodically
+ * by {@link TokenRefresher} when proactive refreshing is configured.
+ */
 public class OAuthClientCredentialsTokenProvider implements TokenProvider {
     private static final Logger log = LoggerFactory.getLogger(OAuthClientCredentialsTokenProvider.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -27,6 +37,14 @@ public class OAuthClientCredentialsTokenProvider implements TokenProvider {
     private final AtomicReference<String> currentToken = new AtomicReference<>();
     private volatile Instant expiresAt = Instant.EPOCH;
 
+    /**
+     * Constructs a provider using a default {@code HttpClient} with a 10-second
+     * connection timeout.
+     *
+     * @param config         the security configuration containing the token URL,
+     *                       client credentials, scope, and audience
+     * @param secretResolver resolver used to obtain the client ID and secret values
+     */
     public OAuthClientCredentialsTokenProvider(SecurityConfig config, SecretResolver secretResolver) {
         this(config, secretResolver, HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -39,6 +57,13 @@ public class OAuthClientCredentialsTokenProvider implements TokenProvider {
         this.httpClient = httpClient;
     }
 
+    /**
+     * Returns the current bearer token, fetching a new one from the token
+     * endpoint if the cached token is absent or within 30 seconds of expiry.
+     *
+     * @return the current access token; never {@code null} when the token
+     *         endpoint is reachable
+     */
     @Override
     public String currentToken() {
         String token = currentToken.get();
@@ -48,7 +73,19 @@ public class OAuthClientCredentialsTokenProvider implements TokenProvider {
         return token;
     }
 
-    /** Visible for testing — forces a refresh now. */
+    /**
+     * Forces an immediate token fetch from the configured token endpoint and
+     * updates the cached token and expiry time.
+     *
+     * <p>Visible for testing — production code should call {@link #currentToken()}
+     * which only fetches when the cached token has expired or is about to expire.
+     *
+     * @return the newly fetched access token
+     * @throws IllegalStateException if {@code tokenUrl} is not configured, if the
+     *                               token endpoint returns a non-2xx response, or
+     *                               if the response does not contain an
+     *                               {@code access_token} field
+     */
     public synchronized String fetchToken() {
         if (config.getTokenUrl() == null || config.getTokenUrl().isBlank()) {
             throw new IllegalStateException("oauth-client-credentials requires environment.security.tokenUrl");
@@ -101,6 +138,13 @@ public class OAuthClientCredentialsTokenProvider implements TokenProvider {
         }
     }
 
+    /**
+     * Returns the instant at which the currently cached token expires.
+     *
+     * <p>Returns {@code Instant.EPOCH} when no token has been fetched yet.
+     *
+     * @return the token expiry instant
+     */
     public Instant getExpiresAt() {
         return expiresAt;
     }

@@ -18,16 +18,43 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Loads and deserialises Rampage YAML configuration files into their corresponding model objects.
+ *
+ * <p>Each load method follows a two-step resolution strategy: the system property
+ * ({@code loadtest.env} / {@code loadtest.run}) is checked first; if absent, the classpath
+ * resource at the given path is used. Scenario loading via
+ * {@link #loadScenario(ScenarioRef)} additionally attempts the filesystem path declared in
+ * the {@code ScenarioRef}, then the classpath, then the convention-based path
+ * {@code scenarios/<id>.yaml}. A failure at every location throws a {@code RuntimeException}
+ * that lists all attempted paths.
+ *
+ * <p>The underlying Jackson {@code ObjectMapper} is configured with
+ * {@code FAIL_ON_UNKNOWN_PROPERTIES=false} so that unrecognised YAML keys are silently
+ * ignored.
+ */
 public class ConfigLoader {
     private static final Logger log = LoggerFactory.getLogger(ConfigLoader.class);
     private final ObjectMapper mapper;
 
+    /**
+     * Creates a {@code ConfigLoader} with a Jackson YAML mapper configured to ignore unknown
+     * properties and to support {@code Optional} fields via the JDK 8 module.
+     */
     public ConfigLoader() {
         this.mapper = new ObjectMapper(new YAMLFactory());
         this.mapper.registerModule(new Jdk8Module());
         this.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
+    /**
+     * Loads the environment configuration, preferring the filesystem path in the
+     * {@code loadtest.env} system property; falls back to the classpath resource
+     * {@code environment.yaml}.
+     *
+     * @return the deserialised {@code EnvironmentConfig}
+     * @throws RuntimeException if the file cannot be found or parsed
+     */
     public EnvironmentConfig loadEnvironment() {
         String path = System.getProperty("loadtest.env");
         if (path != null) {
@@ -36,6 +63,14 @@ public class ConfigLoader {
         return loadEnvironment("environment.yaml");
     }
 
+    /**
+     * Loads the run configuration, preferring the filesystem path in the
+     * {@code loadtest.run} system property; falls back to the classpath resource
+     * {@code run.yaml}.
+     *
+     * @return the deserialised {@code RunConfig}
+     * @throws RuntimeException if the file cannot be found or parsed
+     */
     public RunConfig loadRun() {
         String path = System.getProperty("loadtest.run");
         if (path != null) {
@@ -44,6 +79,13 @@ public class ConfigLoader {
         return loadRun("run.yaml");
     }
 
+    /**
+     * Loads the environment configuration from a classpath resource at the given path.
+     *
+     * @param resourcePath the classpath-relative path to the environment YAML file
+     * @return the deserialised {@code EnvironmentConfig}
+     * @throws RuntimeException if the resource is not found or cannot be parsed
+     */
     public EnvironmentConfig loadEnvironment(String resourcePath) {
         log.info("Loading environment config from classpath: {}", resourcePath);
         try (InputStream is = getResourceStream(resourcePath)) {
@@ -55,6 +97,13 @@ public class ConfigLoader {
         }
     }
 
+    /**
+     * Loads the environment configuration directly from the filesystem at the given path.
+     *
+     * @param filePath the absolute or relative filesystem path to the environment YAML file
+     * @return the deserialised {@code EnvironmentConfig}
+     * @throws RuntimeException if the file cannot be read or parsed
+     */
     public EnvironmentConfig loadEnvironmentFromFilesystem(String filePath) {
         log.info("Loading environment config from filesystem: {}", filePath);
         try (InputStream is = new FileInputStream(filePath)) {
@@ -66,6 +115,13 @@ public class ConfigLoader {
         }
     }
 
+    /**
+     * Loads the run configuration from a classpath resource at the given path.
+     *
+     * @param resourcePath the classpath-relative path to the run YAML file
+     * @return the deserialised {@code RunConfig}
+     * @throws RuntimeException if the resource is not found or cannot be parsed
+     */
     public RunConfig loadRun(String resourcePath) {
         log.info("Loading run config from classpath: {}", resourcePath);
         try (InputStream is = getResourceStream(resourcePath)) {
@@ -77,6 +133,13 @@ public class ConfigLoader {
         }
     }
 
+    /**
+     * Loads the run configuration directly from the filesystem at the given path.
+     *
+     * @param filePath the absolute or relative filesystem path to the run YAML file
+     * @return the deserialised {@code RunConfig}
+     * @throws RuntimeException if the file cannot be read or parsed
+     */
     public RunConfig loadRunFromFilesystem(String filePath) {
         log.info("Loading run config from filesystem: {}", filePath);
         try (InputStream is = new FileInputStream(filePath)) {
@@ -88,6 +151,13 @@ public class ConfigLoader {
         }
     }
 
+    /**
+     * Loads a scenario configuration from a classpath resource at the given path.
+     *
+     * @param resourcePath the classpath-relative path to the scenario YAML file
+     * @return the deserialised {@code ScenarioConfig}
+     * @throws RuntimeException if the resource is not found or cannot be parsed
+     */
     public ScenarioConfig loadScenario(String resourcePath) {
         log.info("Loading scenario config from classpath: {}", resourcePath);
         try (InputStream is = getResourceStream(resourcePath)) {
@@ -99,6 +169,13 @@ public class ConfigLoader {
         }
     }
 
+    /**
+     * Loads a scenario configuration directly from the filesystem at the given path.
+     *
+     * @param filePath the absolute or relative filesystem path to the scenario YAML file
+     * @return the deserialised {@code ScenarioConfig}
+     * @throws RuntimeException if the file cannot be read or parsed
+     */
     public ScenarioConfig loadScenarioFromFilesystem(String filePath) {
         log.info("Loading scenario config from filesystem: {}", filePath);
         try (InputStream is = new FileInputStream(filePath)) {
@@ -110,6 +187,23 @@ public class ConfigLoader {
         }
     }
 
+    /**
+     * Resolves and loads a scenario configuration using the unified lookup strategy.
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>Filesystem path declared in {@code ref.file} (if non-blank)</li>
+     *   <li>Classpath resource at {@code ref.file} (if non-blank)</li>
+     *   <li>Classpath resource at {@code scenarios/<ref.id>.yaml} (id-convention fallback)</li>
+     * </ol>
+     * A {@code RuntimeException} is thrown if all locations are exhausted; the message
+     * lists every path that was attempted.
+     *
+     * @param ref the scenario reference from the run configuration; must not be {@code null}
+     * @return the deserialised {@code ScenarioConfig}
+     * @throws IllegalArgumentException if {@code ref} is {@code null}
+     * @throws RuntimeException         if the scenario cannot be resolved from any location
+     */
     public ScenarioConfig loadScenario(ScenarioRef ref) {
         if (ref == null) {
             throw new IllegalArgumentException("ScenarioRef must not be null");
@@ -156,6 +250,13 @@ public class ConfigLoader {
             "Failed to resolve scenario '" + ref.getId() + "'. Attempted: " + String.join("; ", attempts));
     }
 
+    /**
+     * Loads an arbitrary text resource, checking the filesystem first then the classpath.
+     *
+     * @param resourcePath the filesystem path or classpath-relative path of the resource
+     * @return the full contents of the resource as a UTF-8 string
+     * @throws RuntimeException if the resource cannot be found or read
+     */
     public String loadResource(String resourcePath) {
         log.info("Loading resource: {}", resourcePath);
         File file = new File(resourcePath);

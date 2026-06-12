@@ -7,8 +7,23 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Application-scoped Mutiny broadcast bus for {@link LogLine} events captured
+ * from Gatling process output. All console SSE streams that display live log
+ * output subscribe to this broadcaster.
+ *
+ * <p>Back-pressure failures from slow subscribers are silently dropped so that
+ * the stdout pump thread is never blocked or terminated.</p>
+ */
 @ApplicationScoped
 public class LogBroadcaster {
+
+    /**
+     * Creates a new {@code LogBroadcaster} instance.
+     * The CDI container calls this constructor; no initialisation is required beyond
+     * what the field initialisers provide.
+     */
+    public LogBroadcaster() {}
 
     private static final Logger log = LoggerFactory.getLogger(LogBroadcaster.class);
 
@@ -21,6 +36,9 @@ public class LogBroadcaster {
      * is never killed by a lagging browser. Subscribers themselves should
      * still apply {@code onOverflow().drop()} for proper handling on their
      * end (see {@code StreamResource}).
+     *
+     * @param line the log line to broadcast; a {@code null} value is forwarded
+     *             as-is and may cause {@code BackPressureFailure} to be swallowed.
      */
     public void publish(LogLine line) {
         try {
@@ -30,6 +48,11 @@ public class LogBroadcaster {
         }
     }
 
+    /**
+     * Returns a {@code Multi} that emits every {@link LogLine} published to this broadcaster.
+     *
+     * @return a hot {@code Multi} of log lines; never null.
+     */
     public Multi<LogLine> stream() {
         return processor;
     }

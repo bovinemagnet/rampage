@@ -51,12 +51,29 @@ public final class OpenApiImporter {
 
     private OpenApiImporter() {}
 
+    /**
+     * Configures naming and endpoint options for the OpenAPI importer.
+     */
     public static final class Options {
+        /** Optional prefix prepended to every generated scenario id. Defaults to {@code ""}. */
         public String prefix = "";
+        /** The {@code endpointRef} value written into each generated scenario. Defaults to {@code "rest"}. */
         public String endpointRef = "rest";
+
+        /** Constructs an {@code Options} instance with default values. */
+        public Options() {}
     }
 
-    /** Parse the OpenAPI spec at {@code specFile} and emit one scenario per operation. */
+    /**
+     * Parses the OpenAPI 3.x spec at {@code specFile} and writes one scenario YAML per
+     * operation into {@code outDir}. The output directory is created if it does not exist.
+     *
+     * @param specFile the path to the OpenAPI spec file (JSON or YAML)
+     * @param outDir   the directory into which the generated scenario files are written
+     * @param options  naming and endpoint options for the generated scenarios
+     * @return the number of scenario files written
+     * @throws IOException if the spec cannot be parsed or an output file cannot be written
+     */
     public static int importSpec(Path specFile, Path outDir, Options options) throws IOException {
         SwaggerParseResult result = new OpenAPIV3Parser().readLocation(
             specFile.toAbsolutePath().toString(), null, null);
@@ -87,6 +104,17 @@ public final class OpenApiImporter {
         return written;
     }
 
+    /**
+     * Derives a scenario id from an OpenAPI operation. Uses {@code operationId} when present;
+     * otherwise constructs an id from the HTTP method and path. Path parameter placeholders
+     * ({@code {paramName}}) are replaced with {@code "by-"}.
+     *
+     * @param prefix the prefix to prepend; may be empty
+     * @param method the HTTP method name (e.g. {@code "GET"})
+     * @param path   the OpenAPI path template (e.g. {@code "/users/{userId}"})
+     * @param op     the OpenAPI operation descriptor
+     * @return a lowercase, hyphen-separated scenario id
+     */
     static String scenarioId(String prefix, String method, String path, Operation op) {
         String base;
         if (op.getOperationId() != null && !op.getOperationId().isBlank()) {
@@ -100,6 +128,18 @@ public final class OpenApiImporter {
         return id.replaceAll("-+", "-").replaceAll("(^-|-$)", "").toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Builds a Rampage scenario map for a single OpenAPI operation. Path parameters are
+     * converted to {@code ${feeder:paramName}} placeholders; query parameters are similarly
+     * templated. The first declared 2xx response status is used as the {@code httpStatus} check.
+     *
+     * @param id         the scenario id
+     * @param httpMethod the HTTP method (e.g. {@code "GET"})
+     * @param path       the OpenAPI path template
+     * @param op         the OpenAPI operation descriptor
+     * @param options    naming and endpoint options
+     * @return an ordered map representing the scenario YAML structure
+     */
     static Map<String, Object> buildScenario(String id, String httpMethod, String path,
                                               Operation op, Options options) {
         String templatedPath = templatePath(path);
@@ -242,7 +282,16 @@ public final class OpenApiImporter {
         static BodyDecision form() { return new BodyDecision("form", null); }
     }
 
-    /** CLI for the {@code importOpenApi} Gradle task. */
+    /**
+     * CLI entry point for the {@code importOpenApi} Gradle task. Reads configuration from
+     * system properties: {@code rampage.openapi.file} (required),
+     * {@code rampage.scenario.dir} (default {@code config/scenarios}),
+     * {@code rampage.scenario.prefix} (default {@code ""}), and
+     * {@code rampage.openapi.endpointRef} (default {@code "rest"}).
+     *
+     * @param args unused; all options are supplied via system properties
+     * @throws Exception if the import fails
+     */
     public static void main(String[] args) throws Exception {
         String specFile = required("rampage.openapi.file", System.getProperty("rampage.openapi.file"));
         String outDir = System.getProperty("rampage.scenario.dir", "config/scenarios");

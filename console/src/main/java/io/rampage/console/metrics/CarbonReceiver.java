@@ -26,6 +26,12 @@ import java.nio.charset.StandardCharsets;
 @ApplicationScoped
 public class CarbonReceiver {
 
+    /**
+     * Creates a new {@code CarbonReceiver} instance.
+     * The CDI container calls this constructor; dependencies are injected after construction.
+     */
+    public CarbonReceiver() {}
+
     private static final Logger log = LoggerFactory.getLogger(CarbonReceiver.class);
 
     @Inject
@@ -43,7 +49,11 @@ public class CarbonReceiver {
     private NetServer server;
     private volatile int boundPort = -1;
 
-    /** @return the port the listener actually bound to, or -1 if not yet listening. */
+    /**
+     * Returns the port the listener actually bound to.
+     *
+     * @return the bound port number, or {@code -1} if the server is not yet listening.
+     */
     public int boundPort() {
         return boundPort;
     }

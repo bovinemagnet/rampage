@@ -10,6 +10,27 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Resolves credential and token references from environment variables or
+ * secret-manager paths.
+ *
+ * <p>Two inline prefix forms are supported in raw string references:
+ * <ul>
+ *   <li>{@code ENV:VAR_NAME} — reads the named environment variable and
+ *       throws {@link SecretResolutionException} if it is not set.</li>
+ *   <li>{@code SM:path} — intended for Secret Manager; returns a redacted
+ *       placeholder ({@code ***REDACTED***}) because Secret Manager
+ *       integration is not yet implemented.</li>
+ * </ul>
+ *
+ * <p>Structured {@code CredentialConfig} and {@code TokenConfig} values are
+ * resolved via {@link #resolveCredential} and {@link #resolveToken}
+ * respectively, with support for {@code required} flags and optional
+ * fallback behaviour.
+ *
+ * <p>Resolved secret values are tracked internally; use
+ * {@link #getSensitiveValues()} to obtain the set for log-redaction purposes.
+ */
 public class SecretResolver {
     private static final Logger log = LoggerFactory.getLogger(SecretResolver.class);
     private static final String ENV_PREFIX = "ENV:";
@@ -18,10 +39,32 @@ public class SecretResolver {
 
     private final Set<String> sensitiveValues = ConcurrentHashMap.newKeySet();
 
+    /**
+     * Constructs a new {@code SecretResolver} with an empty sensitive-values
+     * tracking set.
+     */
+    public SecretResolver() {
+    }
+
+    /**
+     * Returns an unmodifiable snapshot of all secret values that have been
+     * resolved and tracked by this instance.
+     *
+     * @return an unmodifiable set of sensitive string values; never {@code null}
+     */
     public Set<String> getSensitiveValues() {
         return Set.copyOf(sensitiveValues);
     }
 
+    /**
+     * Registers {@code value} in the sensitive-values tracking set and returns it.
+     *
+     * <p>Values that are {@code null}, empty, or equal to the redacted placeholder
+     * are not tracked.
+     *
+     * @param value the value to track; may be {@code null}
+     * @return the same {@code value} passed in
+     */
     public String trackSensitive(String value) {
         if (value != null && !value.isEmpty() && !REDACTED.equals(value)) {
             sensitiveValues.add(value);
@@ -29,6 +72,25 @@ public class SecretResolver {
         return value;
     }
 
+    /**
+     * Resolves an inline secret reference string.
+     *
+     * <ul>
+     *   <li>A reference prefixed with {@code ENV:} reads the named environment
+     *       variable and throws {@link SecretResolutionException} if it is not
+     *       set.</li>
+     *   <li>A reference prefixed with {@code SM:} returns the redacted
+     *       placeholder {@code ***REDACTED***} because Secret Manager integration
+     *       is not yet implemented.</li>
+     *   <li>All other values are returned unchanged.</li>
+     * </ul>
+     *
+     * @param ref the reference string; may be {@code null}, in which case
+     *            {@code null} is returned
+     * @return the resolved value, or {@code null} if {@code ref} is {@code null}
+     * @throws SecretResolutionException if {@code ref} starts with {@code ENV:}
+     *                                   and the environment variable is not set
+     */
     public String resolve(String ref) {
         if (ref == null) {
             return null;
@@ -53,10 +115,44 @@ public class SecretResolver {
         return ref;
     }
 
+    /**
+     * Resolves a credential reference using {@code "credential"} as the config
+     * path label for error messages.
+     *
+     * @param cred the credential configuration to resolve; may be {@code null},
+     *             in which case {@code null} is returned
+     * @return the resolved credential value, or {@code null} if {@code cred} is
+     *         {@code null}
+     * @throws SecretResolutionException if a required credential cannot be
+     *                                   resolved
+     */
     public String resolveCredential(CredentialConfig cred) {
         return resolveCredential(cred, "credential");
     }
 
+    /**
+     * Resolves a credential reference, using {@code configPath} in error messages
+     * to identify the field that could not be resolved.
+     *
+     * <p>Source types:
+     * <ul>
+     *   <li>{@code env} — reads the environment variable named by
+     *       {@code CredentialConfig.envVar}.</li>
+     *   <li>{@code secret-manager} / {@code sm} — returns the redacted placeholder
+     *       because Secret Manager integration is not yet implemented.</li>
+     *   <li>{@code plain} or unrecognised — returns the literal {@code value}
+     *       field, or an empty string if it is {@code null}.</li>
+     * </ul>
+     *
+     * @param cred       the credential configuration to resolve; may be
+     *                   {@code null}, in which case {@code null} is returned
+     * @param configPath a human-readable identifier for the config field, used
+     *                   in exception messages
+     * @return the resolved credential value; never {@code null} when {@code cred}
+     *         is non-null
+     * @throws SecretResolutionException if the credential is marked
+     *                                   {@code required} and cannot be resolved
+     */
     public String resolveCredential(CredentialConfig cred, String configPath) {
         if (cred == null) return null;
         String source = cred.getSource();
@@ -95,10 +191,42 @@ public class SecretResolver {
         return cred.getValue() != null ? trackSensitive(cred.getValue()) : "";
     }
 
+    /**
+     * Resolves a token reference using {@code "token"} as the config path label
+     * for error messages.
+     *
+     * @param token the token configuration to resolve; may be {@code null},
+     *              in which case {@code null} is returned
+     * @return the resolved token value, or {@code null} if {@code token} is
+     *         {@code null}
+     * @throws SecretResolutionException if a required token cannot be resolved
+     */
     public String resolveToken(TokenConfig token) {
         return resolveToken(token, "token");
     }
 
+    /**
+     * Resolves a token reference, using {@code configPath} in error messages to
+     * identify the field that could not be resolved.
+     *
+     * <p>Source types:
+     * <ul>
+     *   <li>{@code env} — reads the environment variable named by
+     *       {@code TokenConfig.envVar}.</li>
+     *   <li>{@code secret-manager} — returns the redacted placeholder because
+     *       Secret Manager integration is not yet implemented.</li>
+     *   <li>Any other source or a missing source — returns an empty string.</li>
+     * </ul>
+     *
+     * @param token      the token configuration to resolve; may be {@code null},
+     *                   in which case {@code null} is returned
+     * @param configPath a human-readable identifier for the config field, used
+     *                   in exception messages
+     * @return the resolved token value; never {@code null} when {@code token} is
+     *         non-null
+     * @throws SecretResolutionException if the token is marked {@code required}
+     *                                   and cannot be resolved
+     */
     public String resolveToken(TokenConfig token, String configPath) {
         if (token == null) return null;
         String source = token.getSource();
@@ -133,15 +261,42 @@ public class SecretResolver {
         return "";
     }
 
+    /**
+     * Returns the redacted placeholder string, regardless of the value passed in.
+     *
+     * @param value the value to redact; unused
+     * @return the constant redacted placeholder {@code ***REDACTED***}
+     */
     public String redact(String value) {
         return REDACTED;
     }
 
+    /**
+     * Returns {@code true} if {@code value} is an inline secret reference that
+     * requires resolution (i.e. starts with {@code ENV:} or {@code SM:}).
+     *
+     * @param value the string to test; may be {@code null}
+     * @return {@code true} if the value starts with a known secret prefix
+     */
     public boolean isSecretRef(String value) {
         if (value == null) return false;
         return value.startsWith(ENV_PREFIX) || value.startsWith(SM_PREFIX);
     }
 
+    /**
+     * Resolves each value in a headers map through the given {@link SecretResolver}.
+     *
+     * <p>Values prefixed with {@code ENV:} are replaced by the corresponding
+     * environment variable; other values pass through unchanged. Returns an empty
+     * map when {@code headerRefs} is {@code null}.
+     *
+     * @param headerRefs a map of header name to raw value (possibly an inline
+     *                   {@code ENV:} reference); may be {@code null}
+     * @param resolver   the resolver to use for each value
+     * @return a new map of resolved header name-value pairs; never {@code null}
+     * @throws SecretResolutionException if any {@code ENV:} reference names an
+     *                                   environment variable that is not set
+     */
     public static Map<String, String> resolveHeaders(Map<String, String> headerRefs, SecretResolver resolver) {
         if (headerRefs == null) return new HashMap<>();
         Map<String, String> resolved = new HashMap<>();

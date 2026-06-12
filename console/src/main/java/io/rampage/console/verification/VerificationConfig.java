@@ -29,6 +29,13 @@ import java.nio.file.StandardCopyOption;
 @ApplicationScoped
 public class VerificationConfig {
 
+    /**
+     * Creates a new {@code VerificationConfig} instance.
+     * The CDI container calls this constructor; the staging directory is
+     * resolved in the {@link jakarta.annotation.PostConstruct} {@code init} method.
+     */
+    public VerificationConfig() {}
+
     private static final Logger log = LoggerFactory.getLogger(VerificationConfig.class);
     private static final String PLACEHOLDER = "__VERIFICATION_DIR__";
 
@@ -63,11 +70,21 @@ public class VerificationConfig {
         }
     }
 
-    /** Test seam — sets staging dir before triggering manual stage(). */
+    /**
+     * Test seam — sets the staging directory before triggering a manual {@link #stage()} call.
+     *
+     * @param dir the absolute path to use as the staging directory.
+     */
     public void setStagingDir(String dir) {
         this.stagingDir = dir;
     }
 
+    /**
+     * Copies the bundled verification config files from the classpath to the staging directory,
+     * rewriting the {@code __VERIFICATION_DIR__} placeholder with the actual staging path.
+     *
+     * @throws IOException if any classpath resource is missing or a file cannot be written.
+     */
     public void stage() throws IOException {
         Path stage = Paths.get(stagingDir).toAbsolutePath().normalize();
         Files.createDirectories(stage.resolve("scenarios"));
@@ -83,15 +100,31 @@ public class VerificationConfig {
         log.info("Verification config staged at {}", stage);
     }
 
+    /**
+     * Returns {@code true} if the verification config has been successfully staged and
+     * both the environment and run files exist on disk.
+     *
+     * @return {@code true} when the verification pipeline is ready to be enqueued.
+     */
     public boolean isReady() {
         return envPath != null && runPath != null
                 && Files.isRegularFile(envPath) && Files.isRegularFile(runPath);
     }
 
+    /**
+     * Returns the absolute path to the staged verification environment YAML file.
+     *
+     * @return the environment file path, or {@code null} if staging has not yet completed.
+     */
     public Path envPath() {
         return envPath;
     }
 
+    /**
+     * Returns the absolute path to the staged verification run YAML file.
+     *
+     * @return the run file path, or {@code null} if staging has not yet completed.
+     */
     public Path runPath() {
         return runPath;
     }

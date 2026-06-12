@@ -30,6 +30,24 @@ public final class PlaceholderSubstitutor {
     private static final String ESC_OPEN = "RAMPAGE_ESC_OPEN";
     private static final String ESC_CLOSE = "RAMPAGE_ESC_CLOSE";
 
+    /**
+     * Expands all placeholders in {@code value}, throwing if any placeholder
+     * cannot be resolved.
+     *
+     * @param value          the string containing placeholders to expand;
+     *                       may be {@code null}
+     * @param env            the environment configuration, used for
+     *                       {@code ${run:...}} resolutions that need base-URL
+     *                       context; may be {@code null}
+     * @param run            the run configuration, required for
+     *                       {@code ${run:key}} placeholders; may be {@code null}
+     * @param secretResolver the resolver used for {@code ${secret:path}}
+     *                       placeholders; may be {@code null}
+     * @return the fully expanded string, or {@code null} if {@code value} is
+     *         {@code null}
+     * @throws IllegalArgumentException if one or more placeholders could not
+     *                                  be resolved
+     */
     public static String expand(String value, EnvironmentConfig env, RunConfig run, SecretResolver secretResolver) {
         List<String> errors = new ArrayList<>();
         String result = expand(value, env, run, secretResolver, errors);
@@ -39,6 +57,24 @@ public final class PlaceholderSubstitutor {
         return result;
     }
 
+    /**
+     * Expands all placeholders in {@code value}, accumulating any resolution
+     * errors into {@code errors} rather than throwing.
+     *
+     * <p>Escaped placeholders ({@code \${...}}) pass through as literal
+     * {@code ${...}} in the output.
+     *
+     * @param value          the string containing placeholders to expand;
+     *                       may be {@code null}
+     * @param env            the environment configuration; may be {@code null}
+     * @param run            the run configuration; may be {@code null}
+     * @param secretResolver the resolver used for {@code ${secret:path}}
+     *                       placeholders; may be {@code null}
+     * @param errors         mutable list into which resolution error messages
+     *                       are appended
+     * @return the expanded string, with unresolvable placeholders replaced by
+     *         an empty string; {@code null} if {@code value} is {@code null}
+     */
     public static String expand(String value, EnvironmentConfig env, RunConfig run,
                                 SecretResolver secretResolver, List<String> errors) {
         if (value == null) return null;
@@ -66,6 +102,21 @@ public final class PlaceholderSubstitutor {
             .replace(ESC_CLOSE, "}");
     }
 
+    /**
+     * Expands placeholder values in all entries of a {@code String}-valued map,
+     * accumulating resolution errors into {@code errors}.
+     *
+     * @param input          the map whose values should be expanded;
+     *                       may be {@code null}
+     * @param env            the environment configuration; may be {@code null}
+     * @param run            the run configuration; may be {@code null}
+     * @param secretResolver the resolver used for {@code ${secret:path}}
+     *                       placeholders; may be {@code null}
+     * @param errors         mutable list into which resolution error messages
+     *                       are appended
+     * @return a new map with expanded values, preserving insertion order;
+     *         {@code null} if {@code input} is {@code null}
+     */
     public static Map<String, String> expandAll(Map<String, String> input, EnvironmentConfig env,
                                                 RunConfig run, SecretResolver secretResolver,
                                                 List<String> errors) {
@@ -77,6 +128,24 @@ public final class PlaceholderSubstitutor {
         return out;
     }
 
+    /**
+     * Expands placeholders across all string fields of the supplied configuration
+     * objects, mutating them in place.
+     *
+     * <p>Covers base URLs and security headers in the environment config, run-level
+     * headers and metadata fields, and scenario headers, descriptions, request
+     * paths, body references, query/form parameters, and feeder SQL file paths.
+     *
+     * @param env            the environment configuration to expand; may be
+     *                       {@code null}
+     * @param run            the run configuration to expand; may be {@code null}
+     * @param scenarios      the list of scenario configurations to expand; may be
+     *                       {@code null}
+     * @param secretResolver the resolver used for {@code ${secret:path}}
+     *                       placeholders; may be {@code null}
+     * @return a list of error messages for any placeholders that could not be
+     *         resolved; empty when all placeholders resolved successfully
+     */
     public static List<String> expandInPlace(EnvironmentConfig env, RunConfig run,
                                              List<ScenarioConfig> scenarios, SecretResolver secretResolver) {
         List<String> errors = new ArrayList<>();

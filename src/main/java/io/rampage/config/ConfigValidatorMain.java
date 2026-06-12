@@ -8,9 +8,33 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Command-line entry point for validating the Rampage load-test configuration without
+ * executing a simulation.
+ *
+ * <p>Loads the environment, run, and all enabled scenario YAML files using
+ * {@code ConfigLoader}, then passes them to {@code ConfigValidator}. Exits with code
+ * {@code 0} on success, {@code 1} on validation failure or any other error.</p>
+ *
+ * <p>Configuration files are resolved using the same classpath and system-property
+ * overrides as the simulation itself ({@code loadtest.env} and {@code loadtest.run}
+ * system properties).</p>
+ */
 public class ConfigValidatorMain {
     private static final Logger log = LoggerFactory.getLogger(ConfigValidatorMain.class);
 
+    /** Creates the validator entry point. */
+    public ConfigValidatorMain() {}
+
+    /**
+     * Validates the load-test configuration and exits the JVM.
+     *
+     * <p>Exits with code {@code 0} if validation passes, or {@code 1} if validation
+     * errors are found or an unexpected exception occurs.</p>
+     *
+     * @param args command-line arguments (not used; configuration is resolved via system
+     *             properties and classpath)
+     */
     public static void main(String[] args) {
         log.info("Starting load test configuration validation");
         try {

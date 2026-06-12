@@ -35,8 +35,21 @@ import static io.gatling.javaapi.http.HttpDsl.status;
  */
 public final class CheckFactory {
 
+    /** Prevents instantiation of this utility class. */
     private CheckFactory() {}
 
+    /**
+     * Compiles check and extract configurations into a list of Gatling {@code CheckBuilder}s.
+     *
+     * <p>All check kinds declared in {@code checks} are processed first, followed by
+     * the explicit session-capture entries in {@code extracts}. Either argument may be
+     * {@code null}, in which case that group is skipped.
+     *
+     * @param checks   the checks configuration for a scenario or step; may be {@code null}
+     * @param extracts the list of explicit response-capture configurations; may be {@code null}
+     * @return an ordered list of {@code CheckBuilder}s ready to attach to a Gatling request;
+     *         never {@code null}
+     */
     public static List<CheckBuilder> build(ChecksConfig checks, List<ExtractConfig> extracts) {
         List<CheckBuilder> result = new ArrayList<>();
         if (checks != null) {

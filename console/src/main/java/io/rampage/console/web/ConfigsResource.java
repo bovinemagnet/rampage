@@ -19,8 +19,18 @@ import jakarta.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * JAX-RS resource serving the YAML configuration browser and editor under {@code /configs}.
+ * Delegates file discovery to {@code ConfigBrowser} and read/write operations to
+ * {@code ConfigEditor}.
+ */
 @Path("/configs")
 public class ConfigsResource {
+
+    /**
+     * Creates a new {@code ConfigsResource} instance. CDI-managed; no arguments required.
+     */
+    public ConfigsResource() {}
 
     @CheckedTemplate(basePath = "Configs")
     static class Templates {
@@ -40,12 +50,26 @@ public class ConfigsResource {
     @Inject
     ConfigEditor editor;
 
+    /**
+     * Renders the configuration browser listing all known environment, run, and scenario files.
+     *
+     * @return the rendered {@code Configs/index} template
+     */
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance index() {
         return Templates.index(browser.environments(), browser.runs(), browser.scenarios());
     }
 
+    /**
+     * Renders the editor form pre-populated with the content of the file identified by
+     * {@code path}. Returns HTTP 400 when {@code path} is absent or blank, HTTP 404 when
+     * the file cannot be read, and HTTP 400 when the path is rejected by the security checks
+     * in {@code ConfigEditor}.
+     *
+     * @param path relative path of the config file to edit; must not be blank
+     * @return the rendered {@code Configs/edit} template, or an error response
+     */
     @GET
     @Path("/edit")
     @Produces(MediaType.TEXT_HTML)
@@ -69,6 +93,14 @@ public class ConfigsResource {
         }
     }
 
+    /**
+     * Validates and writes the submitted YAML body to the file identified by {@code path},
+     * then renders the save-result fragment indicating success or validation errors.
+     *
+     * @param path relative path of the config file to overwrite
+     * @param body the new YAML content; treated as an empty string when {@code null}
+     * @return the rendered {@code Configs/saveResult} template
+     */
     @POST
     @Path("/save")
     @Produces(MediaType.TEXT_HTML)

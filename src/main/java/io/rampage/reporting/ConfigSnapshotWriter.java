@@ -33,6 +33,10 @@ public class ConfigSnapshotWriter {
 
     private final ObjectMapper mapper;
 
+    /**
+     * Constructs a {@code ConfigSnapshotWriter} with a YAML mapper configured to suppress
+     * the document-start marker and null map values.
+     */
     public ConfigSnapshotWriter() {
         YAMLFactory yaml = YAMLFactory.builder()
             .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
@@ -42,6 +46,16 @@ public class ConfigSnapshotWriter {
         this.mapper.findAndRegisterModules();
     }
 
+    /**
+     * Builds the merged configuration snapshot as an ordered map suitable for
+     * serialisation to YAML. Each scenario entry includes the scenario config and
+     * its effective workload as resolved by {@code WorkloadFactory}.
+     *
+     * @param env       the environment configuration; may be null
+     * @param run       the run configuration; may be null
+     * @param scenarios the resolved scenario configurations; may be null or empty
+     * @return an ordered map with keys {@code environment}, {@code run}, and {@code scenarios}
+     */
     public Map<String, Object> buildSnapshot(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("environment", env);
@@ -63,6 +77,20 @@ public class ConfigSnapshotWriter {
         return snapshot;
     }
 
+    /**
+     * Serialises the configuration snapshot to {@code config-snapshot.yaml} inside
+     * {@code outputDir}, optionally replacing sensitive values with {@code ***REDACTED***}.
+     *
+     * @param env             the environment configuration
+     * @param run             the run configuration
+     * @param scenarios       the resolved scenario configurations
+     * @param outputDir       the directory path into which the snapshot file is written;
+     *                        the directory is created if it does not exist
+     * @param secretResolver  the resolver whose sensitive values should be redacted;
+     *                        ignored when {@code redactSecrets} is false or this is null
+     * @param redactSecrets   when true, any sensitive value known to {@code secretResolver}
+     *                        is replaced with {@code ***REDACTED***} in the output
+     */
     public void write(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios,
                       String outputDir, SecretResolver secretResolver, boolean redactSecrets) {
         try {

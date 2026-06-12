@@ -22,12 +22,25 @@ import java.util.List;
 @ApplicationScoped
 public class ConfigEditor {
 
+    /**
+     * Creates a new {@code ConfigEditor} instance.
+     * The CDI container calls this constructor; dependencies are injected after construction.
+     */
+    public ConfigEditor() {}
+
     @Inject
     ConfigBrowser browser;
 
     private final ConfigLoader loader = new ConfigLoader();
     private final ConfigValidator validator = new ConfigValidator();
 
+    /**
+     * Reads the content of the config file at {@code relativePath} as a UTF-8 string.
+     *
+     * @param relativePath path relative to the config root (e.g. {@code environments/local.yaml}).
+     * @return the file content.
+     * @throws IOException if the path does not point to a regular file or the read fails.
+     */
     public String read(String relativePath) throws IOException {
         Path absolute = browser.resolve(relativePath);
         if (!Files.isRegularFile(absolute)) {
@@ -42,6 +55,8 @@ public class ConfigEditor {
      * synthesised from the rest of {@code config/}, and (only if validation
      * passes) writes the body to disk atomically.
      *
+     * @param relativePath path relative to the config root identifying the file to save.
+     * @param body         the new YAML content to validate and persist.
      * @return {@link ValidationResult#valid()} on success, or a result holding
      *         the collected error list on failure (no file changes in that case).
      */

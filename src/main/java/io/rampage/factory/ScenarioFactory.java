@@ -20,6 +20,22 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * Builds Gatling {@code ScenarioBuilder} instances from {@code ScenarioConfig}
+ * descriptors.
+ *
+ * <p>Each scenario is compiled into a chain that:
+ * <ol>
+ *   <li>Sets a {@code correlationId} and an {@code authToken} in the Gatling
+ *       session via the supplied suppliers.</li>
+ *   <li>Optionally feeds a row from the configured feeder before the first
+ *       request step.</li>
+ *   <li>Executes one or more HTTP steps via {@link StepBuilder}.</li>
+ * </ol>
+ *
+ * <p>When a scenario declares no explicit {@code steps}, a single synthetic step
+ * is constructed from the top-level scenario request configuration.
+ */
 public class ScenarioFactory {
     private static final Logger log = LoggerFactory.getLogger(ScenarioFactory.class);
 
@@ -27,18 +43,54 @@ public class ScenarioFactory {
     private final Supplier<String> authTokenSupplier;
     private final Function<String, String> resourceLoader;
 
+    /**
+     * Constructs a factory with a random UUID correlation-ID supplier, no auth
+     * token, and a no-op resource loader that returns an empty string for all
+     * paths.
+     */
     public ScenarioFactory() {
         this(() -> UUID.randomUUID().toString(), () -> null, path -> "");
     }
 
+    /**
+     * Constructs a factory with the given correlation-ID supplier, no auth token,
+     * and a no-op resource loader.
+     *
+     * @param correlationIdSupplier supplier invoked once per virtual user iteration
+     *                              to produce a unique correlation ID
+     */
     public ScenarioFactory(Supplier<String> correlationIdSupplier) {
         this(correlationIdSupplier, () -> null, path -> "");
     }
 
+    /**
+     * Constructs a factory with the given correlation-ID and auth-token suppliers,
+     * and a no-op resource loader.
+     *
+     * @param correlationIdSupplier supplier invoked once per virtual user iteration
+     *                              to produce a unique correlation ID
+     * @param authTokenSupplier     supplier invoked once per virtual user iteration
+     *                              to produce a bearer token; return {@code null}
+     *                              to omit the token
+     */
     public ScenarioFactory(Supplier<String> correlationIdSupplier, Supplier<String> authTokenSupplier) {
         this(correlationIdSupplier, authTokenSupplier, path -> "");
     }
 
+    /**
+     * Constructs a factory with full control over all three runtime dependencies.
+     *
+     * @param correlationIdSupplier supplier invoked once per virtual user iteration
+     *                              to produce a unique correlation ID; must not be
+     *                              {@code null}
+     * @param authTokenSupplier     supplier invoked once per virtual user iteration
+     *                              to produce a bearer token; {@code null} is
+     *                              treated as a no-token supplier
+     * @param resourceLoader        function that loads a classpath or filesystem
+     *                              resource by path and returns its content as a
+     *                              string; {@code null} is treated as a no-op
+     *                              loader returning an empty string
+     */
     public ScenarioFactory(Supplier<String> correlationIdSupplier,
                            Supplier<String> authTokenSupplier,
                            Function<String, String> resourceLoader) {
@@ -47,19 +99,61 @@ public class ScenarioFactory {
         this.resourceLoader = resourceLoader != null ? resourceLoader : path -> "";
     }
 
+    /**
+     * Builds a {@code ScenarioBuilder} with no HTTP config, no effective headers,
+     * no environment config, and no feeder.
+     *
+     * @param scenarioCfg the scenario configuration
+     * @param graphqlQuery the pre-loaded GraphQL query; may be {@code null}
+     * @return the configured {@code ScenarioBuilder}
+     */
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery) {
         return build(scenarioCfg, graphqlQuery, null, null, null);
     }
 
+    /**
+     * Builds a {@code ScenarioBuilder} with the given HTTP config but no effective
+     * headers, no environment config, and no feeder.
+     *
+     * @param scenarioCfg the scenario configuration
+     * @param graphqlQuery the pre-loaded GraphQL query; may be {@code null}
+     * @param httpConfig  HTTP-level settings such as per-request timeout;
+     *                    may be {@code null}
+     * @return the configured {@code ScenarioBuilder}
+     */
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery, HttpConfig httpConfig) {
         return build(scenarioCfg, graphqlQuery, httpConfig, null, null);
     }
 
+    /**
+     * Builds a {@code ScenarioBuilder} with HTTP config and effective headers but
+     * no environment config and no feeder.
+     *
+     * @param scenarioCfg      the scenario configuration
+     * @param graphqlQuery     the pre-loaded GraphQL query; may be {@code null}
+     * @param httpConfig       HTTP-level settings; may be {@code null}
+     * @param effectiveHeaders merged headers to attach to every request;
+     *                         may be {@code null}
+     * @return the configured {@code ScenarioBuilder}
+     */
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders) {
         return build(scenarioCfg, graphqlQuery, httpConfig, effectiveHeaders, null, null);
     }
 
+    /**
+     * Builds a {@code ScenarioBuilder} with HTTP config, effective headers, and
+     * environment config but no feeder.
+     *
+     * @param scenarioCfg      the scenario configuration
+     * @param graphqlQuery     the pre-loaded GraphQL query; may be {@code null}
+     * @param httpConfig       HTTP-level settings; may be {@code null}
+     * @param effectiveHeaders merged headers to attach to every request;
+     *                         may be {@code null}
+     * @param env              the environment configuration used for endpoint URL
+     *                         resolution; may be {@code null}
+     * @return the configured {@code ScenarioBuilder}
+     */
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders,
                                  EnvironmentConfig env) {
@@ -72,6 +166,21 @@ public class ScenarioFactory {
      * request: otherwise the request body's {@code #{...}} Gatling EL placeholders are
      * resolved before any feeder row is polled, and Gatling fails the request build with
      * "No attribute named 'X' is defined". A {@code null} feeder leaves the chain unfed.
+     *
+     * @param scenarioCfg      the scenario configuration
+     * @param graphqlQuery     the pre-loaded GraphQL query string used as the default
+     *                         for all steps that do not declare their own query file;
+     *                         may be {@code null}
+     * @param httpConfig       HTTP-level settings such as per-request timeout;
+     *                         may be {@code null}
+     * @param effectiveHeaders merged headers to attach to every request step;
+     *                         may be {@code null}
+     * @param env              the environment configuration used for endpoint URL
+     *                         resolution across steps; may be {@code null}
+     * @param feeder           a Gatling {@code FeederBuilder} or a plain
+     *                         {@code Iterator<Map<String, Object>>} to feed before
+     *                         the first step; {@code null} means no feeder
+     * @return the configured {@code ScenarioBuilder}
      */
     public ScenarioBuilder build(ScenarioConfig scenarioCfg, String graphqlQuery,
                                  HttpConfig httpConfig, Map<String, String> effectiveHeaders,
@@ -161,6 +270,11 @@ public class ScenarioFactory {
     /**
      * Builds a GraphQL JSON envelope body. Retained as a static helper for tests and
      * backward compatibility — production code calls into {@link RequestBuilder}.
+     *
+     * @param scenarioCfg  the scenario configuration supplying variables and
+     *                     operation name
+     * @param graphqlQuery the GraphQL query string; may be {@code null}
+     * @return the serialised JSON envelope as a string
      */
     public static String buildRequestBody(ScenarioConfig scenarioCfg, String graphqlQuery) {
         return RequestBuilder.buildGraphqlBody(scenarioCfg, graphqlQuery);
@@ -168,6 +282,9 @@ public class ScenarioFactory {
 
     /**
      * Backward-compatible alias for {@link PlaceholderRewriter#rewriteVariableMap(Map)}.
+     *
+     * @param variables the GraphQL variables map to rewrite; may be {@code null}
+     * @return a new map with eligible placeholder values rewritten to Gatling EL form
      */
     public static Map<String, Object> rewriteFeederPlaceholders(Map<String, Object> variables) {
         return PlaceholderRewriter.rewriteVariableMap(variables);
@@ -176,6 +293,10 @@ public class ScenarioFactory {
     /**
      * Backward-compatible helper that builds a list of {@link CheckBuilder}s from a
      * {@link ChecksConfig}. Production code calls {@link CheckFactory#build} directly.
+     *
+     * @param checksConfig the checks configuration; may be {@code null}
+     * @return the list of Gatling check builders; empty when {@code checksConfig}
+     *         is {@code null} or contains no checks
      */
     public static List<CheckBuilder> buildChecks(ChecksConfig checksConfig) {
         return CheckFactory.build(checksConfig, null);

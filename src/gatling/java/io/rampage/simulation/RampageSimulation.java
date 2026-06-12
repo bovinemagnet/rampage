@@ -16,6 +16,17 @@ import java.util.*;
 import static io.gatling.javaapi.core.CoreDsl.*;
 import static io.gatling.javaapi.http.HttpDsl.*;
 
+/**
+ * The single, generic Gatling simulation for all Rampage load tests.
+ *
+ * <p>The initialiser block is the canonical pipeline: it loads the environment, run,
+ * and scenario YAML layers via {@code ConfigLoader}, validates them together with
+ * {@code ConfigValidator}, then assembles HTTP protocols, scenarios, feeders,
+ * workloads, and assertions through the {@code io.rampage.factory} classes. No
+ * scenario-specific code lives here — all behaviour comes from the configuration
+ * files, overridable with the {@code loadtest.env} and {@code loadtest.run} system
+ * properties.</p>
+ */
 public class RampageSimulation extends Simulation {
     private static final Logger log = LoggerFactory.getLogger(RampageSimulation.class);
 

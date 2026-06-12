@@ -1,9 +1,17 @@
 package io.rampage.console.results;
 
 /**
- * One metric compared across two runs. {@code delta} = B − A; {@code pctChange}
+ * One metric compared across two runs. {@code delta} = B &minus; A; {@code pctChange}
  * is that delta as a percentage of A. {@code regressed} is true when the change
  * exceeds the threshold in the worsening direction.
+ *
+ * @param label      human-readable metric name shown in the comparison table
+ * @param valueA     metric value from run A, or {@code null} when unavailable
+ * @param valueB     metric value from run B, or {@code null} when unavailable
+ * @param delta      absolute difference (B &minus; A), or {@code null} when either value is absent
+ * @param pctChange  percentage change relative to A, or {@code null} when A is absent or zero
+ * @param regressed  {@code true} when the change exceeds the regression threshold in the
+ *                   worsening direction for the metric's polarity
  */
 public record MetricRow(
         String label,
@@ -14,8 +22,15 @@ public record MetricRow(
         boolean regressed) {
 
     /**
-     * @param lowerIsBetter           true for latency/error metrics (a rise is bad)
-     * @param regressionThresholdPct  percentage change beyond which a move counts as a regression
+     * Constructs a {@code MetricRow} from the raw values of two runs, computing the delta,
+     * percentage change, and regression flag automatically.
+     *
+     * @param label                  human-readable metric name
+     * @param a                      metric value from run A, or {@code null} when unavailable
+     * @param b                      metric value from run B, or {@code null} when unavailable
+     * @param lowerIsBetter          {@code true} for latency/error metrics (a rise is bad)
+     * @param regressionThresholdPct percentage change beyond which a move counts as a regression
+     * @return a fully populated {@code MetricRow}
      */
     public static MetricRow of(String label, Double a, Double b,
                                boolean lowerIsBetter, double regressionThresholdPct) {

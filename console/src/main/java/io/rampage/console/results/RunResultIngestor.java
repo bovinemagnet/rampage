@@ -31,6 +31,13 @@ import java.util.Optional;
 @ApplicationScoped
 public class RunResultIngestor {
 
+    /**
+     * Creates a default {@code RunResultIngestor} instance.
+     * Dependencies are injected by the CDI container.
+     */
+    public RunResultIngestor() {
+    }
+
     private static final Logger log = LoggerFactory.getLogger(RunResultIngestor.class);
     private static final ObjectMapper JSON = new ObjectMapper(); // ObjectMapper is thread-safe once configured.
 
@@ -55,7 +62,11 @@ public class RunResultIngestor {
         }
     }
 
-    /** Ingest a console-launched run that has just reached a terminal state. */
+    /**
+     * Ingests a console-launched run that has just reached a terminal state.
+     *
+     * @param record the completed run record containing identity, timing, and exit information
+     */
     @Transactional
     public void ingestCompleted(RunRecord record) {
         try {
@@ -111,10 +122,12 @@ public class RunResultIngestor {
     }
 
     /**
-     * Import one simulation directory as its own unit of work. Public and
+     * Imports one simulation directory as its own unit of work. Public and
      * {@code @Transactional} so it is called through the CDI proxy ({@code self})
-     * and each directory gets an independent transaction. Returns true when a new
-     * run was stored.
+     * and each directory gets an independent transaction.
+     *
+     * @param simDir the Gatling simulation output directory to import
+     * @return {@code true} when a new run was stored; {@code false} when already known or on error
      */
     @Transactional
     public boolean importOne(Path simDir) {

@@ -57,18 +57,45 @@ public final class HarImporter {
 
     private HarImporter() {}
 
+    /**
+     * Configures how the HAR importer filters and names the generated scenario.
+     */
     public static final class Options {
+        /** The scenario id to assign to the generated scenario YAML. */
         public String scenarioId;
-        public String hostFilter;          // optional; e.g. "api.example.com"
-        public Set<String> methodFilter;   // optional; uppercase HTTP verbs
-        public boolean includeStatic;      // default false
+        /** Optional host to restrict entries to; e.g. {@code "api.example.com"}.
+         *  When null, the busiest host in the capture is used. */
+        public String hostFilter;
+        /** Optional set of uppercase HTTP verbs to include; null means all verbs
+         *  except {@code OPTIONS}. */
+        public Set<String> methodFilter;
+        /** When true, static assets (CSS, JS, images, fonts) are included in the output.
+         *  Defaults to false. */
+        public boolean includeStatic;
 
+        /**
+         * Constructs an {@code Options} instance with the given scenario id and
+         * all filter fields left at their defaults (no host filter, no method filter,
+         * static assets excluded).
+         *
+         * @param scenarioId the id to assign to the generated scenario
+         */
         public Options(String scenarioId) {
             this.scenarioId = scenarioId;
         }
     }
 
-    /** Read {@code harFile}, generate scenario YAML, write it to {@code outFile}. */
+    /**
+     * Reads a HAR file, filters its entries according to {@code options}, and writes a
+     * Rampage scenario YAML to {@code outFile}. The parent directories of {@code outFile}
+     * are created if they do not exist.
+     *
+     * @param harFile  path to the HAR JSON file
+     * @param outFile  path at which to write the generated scenario YAML
+     * @param options  filtering and naming options for the import
+     * @return the number of request steps included in the generated scenario
+     * @throws IOException if the HAR file cannot be read or the output file cannot be written
+     */
     public static int importHar(Path harFile, Path outFile, Options options) throws IOException {
         Map<String, Object> har = JSON.readValue(harFile.toFile(),
             new TypeReference<Map<String, Object>>() {});
@@ -282,7 +309,16 @@ public final class HarImporter {
         return value instanceof Map ? (Map<String, Object>) value : null;
     }
 
-    /** CLI for the {@code importHar} Gradle task. */
+    /**
+     * CLI entry point for the {@code importHar} Gradle task. Reads configuration from system
+     * properties: {@code rampage.har.file} (required), {@code rampage.scenario.id} (required),
+     * {@code rampage.scenario.dir} (default {@code config/scenarios}),
+     * {@code rampage.har.host}, {@code rampage.har.methods} (comma-separated), and
+     * {@code rampage.har.includeStatic} (default {@code false}).
+     *
+     * @param args unused; all options are supplied via system properties
+     * @throws Exception if the HAR import fails
+     */
     public static void main(String[] args) throws Exception {
         String harFile = required("rampage.har.file", System.getProperty("rampage.har.file"));
         String scenarioId = required("rampage.scenario.id", System.getProperty("rampage.scenario.id"));

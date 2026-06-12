@@ -14,9 +14,50 @@ import java.time.Duration;
 
 import static io.gatling.javaapi.core.CoreDsl.*;
 
+/**
+ * Translates {@code WorkloadConfig} descriptors into Gatling injection steps.
+ *
+ * <p>Two injection models are supported:
+ * <ul>
+ *   <li><b>Open model</b> ({@link #buildInjection}) — injects users at a
+ *       configurable arrival rate. Supports {@code smoke}, {@code ramp-and-hold},
+ *       {@code soak}, {@code constant}, {@code baseline}, {@code spike}, and
+ *       {@code stress} types. Unknown types fall back to a single-user
+ *       smoke injection rather than throwing.</li>
+ *   <li><b>Closed model</b> ({@link #buildClosedInjection}) — maintains a
+ *       target number of concurrently active users. Supports {@code smoke},
+ *       {@code ramp-and-hold}, {@code constant}, {@code baseline}, and
+ *       {@code soak}.</li>
+ * </ul>
+ *
+ * <p>Duration strings are parsed by {@link #parseDuration(String, Duration)},
+ * which accepts {@code ms}, {@code s}, {@code m}, and {@code h} suffixes, or
+ * a bare number interpreted as seconds.
+ */
 public class WorkloadFactory {
     private static final Logger log = LoggerFactory.getLogger(WorkloadFactory.class);
 
+    /**
+     * Constructs a new {@code WorkloadFactory}.
+     */
+    public WorkloadFactory() {
+    }
+
+    /**
+     * Determines the effective workload configuration for a scenario.
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>The scenario-level workload override, if present and
+     *       {@code inheritFromRun} is {@code false}.</li>
+     *   <li>The run-level workload from {@code run.execution.workload}.</li>
+     *   <li>A default smoke workload of 1 user.</li>
+     * </ol>
+     *
+     * @param runConfig    the run configuration; may be {@code null}
+     * @param scenarioCfg  the scenario configuration; may be {@code null}
+     * @return the effective workload configuration; never {@code null}
+     */
     public static WorkloadConfig effectiveWorkload(RunConfig runConfig, ScenarioConfig scenarioCfg) {
         ScenarioWorkloadConfig scenarioWorkload = scenarioCfg != null ? scenarioCfg.getWorkload() : null;
         if (scenarioWorkload != null && !scenarioWorkload.isInheritFromRun()) {
@@ -35,6 +76,14 @@ public class WorkloadFactory {
     /**
      * Returns a scaled copy of the workload with rate/users multiplied by {@code scale}.
      * Used to apply scenario-weighting when several scenarios share a run-level workload.
+     *
+     * @param source the workload configuration to scale; may be {@code null},
+     *               in which case {@code null} is returned
+     * @param scale  the multiplicative factor to apply to user counts and rates;
+     *               user counts are rounded to the nearest integer with a minimum
+     *               of 1
+     * @return a new {@code WorkloadConfig} with scaled values, or {@code null}
+     *         if {@code source} is {@code null}
      */
     public static WorkloadConfig scaleWorkload(WorkloadConfig source, double scale) {
         if (source == null) return null;
@@ -74,6 +123,19 @@ public class WorkloadFactory {
         return wc;
     }
 
+    /**
+     * Builds Gatling closed-model injection steps from the given workload
+     * configuration.
+     *
+     * <p>Supported types: {@code smoke}, {@code ramp-and-hold}, {@code constant},
+     * {@code baseline}, and {@code soak}. Unsupported types throw
+     * {@link IllegalArgumentException}.
+     *
+     * @param workload the workload configuration describing the injection profile
+     * @return an array of one or more closed-model injection steps
+     * @throws IllegalArgumentException if the workload type is not supported by
+     *                                  the closed model
+     */
     public ClosedInjectionStep[] buildClosedInjection(WorkloadConfig workload) {
         String type = workload.getType();
         log.info("Building closed-model injection for type: {}", type);
@@ -110,6 +172,18 @@ public class WorkloadFactory {
             + "' is not supported in closed model. Use 'smoke', 'baseline', 'constant', 'soak', or 'ramp-and-hold'.");
     }
 
+    /**
+     * Builds Gatling open-model injection steps from the given workload
+     * configuration.
+     *
+     * <p>Supported types: {@code ramp-and-hold}, {@code smoke}, {@code soak},
+     * {@code constant}, {@code baseline}, {@code spike}, and {@code stress}.
+     * Unknown types log a warning and fall back to a single {@code atOnceUsers(1)}
+     * step rather than throwing.
+     *
+     * @param workload the workload configuration describing the injection profile
+     * @return an array of one or more open-model injection steps; never empty
+     */
     public OpenInjectionStep[] buildInjection(WorkloadConfig workload) {
         String type = workload.getType();
         log.info("Building workload injection for type: {}", type);
@@ -200,6 +274,17 @@ public class WorkloadFactory {
         return parseDuration(workload.getHoldFor(), typeDefault);
     }
 
+    /**
+     * Parses a duration string, returning {@code defaultDuration} when the
+     * input is blank or cannot be parsed.
+     *
+     * <p>Supported formats: {@code 500ms}, {@code 30s}, {@code 5m}, {@code 2h},
+     * or a bare integer treated as seconds.
+     *
+     * @param durationStr     the string to parse; may be {@code null} or blank
+     * @param defaultDuration the fallback duration returned when parsing fails
+     * @return the parsed duration, or {@code defaultDuration} on failure
+     */
     public static Duration parseDuration(String durationStr, Duration defaultDuration) {
         if (durationStr == null || durationStr.isBlank()) {
             return defaultDuration;
@@ -212,6 +297,17 @@ public class WorkloadFactory {
         }
     }
 
+    /**
+     * Parses a duration string, throwing if the input is blank or uses an
+     * unrecognised format.
+     *
+     * <p>Supported formats: {@code 500ms}, {@code 30s}, {@code 5m}, {@code 2h},
+     * or a bare integer treated as seconds.
+     *
+     * @param durationStr the string to parse; must not be {@code null} or blank
+     * @return the parsed {@code Duration}
+     * @throws IllegalArgumentException if the string is blank or cannot be parsed
+     */
     public static Duration parseDurationStrict(String durationStr) {
         if (durationStr == null || durationStr.isBlank()) {
             throw new IllegalArgumentException("Duration must not be null or blank");

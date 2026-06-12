@@ -31,6 +31,26 @@ public final class StepBuilder {
 
     private StepBuilder() {}
 
+    /**
+     * Builds a Gatling {@code ChainBuilder} for a single scenario step,
+     * consisting of an optional before-pause, the HTTP request with its checks
+     * and extractions, and an optional after-pause.
+     *
+     * @param scenarioCfg        the scenario configuration providing pause
+     *                           defaults and the scenario-level endpoint reference
+     * @param step               the step configuration to build
+     * @param graphqlQuery       the pre-loaded GraphQL query string; may be
+     *                           {@code null} for non-GraphQL steps
+     * @param inlineBodyFromFile the pre-loaded body file content referenced by
+     *                           {@code request.bodyFile}; may be {@code null}
+     * @param httpConfig         HTTP-level settings such as per-request timeout;
+     *                           may be {@code null}
+     * @param effectiveHeaders   the merged set of headers to attach to the
+     *                           request; may be {@code null}
+     * @param env                the environment configuration used for
+     *                           cross-endpoint URL resolution; may be {@code null}
+     * @return a {@code ChainBuilder} representing the complete step
+     */
     public static ChainBuilder build(ScenarioConfig scenarioCfg,
                                       StepConfig step,
                                       String graphqlQuery,

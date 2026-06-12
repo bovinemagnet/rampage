@@ -20,15 +20,34 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Builds and writes a dry-run summary JSON that describes what a Gatling run
+ * <em>would</em> execute without actually triggering load. The summary captures
+ * effective workloads, global assertions, and enabled/disabled scenario counts
+ * derived from the resolved configuration.
+ */
 public class DryRunSummaryWriter {
     private static final Logger log = LoggerFactory.getLogger(DryRunSummaryWriter.class);
     private final ObjectMapper mapper;
 
+    /**
+     * Constructs a {@code DryRunSummaryWriter} with indented JSON output enabled.
+     */
     public DryRunSummaryWriter() {
         this.mapper = new ObjectMapper();
         this.mapper.enable(SerializationFeature.INDENT_OUTPUT);
     }
 
+    /**
+     * Builds the dry-run summary as an ordered map. The map includes mode, generation
+     * timestamp, environment and run identifiers, per-scenario effective workloads, global
+     * assertions, and scenario enabled/disabled counts.
+     *
+     * @param env       the environment configuration; may be null
+     * @param run       the run configuration; may be null
+     * @param scenarios the resolved scenario configurations; may be null
+     * @return an ordered map representing the dry-run summary
+     */
     public Map<String, Object> buildSummary(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios) {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("mode", "dry-run");
@@ -87,6 +106,15 @@ public class DryRunSummaryWriter {
         return summary;
     }
 
+    /**
+     * Writes the dry-run summary to {@code dry-run-summary.json} inside {@code outputDir}.
+     * The directory is created if it does not exist.
+     *
+     * @param env       the environment configuration
+     * @param run       the run configuration
+     * @param scenarios the resolved scenario configurations
+     * @param outputDir the directory path into which the summary file is written
+     */
     public void write(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios, String outputDir) {
         Map<String, Object> summary = buildSummary(env, run, scenarios);
         try {

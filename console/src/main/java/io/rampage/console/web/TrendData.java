@@ -19,7 +19,15 @@ public final class TrendData {
     private TrendData() {
     }
 
-    /** Build the uPlot data island JSON for {@code runs} (assumed oldest-first). */
+    /**
+     * Builds the uPlot data island JSON for the supplied runs.
+     * Runs without a {@code startedAt} timestamp are skipped.
+     * Returns an empty-series JSON object on serialisation failure.
+     *
+     * @param runs time-ordered list of runs to serialise (assumed oldest-first)
+     * @return a JSON string in the form
+     *         {@code {"x":[epochSeconds...],"p95":[...],"rps":[...],"err":[...]}}
+     */
     public static String toJson(List<StoredRun> runs) {
         List<Long> x = new ArrayList<>();
         List<Double> p95 = new ArrayList<>();

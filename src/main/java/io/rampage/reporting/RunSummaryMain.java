@@ -26,6 +26,17 @@ public final class RunSummaryMain {
 
     private RunSummaryMain() {}
 
+    /**
+     * Entry point for the {@code summariseRun} Gradle task. Reads system properties
+     * {@code rampage.report.dir} (default {@code build/reports/gatling}),
+     * {@code rampage.baseline.json} (optional path to a previous summary), and
+     * {@code rampage.fail.on.regression} (default {@code true}) to control behaviour.
+     *
+     * <p>Exits with code 1 if the run status is not PASS and fail-on-regression is enabled,
+     * or with code 2 if summary generation fails entirely.
+     *
+     * @param args unused command-line arguments; configuration is via system properties
+     */
     public static void main(String[] args) {
         Path reportDir = Paths.get(System.getProperty("rampage.report.dir", "build/reports/gatling"));
         Path summaryJson = reportDir.resolve("run-summary.json");

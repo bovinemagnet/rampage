@@ -11,16 +11,39 @@ import javax.sql.DataSource;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Manages a collection of named HikariCP connection pools, creating each pool on first use
+ * and reusing it for subsequent requests within the same simulation.
+ *
+ * <p>Credentials are resolved via the supplied {@code SecretResolver} at pool-creation time.
+ * All pools are configured as read-only by default, which is appropriate for feeder data
+ * sources. Pools are closed when {@link #close()} is called; this class implements
+ * {@code AutoCloseable} so it can be used in a try-with-resources block.
+ */
 public class DataSourceRegistry implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(DataSourceRegistry.class);
 
     private final SecretResolver secretResolver;
     private final Map<String, HikariDataSource> pools = new ConcurrentHashMap<>();
 
+    /**
+     * Creates a registry that resolves database credentials using the supplied resolver.
+     *
+     * @param secretResolver the resolver used to expand credential references at pool-creation
+     *                       time
+     */
     public DataSourceRegistry(SecretResolver secretResolver) {
         this.secretResolver = secretResolver;
     }
 
+    /**
+     * Returns the existing pool for {@code name}, or creates and registers a new one from
+     * {@code db} if no pool with that name exists yet.
+     *
+     * @param name the logical name of the data source, used as the HikariCP pool name
+     * @param db   the database configuration from which the pool is built
+     * @return the {@code DataSource} for the named pool; never {@code null}
+     */
     public DataSource getOrCreate(String name, DatabaseConfig db) {
         return pools.computeIfAbsent(name, n -> buildPool(n, db));
     }
@@ -53,6 +76,10 @@ public class DataSourceRegistry implements AutoCloseable {
         return ds;
     }
 
+    /**
+     * Logs connection-pool statistics (active, idle, awaiting, and total connections) for
+     * every registered pool at INFO level.
+     */
     public void logStats() {
         pools.forEach((name, ds) -> log.info(
             "Pool '{}': active={}, idle={}, awaiting={}, total={}",

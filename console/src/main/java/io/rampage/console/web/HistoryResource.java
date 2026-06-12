@@ -27,6 +27,11 @@ import java.util.List;
 @Path("/history")
 public class HistoryResource {
 
+    /**
+     * Creates a new {@code HistoryResource} instance. CDI-managed; no arguments required.
+     */
+    public HistoryResource() {}
+
     @CheckedTemplate(basePath = "History")
     static class Templates {
         public static native TemplateInstance index(List<StoredRun> runs, List<String> allTags,
@@ -54,6 +59,16 @@ public class HistoryResource {
     @Inject
     RunComparisonService comparisonService;
 
+    /**
+     * Renders the run-history index page, filtered by the supplied query parameters.
+     * Any combination of parameters may be omitted; absent parameters are treated as
+     * unfiltered.
+     *
+     * @param query  free-text search string; may be {@code null}
+     * @param tag    tag to filter by; may be {@code null}
+     * @param status run status to filter by; may be {@code null}
+     * @return the rendered {@code History/index} template
+     */
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list(@QueryParam("q") String query,
@@ -63,6 +78,15 @@ public class HistoryResource {
         return Templates.index(runs, repository.distinctTags(), query, tag, status);
     }
 
+    /**
+     * Renders only the run-list rows fragment, suitable for HTMX partial updates.
+     * Accepts the same filter parameters as {@link #list}.
+     *
+     * @param query  free-text search string; may be {@code null}
+     * @param tag    tag to filter by; may be {@code null}
+     * @param status run status to filter by; may be {@code null}
+     * @return the rendered {@code History/rows} template fragment
+     */
     @GET
     @Path("/rows")
     @Produces(MediaType.TEXT_HTML)
@@ -72,6 +96,12 @@ public class HistoryResource {
         return Templates.rows(repository.search(query, tag, status));
     }
 
+    /**
+     * Triggers a filesystem rescan to import any run results not yet in the results store,
+     * then renders the updated run-list rows fragment.
+     *
+     * @return the rendered {@code History/rows} template fragment after re-importing
+     */
     @POST
     @Path("/rescan")
     @Produces(MediaType.TEXT_HTML)
@@ -80,6 +110,15 @@ public class HistoryResource {
         return Templates.rows(repository.listNewestFirst());
     }
 
+    /**
+     * Adds a tag to the run identified by {@code id}.
+     * Tags must match {@code [A-Za-z0-9._-]+} and be at most 100 characters; invalid or
+     * blank tags are silently ignored. Renders the updated tag cell fragment.
+     *
+     * @param id  the run identifier
+     * @param tag the tag value to add; may be {@code null} or blank (no-op in that case)
+     * @return the rendered {@code History/tagCell} template fragment
+     */
     @POST
     @Path("/{id}/tags")
     @Transactional
@@ -99,6 +138,14 @@ public class HistoryResource {
         return Templates.tagCell(run);
     }
 
+    /**
+     * Removes a tag from the run identified by {@code id} and renders the updated tag
+     * cell fragment. No-op when the tag is not present on the run.
+     *
+     * @param id  the run identifier
+     * @param tag the tag value to remove
+     * @return the rendered {@code History/tagCell} template fragment
+     */
     @DELETE
     @Path("/{id}/tags/{tag}")
     @Transactional
@@ -109,6 +156,14 @@ public class HistoryResource {
         return Templates.tagCell(run);
     }
 
+    /**
+     * Persists free-text notes on the run identified by {@code id} and returns an
+     * inline confirmation fragment.
+     *
+     * @param id    the run identifier
+     * @param notes the notes to store; may be {@code null}
+     * @return an HTML span confirming that the notes were saved
+     */
     @POST
     @Path("/{id}/notes")
     @Transactional
@@ -119,6 +174,16 @@ public class HistoryResource {
         return "<span class=\"validation-ok\">Notes saved.</span>";
     }
 
+    /**
+     * Renders the run-comparison page for the two runs identified by {@code idA} and
+     * {@code idB}. Renders an empty-state page when either id is absent or blank.
+     * Falls back to an empty-state page (instead of HTTP 500) when either id is
+     * unrecognised, so stale bookmarked URLs remain usable.
+     *
+     * @param idA identifier of the first run to compare; may be {@code null}
+     * @param idB identifier of the second run to compare; may be {@code null}
+     * @return the rendered {@code History/compare} template
+     */
     @GET
     @Path("/compare")
     @Produces(MediaType.TEXT_HTML)
@@ -137,6 +202,15 @@ public class HistoryResource {
         return Templates.compare(repository.listNewestFirst(), idA, idB, comparison);
     }
 
+    /**
+     * Renders the trend chart page for runs grouped by the given run-config key.
+     * Passes an empty series when {@code runConfigKey} is absent or blank, which
+     * causes the template to render an empty-state chart.
+     *
+     * @param runConfigKey the run-config key whose historical runs should be charted;
+     *                     may be {@code null}
+     * @return the rendered {@code History/trends} template
+     */
     @GET
     @Path("/trends")
     @Produces(MediaType.TEXT_HTML)
@@ -149,6 +223,12 @@ public class HistoryResource {
                 chartJson, !series.isEmpty());
     }
 
+    /**
+     * Renders the detail page for a single run. Returns HTTP 404 when the run is not found.
+     *
+     * @param id the run identifier
+     * @return the rendered {@code History/detail} template
+     */
     @GET
     @Path("/{id}")
     @Produces(MediaType.TEXT_HTML)

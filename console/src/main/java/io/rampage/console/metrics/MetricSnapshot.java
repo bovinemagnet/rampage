@@ -27,6 +27,12 @@ public record MetricSnapshot(
         double p95ResponseMs,
         Map<String, Double> raw) {
 
+    /**
+     * Returns a zero-valued snapshot timestamped to the current instant.
+     * Useful as a safe initial state before the first Carbon tick arrives.
+     *
+     * @return an empty {@code MetricSnapshot} with all numeric fields set to zero.
+     */
     public static MetricSnapshot empty() {
         return new MetricSnapshot(Instant.now(), 0L, 0L, 0L, 0L, 0.0, 0.0, Map.of());
     }

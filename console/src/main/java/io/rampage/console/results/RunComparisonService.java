@@ -16,7 +16,21 @@ public class RunComparisonService {
     @Inject
     StoredRunRepository repository;
 
-    /** Compare two runs by id. Throws {@link IllegalArgumentException} when either is unknown. */
+    /**
+     * Creates a default {@code RunComparisonService} instance.
+     * Dependencies are injected by the CDI container.
+     */
+    public RunComparisonService() {
+    }
+
+    /**
+     * Compares two runs identified by their string ids.
+     *
+     * @param idA id of the baseline run
+     * @param idB id of the candidate run
+     * @return a {@link RunComparison} containing per-scenario metric diffs
+     * @throws IllegalArgumentException when either id does not correspond to a stored run
+     */
     public RunComparison compare(String idA, String idB) {
         StoredRun a = repository.findById(idA);
         StoredRun b = repository.findById(idB);
@@ -27,7 +41,13 @@ public class RunComparisonService {
         return compare(a, b);
     }
 
-    /** Compare two already-loaded runs. */
+    /**
+     * Compares two already-loaded runs, building per-scenario metric diffs.
+     *
+     * @param a the baseline run
+     * @param b the candidate run
+     * @return a {@link RunComparison} containing per-scenario metric diffs
+     */
     public RunComparison compare(StoredRun a, StoredRun b) {
         Map<String, ScenarioStat> byNameA = indexByName(a);
         Map<String, ScenarioStat> byNameB = indexByName(b);

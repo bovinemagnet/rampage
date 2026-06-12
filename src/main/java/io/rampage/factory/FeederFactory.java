@@ -15,13 +15,42 @@ import java.sql.*;
 import java.util.*;
 import java.util.Locale;
 
+/**
+ * Loads and manages feeder data for Gatling scenarios, sourcing rows from a JDBC data source.
+ *
+ * <p>SQL resolution follows a two-step fallback: the configured SQL file is looked up on the
+ * filesystem first, then on the classpath. If neither is found, the stub query
+ * {@code SELECT 1 AS userId} is used so that the simulation can still start.
+ *
+ * <p>Two loading modes are available:
+ * <ul>
+ *   <li><b>Eager (pre-load)</b> — {@link #loadFromSql(DataSource, FeederConfig)} reads the
+ *       entire result set into memory before the simulation begins.</li>
+ *   <li><b>Streaming</b> — {@link #streamFromSql(DataSource, FeederConfig)} keeps the JDBC
+ *       connection open and reads rows lazily via a {@link StreamingFeeder} iterator.</li>
+ * </ul>
+ *
+ * <p>Column-level rules (renaming via {@code sessionKey}, {@code required}, and
+ * {@code sensitive} flags) declared in {@code FeederConfig.columns} are applied to every
+ * row after it is read.
+ */
 public class FeederFactory {
     private static final Logger log = LoggerFactory.getLogger(FeederFactory.class);
 
     private SecretResolver secretResolverForTracking;
 
+    /**
+     * Creates a {@code FeederFactory} with no secret resolver for sensitive-value tracking.
+     */
     public FeederFactory() {}
 
+    /**
+     * Creates a {@code FeederFactory} that registers sensitive column values with the
+     * supplied resolver so they can be redacted in logs and snapshots.
+     *
+     * @param secretResolverForTracking the resolver that receives sensitive column values;
+     *                                  may be updated at call time via the ad-hoc overload
+     */
     public FeederFactory(SecretResolver secretResolverForTracking) {
         this.secretResolverForTracking = secretResolverForTracking;
     }
@@ -29,6 +58,11 @@ public class FeederFactory {
     /**
      * Backwards-compatible entry point that creates an ad-hoc pool per call. Prefer
      * {@link #loadFromSql(DataSource, FeederConfig)} with a shared {@link DataSourceRegistry}.
+     *
+     * @param db             the database configuration used to build the temporary pool
+     * @param feeder         the feeder configuration controlling SQL resolution and column rules
+     * @param secretResolver the resolver used for credential expansion and sensitive tracking
+     * @return the list of feeder rows as ordered maps of column name to value
      */
     public List<Map<String, Object>> loadFromSql(DatabaseConfig db, FeederConfig feeder, SecretResolver secretResolver) {
         SecretResolver previous = this.secretResolverForTracking;
@@ -41,6 +75,22 @@ public class FeederFactory {
         }
     }
 
+    /**
+     * Eagerly loads all feeder rows from the given data source into memory.
+     *
+     * <p>The SQL to execute is resolved via the feeder's {@code sqlFile} field (filesystem
+     * then classpath), falling back to {@code SELECT 1 AS userId}. Column rules declared in
+     * the feeder configuration are applied to each row. Rows that fail a {@code required}
+     * column check are dropped (when {@code onMissingRequired=skip}) or cause a
+     * {@code RuntimeException} (the default). A {@code RuntimeException} is also thrown
+     * when {@code failIfEmpty=true} and no rows are returned.
+     *
+     * @param dataSource the JDBC data source to query
+     * @param feeder     the feeder configuration controlling SQL resolution, row limits, and
+     *                   column rules
+     * @return the list of feeder rows, each an ordered map of session-key to value
+     * @throws RuntimeException if the SQL query fails or a feeder constraint is violated
+     */
     public List<Map<String, Object>> loadFromSql(DataSource dataSource, FeederConfig feeder) {
         String sql = resolveSql(feeder);
         log.info("Loading feeder data from SQL, preload={}", feeder.isPreload());
@@ -178,10 +228,17 @@ public class FeederFactory {
     }
 
     /**
-     * Streaming feeder: opens a JDBC connection + ResultSet and returns an iterator
-     * that lazily reads rows. The iterator implements {@link AutoCloseable}; callers
-     * should close it (e.g. in the simulation's {@code after()}). The iterator's
+     * Opens a streaming feeder backed by a live JDBC {@code ResultSet}.
+     *
+     * <p>The returned {@link StreamingFeeder} lazily reads rows on demand rather than
+     * loading the entire result set at once. It implements {@code AutoCloseable}; callers
+     * should close it (e.g. in the simulation's {@code after()} hook). The iterator's
      * {@code next()} method is synchronised for safe concurrent use by Gatling.
+     *
+     * @param dataSource the JDBC data source to query
+     * @param feeder     the feeder configuration controlling SQL resolution and column rules
+     * @return an open {@link StreamingFeeder} positioned before the first row
+     * @throws RuntimeException if the JDBC connection or query cannot be established
      */
     public StreamingFeeder streamFromSql(DataSource dataSource, FeederConfig feeder) {
         String sql = resolveSql(feeder);
@@ -205,6 +262,14 @@ public class FeederFactory {
         }
     }
 
+    /**
+     * A lazy, synchronised iterator over a live JDBC {@code ResultSet} that applies
+     * {@code FeederConfig} column rules to each row as it is consumed.
+     *
+     * <p>The underlying JDBC resources are closed automatically when the result set is
+     * exhausted or when {@link #close()} is called explicitly. Thread safety is provided
+     * by synchronising {@link #hasNext()} and {@link #next()}.
+     */
     public class StreamingFeeder implements Iterator<Map<String, Object>>, AutoCloseable {
         private final Connection conn;
         private final PreparedStatement stmt;
@@ -284,10 +349,29 @@ public class FeederFactory {
         }
     }
 
+    /**
+     * Creates a circular iterator over the supplied feeder rows using the default
+     * {@code circular} strategy.
+     *
+     * @param data the feeder rows to iterate; must not be {@code null}
+     * @return a circular iterator that wraps around to the beginning when exhausted
+     */
     public Iterator<Map<String, Object>> createFeeder(List<Map<String, Object>> data) {
         return new CircularIterator<>(data);
     }
 
+    /**
+     * Creates an iterator over the supplied feeder rows using the named strategy.
+     *
+     * <p>When {@code strategy} is {@code "random"} or {@code "shuffle"}, the list is
+     * shuffled before being wrapped in a circular iterator. All other values (including
+     * {@code "circular"}) produce an unshuffled circular iterator.
+     *
+     * @param data     the feeder rows to iterate; must not be {@code null}
+     * @param strategy the iteration strategy ({@code "circular"}, {@code "random"}, or
+     *                 {@code "shuffle"}); unrecognised values fall back to circular
+     * @return an iterator over the rows
+     */
     public Iterator<Map<String, Object>> createFeeder(List<Map<String, Object>> data, String strategy) {
         if ("random".equalsIgnoreCase(strategy) || "shuffle".equalsIgnoreCase(strategy)) {
             List<Map<String, Object>> shuffled = new ArrayList<>(data);

@@ -9,17 +9,52 @@ import java.util.Map;
 
 import static io.gatling.javaapi.http.HttpDsl.http;
 
+/**
+ * Builds a Gatling {@code HttpProtocolBuilder} from an {@code EnvironmentConfig}.
+ *
+ * <p>Base-URL resolution follows a fallback chain when no explicit {@code endpointRef} is
+ * supplied: the key {@code "rest"} is tried first, then the first configured URL, and
+ * finally {@code http://localhost:8080} if no URLs are defined at all.
+ *
+ * <p>When the environment security mode is {@code bearer-token} or
+ * {@code oauth-client-credentials}, an {@code Authorization: Bearer} header is added using
+ * the Gatling session attribute {@code authToken}. Observability correlation-ID headers and
+ * any additional security headers declared in the environment are also applied.
+ */
 public class HttpProtocolFactory {
     private static final Logger log = LoggerFactory.getLogger(HttpProtocolFactory.class);
 
+    /**
+     * Creates a new {@code HttpProtocolFactory}.
+     */
+    public HttpProtocolFactory() {}
+
+    /**
+     * Builds an {@code HttpProtocolBuilder} using the default endpoint (no explicit
+     * {@code endpointRef}).
+     *
+     * @param env            the environment configuration; must not be {@code null}
+     * @param secretResolver the resolver used to expand token references
+     * @return a configured {@code HttpProtocolBuilder}
+     */
     public HttpProtocolBuilder build(EnvironmentConfig env, SecretResolver secretResolver) {
         return build(env, secretResolver, null);
     }
 
     /**
-     * Resolves the base URL for the given endpointRef.
-     * Throws IllegalArgumentException when endpointRef is non-blank but missing from env.baseUrls.
-     * Null/blank endpointRef triggers the fallback chain: "rest" → first configured URL → localhost:8080.
+     * Resolves the base URL for the given endpoint reference.
+     *
+     * <p>When {@code endpointRef} is non-blank it must be a key in {@code env.baseUrls};
+     * an {@code IllegalArgumentException} is thrown if it is not. When {@code endpointRef}
+     * is {@code null} or blank the fallback chain is applied: {@code "rest"} key → first
+     * configured URL → {@code http://localhost:8080}.
+     *
+     * @param env         the environment configuration; may be {@code null}
+     * @param endpointRef the named endpoint to look up; {@code null} or blank triggers
+     *                    the fallback chain
+     * @return the resolved base URL string; never {@code null}
+     * @throws IllegalArgumentException if {@code endpointRef} is non-blank but not present
+     *                                  in {@code env.baseUrls}
      */
     public String resolveBaseUrl(EnvironmentConfig env, String endpointRef) {
         Map<String, String> baseUrls = env != null ? env.getBaseUrls() : null;
@@ -43,6 +78,20 @@ public class HttpProtocolFactory {
         return "http://localhost:8080";
     }
 
+    /**
+     * Builds an {@code HttpProtocolBuilder} targeting the named endpoint.
+     *
+     * <p>HTTP defaults (accept header, content-type, redirect behaviour), security headers,
+     * and observability headers from the environment configuration are all applied to the
+     * builder. A {@code keep-alive} connection header is always added.
+     *
+     * @param env            the environment configuration; must not be {@code null}
+     * @param secretResolver the resolver used to expand token references
+     * @param endpointRef    the named endpoint reference to use as the base URL; {@code null}
+     *                       or blank triggers the fallback chain in
+     *                       {@link #resolveBaseUrl(EnvironmentConfig, String)}
+     * @return a fully configured {@code HttpProtocolBuilder}
+     */
     public HttpProtocolBuilder build(EnvironmentConfig env, SecretResolver secretResolver, String endpointRef) {
         String baseUrl = resolveBaseUrl(env, endpointRef);
         log.info("Building HTTP protocol for base URL: {}", baseUrl);

@@ -17,9 +17,23 @@ import java.nio.file.Files;
 @Path("/reports")
 public class ReportsResource {
 
+    /**
+     * Creates a new {@code ReportsResource} instance. CDI-managed; no arguments required.
+     */
+    public ReportsResource() {}
+
     @Inject
     RunHistoryService history;
 
+    /**
+     * Resolves and serves the file at {@code path} beneath the Gatling reports directory.
+     * The {@code Content-Type} is inferred from the file extension. Returns HTTP 400 when
+     * the path is rejected by the security checks in {@code RunHistoryService}, HTTP 404
+     * when no regular file exists at that location, and HTTP 500 on an I/O error.
+     *
+     * @param path the relative path of the report file to serve
+     * @return the file contents with an appropriate content type, or an error response
+     */
     @GET
     @Path("/{path:.+}")
     public Response serve(@PathParam("path") String path) {

@@ -13,15 +13,32 @@ import java.util.Map;
 @ApplicationScoped
 public class StoredRunRepository implements PanacheRepositoryBase<StoredRun, String> {
 
-    /** All runs, newest first. */
+    /**
+     * Creates a default {@code StoredRunRepository} instance.
+     * Managed by the CDI container.
+     */
+    public StoredRunRepository() {
+    }
+
+    /**
+     * Returns all stored runs ordered by start time, newest first.
+     *
+     * @return list of all runs, never {@code null}
+     */
     public List<StoredRun> listNewestFirst() {
         return listAll(Sort.by("startedAt").descending());
     }
 
     /**
-     * Filtered search. Every argument is optional (null or blank = no filter):
-     * {@code query} matches name / environment id / git commit; {@code tag}
-     * matches an exact tag; {@code status} matches the run status.
+     * Returns runs that match all supplied filters. Every argument is optional;
+     * a {@code null} or blank value disables that filter.
+     * {@code query} matches name, environment id, or git commit (case-insensitive, substring);
+     * {@code tag} requires an exact tag membership; {@code status} matches the run status name.
+     *
+     * @param query  free-text search term, or {@code null}/blank to skip
+     * @param tag    exact tag to filter by, or {@code null}/blank to skip
+     * @param status run-status name to filter by, or {@code null}/blank to skip; unknown values are ignored
+     * @return matching runs ordered by start time descending, never {@code null}
      */
     public List<StoredRun> search(String query, String tag, String status) {
         StringBuilder jpql = new StringBuilder("FROM StoredRun r WHERE 1=1");
@@ -55,12 +72,22 @@ public class StoredRunRepository implements PanacheRepositoryBase<StoredRun, Str
         }
     }
 
-    /** All runs for one configuration, oldest first — the series for a trend chart. */
+    /**
+     * Returns all runs for a given configuration key, oldest first, forming the series for a
+     * trend chart.
+     *
+     * @param runConfigKey the configuration key to match (format: {@code environment::runId})
+     * @return matching runs in ascending start-time order, never {@code null}
+     */
     public List<StoredRun> byRunConfigKey(String runConfigKey) {
         return list("runConfigKey = ?1 ORDER BY startedAt ASC", runConfigKey);
     }
 
-    /** Distinct run-config keys that have at least one stored run. */
+    /**
+     * Returns all distinct run-config keys that have at least one stored run, sorted alphabetically.
+     *
+     * @return list of distinct run-config keys, never {@code null}
+     */
     public List<String> distinctRunConfigKeys() {
         return getEntityManager()
             .createQuery("SELECT DISTINCT r.runConfigKey FROM StoredRun r"
@@ -68,13 +95,25 @@ public class StoredRunRepository implements PanacheRepositoryBase<StoredRun, Str
             .getResultList();
     }
 
-    /** Every distinct tag in use, for the history filter dropdown. */
+    /**
+     * Returns every distinct tag currently in use across all stored runs, sorted alphabetically.
+     * Intended for the history filter dropdown.
+     *
+     * @return list of distinct tags, never {@code null}
+     */
     public List<String> distinctTags() {
         return getEntityManager()
             .createQuery("SELECT DISTINCT t FROM StoredRun r JOIN r.tags t ORDER BY t", String.class)
             .getResultList();
     }
 
+    /**
+     * Returns {@code true} when a run with the given Gatling simulation directory name is already stored.
+     * Used by the backfill logic to skip directories that have already been imported.
+     *
+     * @param simulationDir the simulation directory name (not a full path) to check
+     * @return {@code true} if a matching run exists
+     */
     public boolean existsBySimulationDir(String simulationDir) {
         return count("simulationDir = ?1", simulationDir) > 0;
     }

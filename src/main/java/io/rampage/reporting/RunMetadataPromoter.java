@@ -24,9 +24,22 @@ public class RunMetadataPromoter {
 
     private static final Logger log = LoggerFactory.getLogger(RunMetadataPromoter.class);
 
+    /** Creates a new {@code RunMetadataPromoter}. */
+    public RunMetadataPromoter() {}
+
     private static final List<String> FILES_TO_PROMOTE = List.of(
         "run-metadata.json", "config-snapshot.yaml");
 
+    /**
+     * Moves {@code run-metadata.json} and {@code config-snapshot.yaml} from
+     * {@code reportsRoot} into the most recently created {@code rampagesimulation-*}
+     * subdirectory that contains an {@code index.html}.
+     *
+     * <p>If the reports root does not exist, or no matching simulation directory is
+     * found, this method logs a debug message and returns without error.
+     *
+     * @param reportsRoot the Gatling reports output directory (e.g. {@code build/reports/gatling})
+     */
     public void promote(Path reportsRoot) {
         if (reportsRoot == null || !Files.isDirectory(reportsRoot)) {
             log.debug("Reports root {} does not exist; skipping metadata promotion", reportsRoot);
@@ -67,6 +80,12 @@ public class RunMetadataPromoter {
         }
     }
 
+    /**
+     * CLI entry point. Requires a single argument: the path to the Gatling reports root
+     * directory. Exits with code 2 if the argument is missing or blank.
+     *
+     * @param args command-line arguments; {@code args[0]} must be the reports root path
+     */
     public static void main(String[] args) {
         if (args.length < 1 || args[0].isBlank()) {
             System.err.println("Usage: RunMetadataPromoter <reportsRoot>");
