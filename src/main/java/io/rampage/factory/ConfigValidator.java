@@ -43,6 +43,12 @@ public class ConfigValidator {
     private static final Set<String> KNOWN_EXECUTION_MODES = Set.of(
         "open", "closed");
 
+    private static final Set<String> KNOWN_SECURITY_MODES = Set.of(
+        "none", "bearer-token", "oauth-client-credentials");
+
+    private static final Set<String> KNOWN_REFRESH_FAILURE_MODES = Set.of(
+        "continue", "stop");
+
     private static final Set<String> KNOWN_ON_MISSING_REQUIRED = Set.of(
         "fail", "skip");
 
@@ -116,6 +122,7 @@ public class ConfigValidator {
                     }
                 }
             }
+            validateSecurity(env.getSecurity(), errors);
             validateSecrets(env, errors);
         }
 
@@ -177,6 +184,32 @@ public class ConfigValidator {
         }
 
         log.info("Configuration validation passed");
+    }
+
+    private void validateSecurity(SecurityConfig security, List<String> errors) {
+        if (security == null) return;
+        String mode = security.getMode();
+        if (mode != null && !mode.isBlank()
+            && !KNOWN_SECURITY_MODES.contains(mode.toLowerCase(Locale.ROOT))) {
+            errors.add("environment.security.mode '" + mode + "' is not one of " + KNOWN_SECURITY_MODES);
+        }
+        if ("oauth-client-credentials".equalsIgnoreCase(mode)) {
+            if (security.getTokenUrl() == null || security.getTokenUrl().isBlank()) {
+                errors.add("environment.security.mode 'oauth-client-credentials' requires environment.security.tokenUrl");
+            }
+            if (security.getClientId() == null) {
+                errors.add("environment.security.mode 'oauth-client-credentials' requires environment.security.clientId");
+            }
+            if (security.getClientSecret() == null) {
+                errors.add("environment.security.mode 'oauth-client-credentials' requires environment.security.clientSecret");
+            }
+        }
+        String onFailure = security.getOnRefreshFailure();
+        if (onFailure != null && !onFailure.isBlank()
+            && !KNOWN_REFRESH_FAILURE_MODES.contains(onFailure.toLowerCase(Locale.ROOT))) {
+            errors.add("environment.security.onRefreshFailure '" + onFailure + "' is not one of "
+                + KNOWN_REFRESH_FAILURE_MODES);
+        }
     }
 
     private void validateSecrets(EnvironmentConfig env, List<String> errors) {

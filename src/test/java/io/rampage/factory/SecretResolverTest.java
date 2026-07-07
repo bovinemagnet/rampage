@@ -29,8 +29,10 @@ class SecretResolverTest {
     }
 
     @Test
-    void resolve_smPrefixReturnsRedacted() {
-        assertEquals("***REDACTED***", secretResolver.resolve("SM:secret/my-secret"));
+    void resolve_smPrefixThrowsBecauseNotImplemented() {
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolve("SM:secret/my-secret"));
+        assertTrue(ex.getMessage().contains("not implemented"));
     }
 
     @Test
@@ -78,14 +80,17 @@ class SecretResolverTest {
     }
 
     @Test
-    void resolveHeaders_resolvesAllValues() {
-        Map<String, String> headers = Map.of(
-            "X-Plain", "plain-value",
-            "X-Secret", "SM:my-secret"
-        );
+    void resolveHeaders_resolvesPlainValues() {
+        Map<String, String> headers = Map.of("X-Plain", "plain-value");
         Map<String, String> resolved = SecretResolver.resolveHeaders(headers, secretResolver);
         assertEquals("plain-value", resolved.get("X-Plain"));
-        assertEquals("***REDACTED***", resolved.get("X-Secret"));
+    }
+
+    @Test
+    void resolveHeaders_throwsOnSecretManagerReference() {
+        Map<String, String> headers = Map.of("X-Secret", "SM:my-secret");
+        assertThrows(SecretResolutionException.class,
+            () -> SecretResolver.resolveHeaders(headers, secretResolver));
     }
 
     @Test
@@ -138,6 +143,17 @@ class SecretResolverTest {
     }
 
     @Test
+    void resolveCredential_throwsForSecretManagerBecauseNotImplemented() {
+        CredentialConfig cred = new CredentialConfig();
+        cred.setSource("secret-manager");
+        cred.setSecretPath("vault/db-password");
+
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveCredential(cred, "environment.databases.sourceData.password"));
+        assertTrue(ex.getMessage().contains("not implemented"));
+    }
+
+    @Test
     void resolveCredential_returnsPlainValue() {
         CredentialConfig cred = new CredentialConfig();
         cred.setSource("plain");
@@ -169,6 +185,46 @@ class SecretResolverTest {
     }
 
     @Test
+    void resolveToken_throwsForSecretManagerBecauseNotImplemented() {
+        TokenConfig token = new TokenConfig();
+        token.setSource("secret-manager");
+        token.setSecretPath("vault/api-token");
+
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveToken(token, "environment.security.token"));
+        assertTrue(ex.getMessage().contains("not implemented"));
+    }
+
+    @Test
+    void resolveToken_throwsWhenRequiredButSourceUnrecognised() {
+        TokenConfig token = new TokenConfig();
+        token.setSource("bearer");  // typo: not a valid token source
+        // required defaults to true
+
+        SecretResolutionException ex = assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveToken(token, "environment.security.token"));
+        assertTrue(ex.getMessage().contains("bearer"));
+    }
+
+    @Test
+    void resolveToken_throwsWhenRequiredButSourceMissing() {
+        TokenConfig token = new TokenConfig();
+        // no source set at all; required defaults to true
+
+        assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveToken(token, "environment.security.token"));
+    }
+
+    @Test
+    void resolveToken_returnsEmptyWhenOptionalAndSourceUnrecognised() {
+        TokenConfig token = new TokenConfig();
+        token.setSource("bogus");
+        token.setRequired(false);
+
+        assertEquals("", secretResolver.resolveToken(token, "test"));
+    }
+
+    @Test
     void getSensitiveValues_tracksResolvedPlainCredentials() {
         CredentialConfig cred = new CredentialConfig();
         cred.setSource("plain");
@@ -191,13 +247,13 @@ class SecretResolverTest {
     }
 
     @Test
-    void getSensitiveValues_doesNotTrackRedactedPlaceholder() {
+    void getSensitiveValues_notPopulatedByFailedSecretManagerResolution() {
         CredentialConfig cred = new CredentialConfig();
         cred.setSource("secret-manager");
         cred.setSecretPath("vault/secret");
 
-        secretResolver.resolveCredential(cred, "test.password");
-
-        assertFalse(secretResolver.getSensitiveValues().stream().anyMatch(v -> v.equals("***REDACTED***")));
+        assertThrows(SecretResolutionException.class,
+            () -> secretResolver.resolveCredential(cred, "test.password"));
+        assertTrue(secretResolver.getSensitiveValues().isEmpty());
     }
 }

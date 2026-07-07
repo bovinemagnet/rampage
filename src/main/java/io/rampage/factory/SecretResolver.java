@@ -18,9 +18,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li>{@code ENV:VAR_NAME} — reads the named environment variable and
  *       throws {@link SecretResolutionException} if it is not set.</li>
- *   <li>{@code SM:path} — intended for Secret Manager; returns a redacted
- *       placeholder ({@code ***REDACTED***}) because Secret Manager
- *       integration is not yet implemented.</li>
+ *   <li>{@code SM:path} — intended for Secret Manager; throws
+ *       {@link SecretResolutionException} because Secret Manager integration is
+ *       not yet implemented (returning a placeholder would be used as a live
+ *       credential).</li>
  * </ul>
  *
  * <p>Structured {@code CredentialConfig} and {@code TokenConfig} values are
@@ -36,6 +37,7 @@ public class SecretResolver {
     private static final String ENV_PREFIX = "ENV:";
     private static final String SM_PREFIX = "SM:";
     private static final String REDACTED = "***REDACTED***";
+    private static final String SM_NOT_IMPLEMENTED = "Secret Manager integration is not implemented";
 
     private final Set<String> sensitiveValues = ConcurrentHashMap.newKeySet();
 
@@ -79,8 +81,8 @@ public class SecretResolver {
      *   <li>A reference prefixed with {@code ENV:} reads the named environment
      *       variable and throws {@link SecretResolutionException} if it is not
      *       set.</li>
-     *   <li>A reference prefixed with {@code SM:} returns the redacted
-     *       placeholder {@code ***REDACTED***} because Secret Manager integration
+     *   <li>A reference prefixed with {@code SM:} throws
+     *       {@link SecretResolutionException} because Secret Manager integration
      *       is not yet implemented.</li>
      *   <li>All other values are returned unchanged.</li>
      * </ul>
@@ -89,7 +91,8 @@ public class SecretResolver {
      *            {@code null} is returned
      * @return the resolved value, or {@code null} if {@code ref} is {@code null}
      * @throws SecretResolutionException if {@code ref} starts with {@code ENV:}
-     *                                   and the environment variable is not set
+     *                                   and the environment variable is not set,
+     *                                   or if {@code ref} starts with {@code SM:}
      */
     public String resolve(String ref) {
         if (ref == null) {
@@ -109,8 +112,11 @@ public class SecretResolver {
             return trackSensitive(value);
         }
         if (ref.startsWith(SM_PREFIX)) {
-            log.debug("Secret Manager resolution not implemented in MVP, returning redacted for: {}", ref);
-            return REDACTED;
+            // Do not silently return a redacted placeholder: it would be used as a live
+            // credential value (e.g. a JDBC password), producing auth failures that point
+            // at the target system rather than at this unimplemented feature.
+            throw new SecretResolutionException(
+                SM_NOT_IMPLEMENTED + " (inline 'SM:' reference '" + ref + "')");
         }
         return ref;
     }
@@ -138,8 +144,9 @@ public class SecretResolver {
      * <ul>
      *   <li>{@code env} — reads the environment variable named by
      *       {@code CredentialConfig.envVar}.</li>
-     *   <li>{@code secret-manager} / {@code sm} — returns the redacted placeholder
-     *       because Secret Manager integration is not yet implemented.</li>
+     *   <li>{@code secret-manager} / {@code sm} — throws
+     *       {@link SecretResolutionException} because Secret Manager integration
+     *       is not yet implemented.</li>
      *   <li>{@code plain} or unrecognised — returns the literal {@code value}
      *       field, or an empty string if it is {@code null}.</li>
      * </ul>
@@ -182,8 +189,8 @@ public class SecretResolver {
                 throw new SecretResolutionException(
                     "Credential at '" + configPath + "' has source 'secret-manager' but no secretPath set");
             }
-            log.debug("Secret Manager resolution not implemented, returning redacted for: {}", cred.getSecretPath());
-            return REDACTED;
+            throw new SecretResolutionException(
+                "Credential at '" + configPath + "' uses source 'secret-manager' but " + SM_NOT_IMPLEMENTED);
         }
         if (!"plain".equalsIgnoreCase(source) && source != null) {
             log.warn("Unrecognized credential source type '{}', treating as plain value", source);
@@ -213,9 +220,10 @@ public class SecretResolver {
      * <ul>
      *   <li>{@code env} — reads the environment variable named by
      *       {@code TokenConfig.envVar}.</li>
-     *   <li>{@code secret-manager} — returns the redacted placeholder because
-     *       Secret Manager integration is not yet implemented.</li>
-     *   <li>Any other source or a missing source — returns an empty string.</li>
+     *   <li>{@code secret-manager} — throws {@link SecretResolutionException}
+     *       because Secret Manager integration is not yet implemented.</li>
+     *   <li>Any other source, or a missing source — returns an empty string when
+     *       the token is optional, or throws when it is {@code required}.</li>
      * </ul>
      *
      * @param token      the token configuration to resolve; may be {@code null},
@@ -225,7 +233,8 @@ public class SecretResolver {
      * @return the resolved token value; never {@code null} when {@code token} is
      *         non-null
      * @throws SecretResolutionException if the token is marked {@code required}
-     *                                   and cannot be resolved
+     *                                   and cannot be resolved, or if its source
+     *                                   is {@code secret-manager}
      */
     public String resolveToken(TokenConfig token, String configPath) {
         if (token == null) return null;
@@ -256,7 +265,16 @@ public class SecretResolver {
                 throw new SecretResolutionException(
                     "Token at '" + configPath + "' has source 'secret-manager' but no secretPath set");
             }
-            return REDACTED;
+            throw new SecretResolutionException(
+                "Token at '" + configPath + "' uses source 'secret-manager' but " + SM_NOT_IMPLEMENTED);
+        }
+        // Unrecognised or missing source. A required token silently resolving to "" would send an
+        // empty 'Authorization: Bearer ' header on every request, so fail fast rather than quietly
+        // running an unauthenticated load test.
+        if (token.isRequired()) {
+            throw new SecretResolutionException(
+                "Token at '" + configPath + "' has unrecognised or missing source '" + source
+                    + "'; expected 'env' or 'secret-manager'");
         }
         return "";
     }
