@@ -67,10 +67,30 @@ public class OAuthClientCredentialsTokenProvider implements TokenProvider {
     @Override
     public String currentToken() {
         String token = currentToken.get();
-        if (token == null || Instant.now().isAfter(expiresAt.minusSeconds(30))) {
-            return fetchToken();
+        if (token != null && !isNearExpiry()) {
+            return token;
         }
-        return token;
+        return refreshIfNeeded();
+    }
+
+    /**
+     * Refreshes the cached token if it is still absent or near expiry, serialising
+     * concurrent callers so that only one performs the HTTP fetch.
+     *
+     * <p>Without this double-check, every virtual user that observes a near-expiry
+     * token would queue on {@link #fetchToken()} and issue its own token request —
+     * a thundering herd against the token endpoint at each expiry boundary.
+     */
+    private synchronized String refreshIfNeeded() {
+        String token = currentToken.get();
+        if (token != null && !isNearExpiry()) {
+            return token;
+        }
+        return fetchToken();
+    }
+
+    private boolean isNearExpiry() {
+        return Instant.now().isAfter(expiresAt.minusSeconds(30));
     }
 
     /**

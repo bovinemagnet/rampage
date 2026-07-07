@@ -101,6 +101,34 @@ class OAuthClientCredentialsTokenProviderTest {
     }
 
     @Test
+    void currentToken_fetchesOnceUnderConcurrentCallers() throws InterruptedException {
+        OAuthClientCredentialsTokenProvider provider = new OAuthClientCredentialsTokenProvider(
+            oauthConfig(), new SecretResolver());
+
+        int threads = 16;
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(threads);
+        for (int i = 0; i < threads; i++) {
+            Thread t = new Thread(() -> {
+                try {
+                    start.await();
+                    provider.currentToken();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    done.countDown();
+                }
+            });
+            t.start();
+        }
+        start.countDown();
+        assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS));
+
+        assertEquals(1, requestCount.get(),
+            "Concurrent callers hitting an empty cache must trigger only a single token fetch");
+    }
+
+    @Test
     void fetchToken_throwsOnHttpError() {
         SecurityConfig sec = oauthConfig();
         sec.setTokenUrl("http://127.0.0.1:" + port + "/bad");

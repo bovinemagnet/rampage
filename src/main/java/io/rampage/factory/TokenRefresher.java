@@ -32,7 +32,10 @@ public class TokenRefresher implements AutoCloseable {
     private final Mode failureMode;
     private final ScheduledExecutorService executor;
     private final AtomicBoolean stopped = new AtomicBoolean(false);
-    private ScheduledFuture<?> task;
+    // Written on the caller thread in start()/close() and read on the scheduler thread in
+    // refreshOnce(); volatile guarantees the schedule handle is visible so a STOP-mode failure
+    // can actually cancel it rather than leaving the executor ticking no-ops.
+    private volatile ScheduledFuture<?> task;
 
     /**
      * Constructs a refresher that will call
@@ -94,7 +97,7 @@ public class TokenRefresher implements AutoCloseable {
         try {
             provider.fetchToken();
         } catch (Exception e) {
-            log.error("Token refresh failed: {}", e.getMessage());
+            log.error("Token refresh failed: {}", e.getMessage(), e);
             if (failureMode == Mode.STOP) {
                 stopped.set(true);
                 log.error("Halting refresher due to onRefreshFailure=stop");
