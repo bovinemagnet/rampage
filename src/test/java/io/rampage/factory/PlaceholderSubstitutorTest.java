@@ -70,6 +70,52 @@ class PlaceholderSubstitutorTest {
     }
 
     @Test
+    void expand_passesFeederPlaceholderThroughUntouched() {
+        List<String> errors = new ArrayList<>();
+        String result = PlaceholderSubstitutor.expand(
+            "/users/${feeder:userId}", null, run(), new SecretResolver(), errors);
+        assertTrue(errors.isEmpty(), "feeder placeholders must not be treated as errors: " + errors);
+        assertEquals("/users/${feeder:userId}", result);
+    }
+
+    @Test
+    void expand_passesSessionPlaceholderThroughUntouched() {
+        List<String> errors = new ArrayList<>();
+        String result = PlaceholderSubstitutor.expand(
+            "/orders/${session:orderId}", null, run(), new SecretResolver(), errors);
+        assertTrue(errors.isEmpty(), "session placeholders must not be treated as errors: " + errors);
+        assertEquals("/orders/${session:orderId}", result);
+    }
+
+    @Test
+    void expand_mixesRunAndFeederPlaceholders() {
+        String result = PlaceholderSubstitutor.expand(
+            "/runs/${run:id}/users/${feeder:userId}", null, run(), new SecretResolver());
+        assertEquals("/runs/test-run-id/users/${feeder:userId}", result);
+    }
+
+    @Test
+    void expand_throwsOnGenuinelyUnknownKind() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+            () -> PlaceholderSubstitutor.expand("${bogus:x}", null, run(), new SecretResolver()));
+        assertTrue(ex.getMessage().contains("bogus"));
+    }
+
+    @Test
+    void expandInPlace_leavesFeederPlaceholderForRewriter() {
+        ScenarioConfig sc = new ScenarioConfig();
+        sc.setId("test");
+        RequestConfig req = new RequestConfig();
+        req.setPath("/users/${feeder:userId}");
+        sc.setRequest(req);
+
+        List<String> errors = PlaceholderSubstitutor.expandInPlace(null, run(), List.of(sc), new SecretResolver());
+
+        assertTrue(errors.isEmpty(), "expected no errors: " + errors);
+        assertEquals("/users/${feeder:userId}", sc.getRequest().getPath());
+    }
+
+    @Test
     void expand_escapedPlaceholderPassesThrough() {
         String result = PlaceholderSubstitutor.expand("literal=\\${run:id}", null, run(), new SecretResolver());
         assertEquals("literal=${run:id}", result);

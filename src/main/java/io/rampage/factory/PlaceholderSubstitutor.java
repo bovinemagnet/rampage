@@ -20,6 +20,11 @@ import java.util.regex.Pattern;
  * Expands {@code ${run:<key>}}, {@code ${env:<NAME>}}, {@code ${sys:<NAME>}}, and
  * {@code ${secret:<path>}} placeholders inside YAML string fields. Escaped placeholders
  * ({@code \${...}}) pass through literally as {@code ${...}}.
+ *
+ * <p>The runtime placeholder kinds {@code ${feeder:<key>}} and {@code ${session:<key>}}
+ * are deliberately left untouched here; they are rewritten into Gatling Expression
+ * Language ({@code #{key}}) later by {@link PlaceholderRewriter}. Treating them as
+ * unknown kinds would abort any run that references feeder or session data.
  */
 public final class PlaceholderSubstitutor {
 
@@ -254,6 +259,11 @@ public final class PlaceholderSubstitutor {
                     return "";
                 }
                 return secretResolver.resolve("SM:" + key);
+            case "feeder":
+            case "session":
+                // Runtime placeholders resolved later by PlaceholderRewriter into Gatling EL
+                // (#{key}); pass them through untouched rather than treating them as errors.
+                return "${" + kind + ":" + key + "}";
             default:
                 errors.add("Unknown placeholder kind '" + kind + "' in ${" + kind + ":" + key + "}");
                 return "";
