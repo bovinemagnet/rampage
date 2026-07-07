@@ -54,7 +54,12 @@ public final class RunSummaryMain {
 
             String status = String.valueOf(summary.get("status"));
             if (!"PASS".equals(status) && failOnRegression) {
-                log.error("Run status is {} — exiting non-zero", status);
+                if ("UNKNOWN".equals(status)) {
+                    log.error("Run status is UNKNOWN — no assertions were parsed from the Gatling report "
+                        + "(layout change or missing assertions); exiting non-zero");
+                } else {
+                    log.error("Run status is {} — exiting non-zero", status);
+                }
                 System.exit(1);
             }
         } catch (Exception e) {

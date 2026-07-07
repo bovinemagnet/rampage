@@ -122,4 +122,21 @@ class DryRunSummaryWriterTest {
         assertTrue(content.contains("dry-run"));
         assertTrue(content.contains("ramp-and-hold"));
     }
+
+    @Test
+    void write_propagatesIOExceptionWhenOutputPathUnwritable(@TempDir Path tempDir) throws IOException {
+        EnvironmentConfig env = new EnvironmentConfig();
+        env.setId("test");
+        ScenarioConfig sc = new ScenarioConfig();
+        sc.setId("sc-1");
+
+        // A regular file where a directory is expected makes Files.createDirectories fail. The
+        // writer must propagate rather than swallow, so the dry-run caller can exit non-zero
+        // instead of reporting success with a missing artefact.
+        Path fileNotDir = Files.createFile(tempDir.resolve("not-a-dir"));
+        String badOutputDir = fileNotDir.resolve("sub").toString();
+
+        assertThrows(IOException.class,
+            () -> writer.write(env, runWithRampAndHold(), List.of(sc), badOutputDir));
+    }
 }

@@ -110,6 +110,21 @@ class RunSummaryGeneratorTest {
     }
 
     @Test
+    void summarise_statusUnknownWhenNoAssertionsParsed(@TempDir Path tmp) throws Exception {
+        Path simDir = tmp.resolve("rampagesimulation-noassertions");
+        Files.createDirectories(simDir);
+        // A report whose assertion table is absent (or whose HTML layout changed) yields no
+        // parsed assertions; status must be UNKNOWN, never a vacuous PASS.
+        Files.writeString(simDir.resolve("index.html"), "<html><body>no assertion cells here</body></html>");
+
+        Map<String, Object> summary = RunSummaryGenerator.summarise(simDir);
+
+        assertTrue(((List<?>) summary.get("assertions")).isEmpty());
+        assertEquals("UNKNOWN", summary.get("status"),
+            "An empty assertion list must not be reported as PASS");
+    }
+
+    @Test
     void summarise_throwsWhenPathIsNotADirectory(@TempDir Path tmp) throws Exception {
         Path notADir = Files.createFile(tmp.resolve("notadir.html"));
         IOException ex = assertThrows(IOException.class, () -> RunSummaryGenerator.summarise(notADir));

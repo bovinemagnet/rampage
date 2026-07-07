@@ -76,6 +76,8 @@ public final class RunSummaryGenerator {
      *                      {@code index.html}
      * @return an ordered map with keys {@code generatedAt}, {@code simulationDir},
      *         {@code simulationPath}, {@code requests}, {@code assertions}, and {@code status}
+     *         ({@code PASS} when every parsed assertion passed, {@code FAIL} when any failed,
+     *         {@code UNKNOWN} when no assertions could be parsed)
      * @throws IOException if {@code simulationDir} is not a directory, {@code index.html}
      *                     is missing, or the file cannot be read
      */
@@ -97,10 +99,20 @@ public final class RunSummaryGenerator {
         summary.put("requests", parseRequests(html));
         summary.put("assertions", parseAssertions(html));
 
-        boolean allAssertionsPassed = ((List<?>) summary.get("assertions")).stream()
-            .map(a -> ((Map<?, ?>) a).get("result"))
-            .allMatch(r -> "OK".equals(r));
-        summary.put("status", allAssertionsPassed ? "PASS" : "FAIL");
+        List<?> parsedAssertions = (List<?>) summary.get("assertions");
+        String status;
+        if (parsedAssertions.isEmpty()) {
+            // No assertions were parsed. An empty list would make allMatch vacuously true and
+            // report PASS, masking both a report whose HTML layout changed and a run whose
+            // configured assertions were not rendered. Report UNKNOWN so callers fail loud.
+            status = "UNKNOWN";
+        } else {
+            boolean allAssertionsPassed = parsedAssertions.stream()
+                .map(a -> ((Map<?, ?>) a).get("result"))
+                .allMatch(r -> "OK".equals(r));
+            status = allAssertionsPassed ? "PASS" : "FAIL";
+        }
+        summary.put("status", status);
         return summary;
     }
 

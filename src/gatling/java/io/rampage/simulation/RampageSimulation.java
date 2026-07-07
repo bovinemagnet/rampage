@@ -10,6 +10,7 @@ import io.rampage.reporting.RunMetadataWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 
@@ -71,7 +72,12 @@ public class RampageSimulation extends Simulation {
 
         if (isDryRun()) {
             String outputDir = resolveOutputDir();
-            dryRunSummaryWriter.write(envConfig, runConfig, scenarioConfigs, outputDir);
+            try {
+                dryRunSummaryWriter.write(envConfig, runConfig, scenarioConfigs, outputDir);
+            } catch (IOException e) {
+                log.error("DRY RUN: failed to write dry-run summary to {}: {}", outputDir, e.getMessage(), e);
+                System.exit(1);
+            }
             log.info("DRY RUN: configuration validated and summary written to {}/dry-run-summary.json. "
                 + "Exiting before any traffic is generated.", outputDir);
             System.exit(0);

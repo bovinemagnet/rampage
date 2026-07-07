@@ -114,18 +114,18 @@ public class DryRunSummaryWriter {
      * @param run       the run configuration
      * @param scenarios the resolved scenario configurations
      * @param outputDir the directory path into which the summary file is written
+     * @throws IOException if the output directory or summary file cannot be written;
+     *                     propagated so the dry-run caller can fail rather than
+     *                     reporting success with a missing artefact
      */
-    public void write(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios, String outputDir) {
+    public void write(EnvironmentConfig env, RunConfig run, List<ScenarioConfig> scenarios, String outputDir)
+            throws IOException {
         Map<String, Object> summary = buildSummary(env, run, scenarios);
-        try {
-            Path dir = Path.of(outputDir);
-            Files.createDirectories(dir);
-            Path output = dir.resolve("dry-run-summary.json");
-            mapper.writeValue(output.toFile(), summary);
-            log.info("Dry-run summary written to: {}", output);
-        } catch (IOException e) {
-            log.error("Failed to write dry-run summary: {}", e.getMessage());
-        }
+        Path dir = Path.of(outputDir);
+        Files.createDirectories(dir);
+        Path output = dir.resolve("dry-run-summary.json");
+        mapper.writeValue(output.toFile(), summary);
+        log.info("Dry-run summary written to: {}", output);
     }
 
     private static boolean scenarioWorkloadOverridden(ScenarioConfig sc) {
